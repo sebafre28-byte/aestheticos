@@ -1,7 +1,82 @@
+'use client'
+
 import Link from "next/link"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
 
 export default function RegisterPage() {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
+    const clinica_nombre = formData.get('clinica') as string
+    const telefono = formData.get('telefono') as string
+
+    const supabase = createClient()
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { clinica_nombre, telefono },
+      },
+    })
+
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+      return
+    }
+
+    setSuccess(true)
+    setLoading(false)
+  }
+
+  if (success) {
+    return (
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 shadow-sm"
+            style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
+          >
+            <span className="text-white font-bold text-[15px]">A</span>
+          </div>
+          <h1 className="text-[17px] font-semibold text-gray-900">AestheticOS</h1>
+          <p className="text-[13px] text-gray-500 mt-0.5">Comienza gratis — sin tarjeta de crédito</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-7 text-center">
+          <div className="w-12 h-12 bg-violet-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-[#7C3AED]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h2 className="text-[15px] font-semibold text-gray-900 mb-2">Revisa tu email</h2>
+          <p className="text-[13px] text-gray-500 leading-relaxed">
+            Te enviamos un enlace de confirmación. Revisa tu bandeja de entrada para activar tu cuenta.
+          </p>
+        </div>
+
+        <p className="text-center text-[13px] text-gray-500 mt-5">
+          ¿Ya tienes cuenta?{" "}
+          <Link href="/login" className="text-[#7C3AED] font-semibold hover:underline">
+            Inicia sesión
+          </Link>
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full max-w-sm">
       {/* Logo */}
@@ -20,7 +95,7 @@ export default function RegisterPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-7">
         <h2 className="text-[15px] font-semibold text-gray-900 mb-5">Registra tu clínica</h2>
 
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
             <label htmlFor="clinica" className="block text-[13px] font-medium text-gray-700">
               Nombre de la clínica
@@ -82,12 +157,17 @@ export default function RegisterPage() {
             />
           </div>
 
+          {error && (
+            <p className="text-[12px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+          )}
+
           <Button
             type="submit"
-            className="w-full h-9 text-[13px] font-medium rounded-lg border-0 mt-2 text-white"
+            disabled={loading}
+            className="w-full h-9 text-[13px] font-medium rounded-lg border-0 mt-2 text-white disabled:opacity-70"
             style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
           >
-            Crear cuenta gratis
+            {loading ? 'Creando cuenta...' : 'Crear cuenta gratis'}
           </Button>
         </form>
 

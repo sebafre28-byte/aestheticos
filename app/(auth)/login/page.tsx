@@ -1,7 +1,41 @@
+'use client'
+
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
 
 export default function LoginPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
+
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+
+    if (error) {
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        setError('Debes confirmar tu email antes de iniciar sesión.')
+      } else {
+        setError('Credenciales incorrectas. Verifica tu email y contraseña.')
+      }
+      setLoading(false)
+      return
+    }
+
+    router.push('/dashboard')
+  }
+
   return (
     <div className="w-full max-w-sm">
       {/* Logo */}
@@ -20,7 +54,7 @@ export default function LoginPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-7">
         <h2 className="text-[15px] font-semibold text-gray-900 mb-5">Iniciar sesión</h2>
 
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
             <label htmlFor="email" className="block text-[13px] font-medium text-gray-700">
               Email
@@ -56,12 +90,17 @@ export default function LoginPage() {
             />
           </div>
 
+          {error && (
+            <p className="text-[12px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+          )}
+
           <Button
             type="submit"
-            className="w-full h-9 text-[13px] font-medium rounded-lg border-0 mt-1 text-white"
+            disabled={loading}
+            className="w-full h-9 text-[13px] font-medium rounded-lg border-0 mt-1 text-white disabled:opacity-70"
             style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
           >
-            Iniciar sesión
+            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
           </Button>
         </form>
       </div>

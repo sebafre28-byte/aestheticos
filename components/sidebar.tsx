@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
   Calendar,
@@ -9,8 +9,10 @@ import {
   MessageCircle,
   Settings,
   ChevronRight,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -22,6 +24,13 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   return (
     <aside className="w-[220px] shrink-0 flex flex-col bg-white border-r border-gray-100 h-full">
@@ -75,7 +84,7 @@ export function Sidebar() {
       <div className="mx-2.5 border-t border-gray-100" />
 
       {/* User footer */}
-      <div className="p-2.5">
+      <div className="p-2.5 space-y-0.5">
         <button className="w-full flex items-center gap-2.5 h-10 px-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left group">
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[10px] font-semibold"
@@ -90,6 +99,14 @@ export function Sidebar() {
             <p className="text-[11px] text-gray-400 truncate leading-tight">Administradora</p>
           </div>
           <ChevronRight className="size-3.5 text-gray-300 group-hover:text-gray-400 shrink-0" />
+        </button>
+
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2.5 h-8 px-2.5 rounded-lg text-[13px] font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors group"
+        >
+          <LogOut className="size-[15px] shrink-0 text-gray-400 group-hover:text-red-500 transition-colors" />
+          Cerrar sesión
         </button>
       </div>
     </aside>
