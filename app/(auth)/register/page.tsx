@@ -3,6 +3,9 @@
 import Link from "next/link"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
 
 export default function RegisterPage() {
@@ -19,14 +22,13 @@ export default function RegisterPage() {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
     const clinica_nombre = formData.get('clinica') as string
-    const telefono = formData.get('telefono') as string
 
     const supabase = createClient()
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { clinica_nombre, telefono },
+        data: { clinica_nombre },
       },
     })
 
@@ -43,7 +45,6 @@ export default function RegisterPage() {
   if (success) {
     return (
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div
             className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 shadow-sm"
@@ -55,17 +56,19 @@ export default function RegisterPage() {
           <p className="text-[13px] text-gray-500 mt-0.5">Comienza gratis — sin tarjeta de crédito</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-7 text-center">
-          <div className="w-12 h-12 bg-violet-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-[#7C3AED]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h2 className="text-[15px] font-semibold text-gray-900 mb-2">Revisa tu email</h2>
-          <p className="text-[13px] text-gray-500 leading-relaxed">
-            Te enviamos un enlace de confirmación. Revisa tu bandeja de entrada para activar tu cuenta.
-          </p>
-        </div>
+        <Card className="gap-0 py-0">
+          <CardContent className="px-7 py-7 text-center">
+            <div className="w-12 h-12 bg-violet-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-[#7C3AED]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="text-[15px] font-semibold text-gray-900 mb-2">Revisa tu email</h2>
+            <p className="text-[13px] text-gray-500 leading-relaxed">
+              Te enviamos un enlace de confirmación. Revisa tu bandeja de entrada para activar tu cuenta.
+            </p>
+          </CardContent>
+        </Card>
 
         <p className="text-center text-[13px] text-gray-500 mt-5">
           ¿Ya tienes cuenta?{" "}
@@ -79,7 +82,6 @@ export default function RegisterPage() {
 
   return (
     <div className="w-full max-w-sm">
-      {/* Logo */}
       <div className="flex flex-col items-center mb-8">
         <div
           className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 shadow-sm"
@@ -91,97 +93,78 @@ export default function RegisterPage() {
         <p className="text-[13px] text-gray-500 mt-0.5">Comienza gratis — sin tarjeta de crédito</p>
       </div>
 
-      {/* Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-7">
-        <h2 className="text-[15px] font-semibold text-gray-900 mb-5">Registra tu clínica</h2>
+      <Card className="gap-0 py-0">
+        <CardHeader className="px-7 pt-7 pb-5">
+          <h2 className="text-[15px] font-semibold text-gray-900">Registra tu clínica</h2>
+        </CardHeader>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="space-y-1.5">
-            <label htmlFor="clinica" className="block text-[13px] font-medium text-gray-700">
-              Nombre de la clínica
-            </label>
-            <input
-              id="clinica"
-              name="clinica"
-              type="text"
-              autoComplete="organization"
-              placeholder="Clínica Bella"
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] transition-colors bg-white"
-              required
-            />
-          </div>
+        <CardContent className="px-7 pb-7">
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="space-y-1.5">
+              <Label htmlFor="clinica" className="text-[13px] text-gray-700">
+                Nombre de la clínica
+              </Label>
+              <Input
+                id="clinica"
+                name="clinica"
+                type="text"
+                autoComplete="organization"
+                placeholder="Clínica Bella"
+                required
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="email" className="block text-[13px] font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="admin@miclinica.com"
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] transition-colors bg-white"
-              required
-            />
-          </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-[13px] text-gray-700">
+                Email
+              </Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                placeholder="admin@miclinica.com"
+                required
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="telefono" className="block text-[13px] font-medium text-gray-700">
-              Teléfono
-            </label>
-            <input
-              id="telefono"
-              name="telefono"
-              type="tel"
-              autoComplete="tel"
-              placeholder="+56 9 1234 5678"
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] transition-colors bg-white"
-              required
-            />
-          </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-[13px] text-gray-700">
+                Contraseña
+              </Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Mínimo 8 caracteres"
+                required
+                minLength={8}
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="password" className="block text-[13px] font-medium text-gray-700">
-              Contraseña
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Mínimo 8 caracteres"
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] transition-colors bg-white"
-              required
-              minLength={8}
-            />
-          </div>
+            {error && (
+              <p className="text-[12px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+            )}
 
-          {error && (
-            <p className="text-[12px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
-          )}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-9 text-[13px] font-medium rounded-lg border-0 mt-2 text-white disabled:opacity-70"
+              style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
+            >
+              {loading ? 'Creando cuenta...' : 'Crear cuenta'}
+            </Button>
+          </form>
 
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full h-9 text-[13px] font-medium rounded-lg border-0 mt-2 text-white disabled:opacity-70"
-            style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
-          >
-            {loading ? 'Creando cuenta...' : 'Crear cuenta gratis'}
-          </Button>
-        </form>
-
-        <p className="text-[11px] text-gray-400 text-center mt-4 leading-relaxed">
-          Al crear una cuenta, aceptas nuestros{" "}
-          <a href="#" className="text-[#7C3AED] hover:underline">
-            Términos de servicio
-          </a>{" "}
-          y{" "}
-          <a href="#" className="text-[#7C3AED] hover:underline">
-            Política de privacidad
-          </a>
-        </p>
-      </div>
+          <p className="text-[11px] text-gray-400 text-center mt-4 leading-relaxed">
+            Al crear una cuenta, aceptas nuestros{" "}
+            <a href="#" className="text-[#7C3AED] hover:underline">Términos de servicio</a>
+            {" "}y{" "}
+            <a href="#" className="text-[#7C3AED] hover:underline">Política de privacidad</a>
+          </p>
+        </CardContent>
+      </Card>
 
       <p className="text-center text-[13px] text-gray-500 mt-5">
         ¿Ya tienes cuenta?{" "}

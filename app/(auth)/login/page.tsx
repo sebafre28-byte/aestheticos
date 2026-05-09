@@ -4,6 +4,9 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
 
 export default function LoginPage() {
@@ -38,7 +41,6 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-sm">
-      {/* Logo */}
       <div className="flex flex-col items-center mb-8">
         <div
           className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 shadow-sm"
@@ -50,60 +52,61 @@ export default function LoginPage() {
         <p className="text-[13px] text-gray-500 mt-0.5">Gestión inteligente para tu clínica</p>
       </div>
 
-      {/* Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-7">
-        <h2 className="text-[15px] font-semibold text-gray-900 mb-5">Iniciar sesión</h2>
+      <Card className="gap-0 py-0">
+        <CardHeader className="px-7 pt-7 pb-5">
+          <h2 className="text-[15px] font-semibold text-gray-900">Iniciar sesión</h2>
+        </CardHeader>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="space-y-1.5">
-            <label htmlFor="email" className="block text-[13px] font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="tu@clinica.com"
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] transition-colors bg-white"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="password" className="block text-[13px] font-medium text-gray-700">
-                Contraseña
-              </label>
-              <a href="#" className="text-[12px] text-[#7C3AED] hover:underline font-medium">
-                ¿Olvidaste tu contraseña?
-              </a>
+        <CardContent className="px-7 pb-7">
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-[13px] text-gray-700">
+                Email
+              </Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                placeholder="tu@clinica.com"
+                required
+              />
             </div>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] transition-colors bg-white"
-              required
-            />
-          </div>
 
-          {error && (
-            <p className="text-[12px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
-          )}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-[13px] text-gray-700">
+                  Contraseña
+                </Label>
+                <a href="#" className="text-[12px] text-[#7C3AED] hover:underline font-medium">
+                  ¿Olvidaste tu contraseña?
+                </a>
+              </div>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="••••••••"
+                required
+              />
+            </div>
 
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full h-9 text-[13px] font-medium rounded-lg border-0 mt-1 text-white disabled:opacity-70"
-            style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
-          >
-            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-          </Button>
-        </form>
-      </div>
+            {error && (
+              <p className="text-[12px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+            )}
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-9 text-[13px] font-medium rounded-lg border-0 mt-1 text-white disabled:opacity-70"
+              style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
+            >
+              {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <p className="text-center text-[13px] text-gray-500 mt-5">
         ¿Sin cuenta?{" "}
