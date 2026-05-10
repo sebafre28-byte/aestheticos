@@ -1,16 +1,16 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Plus_Jakarta_Sans } from "next/font/google"
 import "./globals.css"
 
-const inter = Inter({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
 })
 
 export const metadata: Metadata = {
-  title: "AestheticOS",
-  description: "Plataforma de gestión para clínicas estéticas en Chile",
+  title: "SimpliClinic",
+  description: "Tu clínica, más simple.",
 }
 
 export default function RootLayout({
@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} h-full antialiased`}>
+    <html lang="es" className={`${jakarta.variable} h-full antialiased`}>
       <body className="min-h-full">{children}</body>
     </html>
   )

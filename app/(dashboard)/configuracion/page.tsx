@@ -32,12 +32,12 @@ const NAV: { id: SeccionId; label: string; icon: React.ElementType; badge?: stri
   { id: "equipo",        label: "Equipo y profesionales",       icon: Users,        badge: "3",           badgeColor: "bg-gray-100 text-gray-500" },
   { id: "whatsapp",      label: "WhatsApp Business",            icon: MessageCircle, badge: "Conectado",  badgeColor: "bg-emerald-50 text-[#10B981]" },
   { id: "recordatorios", label: "Recordatorios automáticos",    icon: Bell },
-  { id: "plan",          label: "Plan y facturación",           icon: CreditCard,   badge: "Pro",         badgeColor: "bg-violet-50 text-[#7C3AED]" },
+  { id: "plan",          label: "Plan y facturación",           icon: CreditCard,   badge: "Pro",         badgeColor: "bg-blue-50 text-[#2563EB]" },
   { id: "seguridad",     label: "Seguridad",                    icon: Shield },
 ]
 
 const profesionales = [
-  { id: "1", nombre: "Dra. Ana López",    initials: "AL", rol: "Médico estético",   horario: "Lun – Vie · 09:00–18:00", citas: 124, color: "bg-[#7C3AED]/10 text-[#7C3AED]" },
+  { id: "1", nombre: "Dra. Ana López",    initials: "AL", rol: "Médico estético",   horario: "Lun – Vie · 09:00–18:00", citas: 124, color: "bg-[#2563EB]/10 text-[#2563EB]" },
   { id: "2", nombre: "Est. Clara Torres", initials: "CT", rol: "Esteticista",       horario: "Lun – Sáb · 09:00–17:00", citas: 89,  color: "bg-emerald-50 text-[#10B981]" },
   { id: "3", nombre: "María González",   initials: "MG", rol: "Administradora",    horario: "Lun – Vie · 08:00–18:00", citas: 0,   color: "bg-amber-50 text-amber-600" },
 ]
@@ -74,7 +74,7 @@ function Toggle({ activo, onChange }: { activo: boolean; onChange: () => void })
   return (
     <button
       onClick={onChange}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none ${activo ? "bg-[#7C3AED]" : "bg-gray-200"}`}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none ${activo ? "bg-[#2563EB]" : "bg-gray-200"}`}
     >
       <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${activo ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
     </button>
@@ -89,7 +89,7 @@ function Field({ label, value, type = "text", placeholder }: { label: string; va
         defaultValue={value}
         type={type}
         placeholder={placeholder}
-        className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] transition-colors bg-white"
+        className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-colors bg-white"
       />
     </div>
   )
@@ -120,7 +120,7 @@ function SeccionClinica() {
         <div className="flex items-center gap-4">
           <div
             className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: "linear-gradient(135deg, #7C3AED 0%, #10B981 100%)" }}
+            style={{ background: "linear-gradient(135deg, #2563EB 0%, #10B981 100%)" }}
           >
             <span className="text-white text-2xl font-bold">C</span>
           </div>
@@ -158,9 +158,9 @@ function SeccionClinica() {
               {h.abierto ? (
                 <div className="flex items-center gap-2 flex-1">
                   <Clock className="size-3.5 text-gray-400 shrink-0" />
-                  <input defaultValue={h.apertura} className="w-20 h-7 px-2 rounded-md border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED]" />
+                  <input defaultValue={h.apertura} className="w-20 h-7 px-2 rounded-md border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 focus:border-[#2563EB]" />
                   <span className="text-[12px] text-gray-400">–</span>
-                  <input defaultValue={h.cierre} className="w-20 h-7 px-2 rounded-md border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED]" />
+                  <input defaultValue={h.cierre} className="w-20 h-7 px-2 rounded-md border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 focus:border-[#2563EB]" />
                 </div>
               ) : (
                 <span className="text-[12px] text-gray-400 flex-1">Cerrado</span>
@@ -173,7 +173,7 @@ function SeccionClinica() {
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" className="h-8 text-[13px] border-gray-200 text-gray-600">Descartar</Button>
-        <Button className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}>
+        <Button className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
           Guardar cambios
         </Button>
       </div>
@@ -188,7 +188,7 @@ function SeccionEquipo() {
         title="Equipo y profesionales"
         subtitle="Administra el acceso y los horarios de tu equipo"
         action={
-          <Button className="h-8 text-[13px] gap-1.5 border-0 text-white" style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}>
+          <Button className="h-8 text-[13px] gap-1.5 border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
             <Plus className="size-3.5" /> Agregar
           </Button>
         }
@@ -213,7 +213,7 @@ function SeccionEquipo() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <select className="h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-[#7C3AED]/30">
+              <select className="h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30">
                 <option>Admin</option>
                 <option>Profesional</option>
                 <option>Solo lectura</option>
@@ -226,11 +226,11 @@ function SeccionEquipo() {
         ))}
       </div>
 
-      <div className="mt-4 p-4 bg-violet-50 rounded-xl border border-violet-100">
-        <p className="text-[13px] font-medium text-[#7C3AED]">Plan Pro · 3 / 5 profesionales</p>
-        <p className="text-[12px] text-violet-500 mt-0.5">Puedes agregar 2 profesionales más en tu plan actual.</p>
-        <div className="mt-2 h-1.5 bg-violet-200 rounded-full overflow-hidden">
-          <div className="h-full bg-[#7C3AED] rounded-full" style={{ width: "60%" }} />
+      <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+        <p className="text-[13px] font-medium text-[#2563EB]">Plan Pro · 3 / 5 profesionales</p>
+        <p className="text-[12px] text-blue-500 mt-0.5">Puedes agregar 2 profesionales más en tu plan actual.</p>
+        <div className="mt-2 h-1.5 bg-blue-200 rounded-full overflow-hidden">
+          <div className="h-full bg-[#2563EB] rounded-full" style={{ width: "60%" }} />
         </div>
       </div>
     </div>
@@ -270,7 +270,7 @@ function SeccionWhatsApp() {
               className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${
                 conectado
                   ? "border-red-200 text-red-500 hover:bg-red-50"
-                  : "border-[#7C3AED] text-[#7C3AED] hover:bg-violet-50"
+                  : "border-[#2563EB] text-[#2563EB] hover:bg-blue-50"
               }`}
             >
               {conectado ? "Desconectar" : "Conectar número"}
@@ -283,7 +283,7 @@ function SeccionWhatsApp() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <p className="text-[13px] font-semibold text-gray-900">Plantillas de mensajes</p>
-          <button className="text-[12px] text-[#7C3AED] font-medium hover:underline flex items-center gap-0.5">
+          <button className="text-[12px] text-[#2563EB] font-medium hover:underline flex items-center gap-0.5">
             <Plus className="size-3.5" /> Nueva plantilla
           </button>
         </div>
@@ -294,7 +294,7 @@ function SeccionWhatsApp() {
                 <p className="text-[13px] font-semibold text-gray-900">{pl.nombre}</p>
                 <button
                   onClick={() => setEditandoPlantilla(editandoPlantilla === pl.id ? null : pl.id)}
-                  className="text-[12px] text-[#7C3AED] font-medium hover:underline"
+                  className="text-[12px] text-[#2563EB] font-medium hover:underline"
                 >
                   {editandoPlantilla === pl.id ? "Cancelar" : "Editar"}
                 </button>
@@ -304,11 +304,11 @@ function SeccionWhatsApp() {
                   <textarea
                     defaultValue={pl.texto}
                     rows={3}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] resize-none"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
                   />
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-[11px] text-gray-400">Variables: {"{nombre}"} {"{fecha}"} {"{hora}"} {"{direccion}"} {"{link}"}</p>
-                    <Button className="h-7 text-[12px] border-0 text-white" style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}>
+                    <Button className="h-7 text-[12px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
                       Guardar
                     </Button>
                   </div>
@@ -348,7 +348,7 @@ function SeccionRecordatorios() {
                 <label className="text-[12px] text-gray-500">Enviar</label>
                 <select
                   defaultValue={rec.horasAntes}
-                  className="h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-[#7C3AED]/30"
+                  className="h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
                 >
                   <option value={1}>1 hora</option>
                   <option value={2}>2 horas</option>
@@ -364,7 +364,7 @@ function SeccionRecordatorios() {
       </div>
 
       <div className="flex justify-end">
-        <Button className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}>
+        <Button className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
           Guardar configuración
         </Button>
       </div>
@@ -378,11 +378,11 @@ function SeccionPlan() {
       <SectionHeader title="Plan y facturación" subtitle="Gestiona tu suscripción y métodos de pago" />
 
       {/* Plan actual */}
-      <div className="rounded-xl border-2 border-[#7C3AED]/20 bg-gradient-to-br from-violet-50 to-white p-5 mb-6">
+      <div className="rounded-xl border-2 border-[#2563EB]/20 bg-gradient-to-br from-blue-50 to-white p-5 mb-6">
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-semibold bg-[#7C3AED] text-white px-2 py-0.5 rounded-full">Plan Pro</span>
+              <span className="text-[11px] font-semibold bg-[#2563EB] text-white px-2 py-0.5 rounded-full">Plan Pro</span>
               <span className="text-[11px] font-medium bg-emerald-50 text-[#10B981] px-2 py-0.5 rounded-full flex items-center gap-1">
                 <Check className="size-2.5" /> Activo
               </span>
@@ -390,12 +390,12 @@ function SeccionPlan() {
             <p className="text-[24px] font-bold text-gray-900 mt-2">$29.990 <span className="text-[14px] font-normal text-gray-500">/ mes</span></p>
             <p className="text-[12px] text-gray-500 mt-1">Próxima renovación: 1 de junio, 2026</p>
           </div>
-          <button className="h-8 px-3 rounded-lg border border-[#7C3AED]/30 text-[12px] font-medium text-[#7C3AED] hover:bg-violet-50 transition-colors">
+          <button className="h-8 px-3 rounded-lg border border-[#2563EB]/30 text-[12px] font-medium text-[#2563EB] hover:bg-blue-50 transition-colors">
             Cambiar plan
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3 pt-4 border-t border-violet-100">
+        <div className="mt-4 grid grid-cols-3 gap-3 pt-4 border-t border-blue-100">
           {[
             { label: "Profesionales", uso: "3 / 5" },
             { label: "Pacientes", uso: "142 / ∞" },
@@ -420,7 +420,7 @@ function SeccionPlan() {
             <p className="text-[13px] font-medium text-gray-900">•••• •••• •••• 4242</p>
             <p className="text-[12px] text-gray-500 mt-0.5">Vence 12/2027</p>
           </div>
-          <button className="text-[12px] font-medium text-[#7C3AED] hover:underline shrink-0">Cambiar</button>
+          <button className="text-[12px] font-medium text-[#2563EB] hover:underline shrink-0">Cambiar</button>
         </div>
       </div>
 
@@ -467,7 +467,7 @@ function SeccionSeguridad() {
                 <input
                   type={mostrarPassword ? "text" : "password"}
                   placeholder="Repetir contraseña"
-                  className="w-full h-9 px-3 pr-9 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] transition-colors bg-white"
+                  className="w-full h-9 px-3 pr-9 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-colors bg-white"
                 />
                 <button
                   type="button"
@@ -480,7 +480,7 @@ function SeccionSeguridad() {
             </div>
           </div>
           <div className="flex justify-end pt-1">
-            <Button className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}>
+            <Button className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
               Actualizar contraseña
             </Button>
           </div>
@@ -492,8 +492,8 @@ function SeccionSeguridad() {
         <p className="text-[13px] font-semibold text-gray-900 mb-3">Autenticación de dos factores</p>
         <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${dos_fa ? "bg-[#7C3AED]/10" : "bg-gray-200"}`}>
-              <Smartphone className={`size-4 ${dos_fa ? "text-[#7C3AED]" : "text-gray-400"}`} />
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${dos_fa ? "bg-[#2563EB]/10" : "bg-gray-200"}`}>
+              <Smartphone className={`size-4 ${dos_fa ? "text-[#2563EB]" : "text-gray-400"}`} />
             </div>
             <div>
               <p className="text-[13px] font-medium text-gray-900">Autenticación por app</p>
@@ -561,7 +561,7 @@ export default function ConfiguracionPage() {
       <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 shrink-0">
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: "linear-gradient(135deg, #7C3AED 0%, #10B981 100%)" }}
+          style={{ background: "linear-gradient(135deg, #2563EB 0%, #10B981 100%)" }}
         >
           <span className="text-white text-base font-bold">C</span>
         </div>
@@ -570,7 +570,7 @@ export default function ConfiguracionPage() {
           <p className="text-[12px] text-gray-500 truncate">admin@clinicabella.cl · +56 9 1234 5678</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[11px] font-medium bg-violet-50 text-[#7C3AED] px-2 py-0.5 rounded-full">Plan Pro</span>
+          <span className="text-[11px] font-medium bg-blue-50 text-[#2563EB] px-2 py-0.5 rounded-full">Plan Pro</span>
           <span className="text-[11px] font-medium bg-emerald-50 text-[#10B981] px-2 py-0.5 rounded-full flex items-center gap-1">
             <Check className="size-2.5" /> Activo
           </span>
@@ -590,11 +590,11 @@ export default function ConfiguracionPage() {
                 onClick={() => setActiva(item.id)}
                 className={`w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left ${
                   isActive
-                    ? "bg-violet-50 text-[#7C3AED]"
+                    ? "bg-blue-50 text-[#2563EB]"
                     : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                 }`}
               >
-                <Icon className={`size-[15px] shrink-0 ${isActive ? "text-[#7C3AED]" : "text-gray-400"}`} />
+                <Icon className={`size-[15px] shrink-0 ${isActive ? "text-[#2563EB]" : "text-gray-400"}`} />
                 <span className="flex-1 truncate">{item.label}</span>
                 {item.badge && (
                   <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${item.badgeColor}`}>

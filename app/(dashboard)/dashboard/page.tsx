@@ -13,8 +13,8 @@ const metricas = [
     cambio: "+2 vs ayer",
     positivo: true,
     icon: Calendar,
-    colorFondo: "bg-violet-50",
-    colorIcono: "text-[#7C3AED]",
+    colorFondo: "bg-blue-50",
+    colorIcono: "text-[#2563EB]",
   },
   {
     label: "Recordatorios WhatsApp",
@@ -22,8 +22,8 @@ const metricas = [
     cambio: "enviados hoy",
     positivo: true,
     icon: MessageCircle,
-    colorFondo: "bg-emerald-50",
-    colorIcono: "text-[#10B981]",
+    colorFondo: "bg-teal-50",
+    colorIcono: "text-[#14B8A6]",
   },
   {
     label: "No-shows evitados",
@@ -120,10 +120,10 @@ const mensajes = [
 ]
 
 const estadoBadge: Record<string, { bg: string; text: string; label: string }> = {
-  leido: { bg: "bg-blue-50", text: "text-blue-600", label: "Leído" },
-  entregado: { bg: "bg-emerald-50", text: "text-[#10B981]", label: "Entregado" },
-  enviado: { bg: "bg-gray-100", text: "text-gray-500", label: "Enviado" },
-  pendiente: { bg: "bg-amber-50", text: "text-amber-600", label: "Pendiente" },
+  leido:     { bg: "bg-blue-50",  text: "text-blue-600",    label: "Leído" },
+  entregado: { bg: "bg-teal-50",  text: "text-[#14B8A6]",   label: "Entregado" },
+  enviado:   { bg: "bg-gray-100", text: "text-gray-500",    label: "Enviado" },
+  pendiente: { bg: "bg-amber-50", text: "text-amber-600",   label: "Pendiente" },
 }
 
 export default function DashboardPage() {
@@ -140,7 +140,11 @@ export default function DashboardPage() {
         {metricas.map((m) => {
           const Icon = m.icon
           return (
-            <div key={m.label} className="bg-white rounded-xl border border-gray-100 p-5">
+            <div
+              key={m.label}
+              className="bg-white rounded-xl border border-gray-100 p-5"
+              style={{ borderTop: '3px solid #2563EB' }}
+            >
               <div className="mb-3">
                 <div className={`w-8 h-8 ${m.colorFondo} rounded-lg flex items-center justify-center`}>
                   <Icon className={`size-4 ${m.colorIcono}`} />
@@ -148,7 +152,7 @@ export default function DashboardPage() {
               </div>
               <p className="text-[24px] font-bold text-gray-900 leading-none">{m.valor}</p>
               <p className="text-[12px] text-gray-500 mt-1.5">{m.label}</p>
-              <p className={`text-[11px] mt-1 font-medium ${m.positivo ? "text-[#10B981]" : "text-red-500"}`}>
+              <p className={`text-[11px] mt-1 font-medium ${m.positivo ? "text-[#14B8A6]" : "text-red-500"}`}>
                 {m.cambio}
               </p>
             </div>
@@ -167,7 +171,7 @@ export default function DashboardPage() {
             </div>
             <a
               href="/agenda"
-              className="text-[12px] text-[#7C3AED] font-medium flex items-center gap-0.5 hover:underline"
+              className="text-[12px] text-[#2563EB] font-medium flex items-center gap-0.5 hover:underline"
             >
               Ver completa <ChevronRight className="size-3.5" />
             </a>
@@ -181,8 +185,8 @@ export default function DashboardPage() {
                 <span className="text-[12px] font-semibold text-gray-600 w-10 shrink-0">
                   {cita.hora}
                 </span>
-                <div className="w-7 h-7 bg-[#7C3AED]/10 rounded-full flex items-center justify-center shrink-0">
-                  <span className="text-[10px] font-semibold text-[#7C3AED]">{cita.initials}</span>
+                <div className="w-7 h-7 bg-[#2563EB]/10 rounded-full flex items-center justify-center shrink-0">
+                  <span className="text-[10px] font-semibold text-[#2563EB]">{cita.initials}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-gray-900 truncate">{cita.paciente}</p>
@@ -193,7 +197,7 @@ export default function DashboardPage() {
                 <span
                   className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
                     cita.estado === "confirmada"
-                      ? "bg-emerald-50 text-[#10B981]"
+                      ? "bg-teal-50 text-[#14B8A6]"
                       : "bg-amber-50 text-amber-600"
                   }`}
                 >
@@ -213,7 +217,7 @@ export default function DashboardPage() {
               </div>
               <h2 className="text-[14px] font-semibold text-gray-900">WhatsApp</h2>
             </div>
-            <span className="text-[11px] bg-emerald-50 text-[#10B981] px-2 py-0.5 rounded-full font-medium">
+            <span className="text-[11px] bg-teal-50 text-[#14B8A6] px-2 py-0.5 rounded-full font-medium">
               8 enviados
             </span>
           </div>
@@ -234,9 +238,7 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-[12px] text-gray-500 truncate pl-7">{msg.texto}</p>
                   <div className="pl-7 mt-1">
-                    <span
-                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${badge.bg} ${badge.text}`}
-                    >
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${badge.bg} ${badge.text}`}>
                       {badge.label}
                     </span>
                   </div>

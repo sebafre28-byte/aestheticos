@@ -9,8 +9,9 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --color-violet-brand: var(--violet-brand);
-  --color-emerald-brand: var(--emerald-brand);
+  /* Colores de marca SimpliClinic */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-teal: var(--brand-teal);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -57,7 +58,8 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.490 0.314 293);
+  /* Primario: #2563EB (azul SimpliClinic) */
+  --primary: oklch(0.546 0.230 262);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -68,8 +70,8 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.490 0.314 293);
-  --chart-1: oklch(0.490 0.314 293);
+  --ring: oklch(0.546 0.230 262);
+  --chart-1: oklch(0.546 0.230 262);
   --chart-2: oklch(0.696 0.175 163);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
@@ -77,14 +79,15 @@
   --radius: 0.625rem;
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.490 0.314 293);
+  --sidebar-primary: oklch(0.546 0.230 262);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.96 0.03 293);
-  --sidebar-accent-foreground: oklch(0.490 0.314 293);
+  --sidebar-accent: oklch(0.96 0.02 262);
+  --sidebar-accent-foreground: oklch(0.546 0.230 262);
   --sidebar-border: oklch(0.94 0 0);
-  --sidebar-ring: oklch(0.490 0.314 293);
-  --violet-brand: #7C3AED;
-  --emerald-brand: #10B981;
+  --sidebar-ring: oklch(0.546 0.230 262);
+  /* Tokens de marca */
+  --brand-primary: #2563EB;
+  --brand-teal: #14B8A6;
 }
 
 .dark {
@@ -113,7 +116,7 @@
   --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: oklch(0.546 0.230 262);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
@@ -131,4 +134,19 @@
   html {
     @apply font-sans;
   }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.25s ease-out forwards;
 }

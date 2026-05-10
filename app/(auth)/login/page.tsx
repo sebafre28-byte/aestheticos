@@ -9,6 +9,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
 
+// Ícono de la marca SimpliClinic
+function LogoSimpliclinic() {
+  return (
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="12" fill="#2563EB" />
+      <rect x="18" y="9" width="8" height="26" rx="4" fill="white" />
+      <rect x="9" y="18" width="26" height="8" rx="4" fill="white" />
+    </svg>
+  )
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -41,18 +52,14 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-sm">
+      {/* Logo y título */}
       <div className="flex flex-col items-center mb-8">
-        <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 shadow-sm"
-          style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
-        >
-          <span className="text-white font-bold text-[15px]">A</span>
-        </div>
-        <h1 className="text-[17px] font-semibold text-gray-900">AestheticOS</h1>
-        <p className="text-[13px] text-gray-500 mt-0.5">Gestión inteligente para tu clínica</p>
+        <LogoSimpliclinic />
+        <h1 className="text-[18px] font-bold text-gray-900 mt-3">SimpliClinic</h1>
+        <p className="text-[13px] text-gray-500 mt-0.5">Tu clínica, más simple.</p>
       </div>
 
-      <Card className="gap-0 py-0">
+      <Card className="gap-0 py-0 shadow-sm border-gray-200">
         <CardHeader className="px-7 pt-7 pb-5">
           <h2 className="text-[15px] font-semibold text-gray-900">Iniciar sesión</h2>
         </CardHeader>
@@ -78,7 +85,7 @@ export default function LoginPage() {
                 <Label htmlFor="password" className="text-[13px] text-gray-700">
                   Contraseña
                 </Label>
-                <a href="#" className="text-[12px] text-[#7C3AED] hover:underline font-medium">
+                <a href="#" className="text-[12px] text-[#2563EB] hover:underline font-medium">
                   ¿Olvidaste tu contraseña?
                 </a>
               </div>
@@ -100,7 +107,7 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               className="w-full h-9 text-[13px] font-medium rounded-lg border-0 mt-1 text-white disabled:opacity-70"
-              style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
+              style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}
             >
               {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
             </Button>
@@ -110,7 +117,7 @@ export default function LoginPage() {
 
       <p className="text-center text-[13px] text-gray-500 mt-5">
         ¿Sin cuenta?{" "}
-        <Link href="/register" className="text-[#7C3AED] font-semibold hover:underline">
+        <Link href="/register" className="text-[#2563EB] font-semibold hover:underline">
           Registra tu clínica
         </Link>
       </p>

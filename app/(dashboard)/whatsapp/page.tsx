@@ -119,7 +119,7 @@ function Toggle({ activo, onChange }: { activo: boolean; onChange: () => void })
     <button
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-        activo ? "bg-[#7C3AED]" : "bg-gray-200"
+        activo ? "bg-[#2563EB]" : "bg-gray-200"
       }`}
     >
       <span
@@ -189,8 +189,8 @@ export default function WhatsAppPage() {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <div className="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center mb-3">
-            <CheckCheck className="size-4 text-[#7C3AED]" />
+          <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-3">
+            <CheckCheck className="size-4 text-[#2563EB]" />
           </div>
           <p className="text-[24px] font-bold text-gray-900 leading-none">87%</p>
           <p className="text-[12px] text-gray-500 mt-1.5">Tasa de confirmación</p>
@@ -227,7 +227,7 @@ export default function WhatsAppPage() {
                 {conversaciones.length} pacientes
               </p>
             </div>
-            <button className="text-[12px] text-[#7C3AED] font-medium flex items-center gap-0.5 hover:underline">
+            <button className="text-[12px] text-[#2563EB] font-medium flex items-center gap-0.5 hover:underline">
               Ver todas <ChevronRight className="size-3.5" />
             </button>
           </div>
@@ -242,13 +242,13 @@ export default function WhatsAppPage() {
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
                     conv.estado === "no_leido"
-                      ? "bg-[#7C3AED]/10"
+                      ? "bg-[#2563EB]/10"
                       : "bg-gray-100"
                   }`}
                 >
                   <span
                     className={`text-[11px] font-bold ${
-                      conv.estado === "no_leido" ? "text-[#7C3AED]" : "text-gray-500"
+                      conv.estado === "no_leido" ? "text-[#2563EB]" : "text-gray-500"
                     }`}
                   >
                     {conv.initials}
@@ -275,7 +275,7 @@ export default function WhatsAppPage() {
 
                 {/* Badge cita */}
                 {conv.citaPendiente && (
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-50 text-[#7C3AED] shrink-0">
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-[#2563EB] shrink-0">
                     {conv.citaPendiente}
                   </span>
                 )}
@@ -300,9 +300,9 @@ export default function WhatsAppPage() {
                 {activosCount} de {recordatorios.length} activos
               </p>
             </div>
-            <div className="w-7 h-7 bg-violet-50 rounded-lg flex items-center justify-center">
+            <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center">
               {activosCount > 0 ? (
-                <Bell className="size-3.5 text-[#7C3AED]" />
+                <Bell className="size-3.5 text-[#2563EB]" />
               ) : (
                 <BellOff className="size-3.5 text-gray-400" />
               )}
@@ -330,15 +330,15 @@ export default function WhatsAppPage() {
             </p>
             <div className="bg-[#f0fdf4] rounded-lg p-3 border border-emerald-100">
               <p className="text-[12px] text-gray-700 leading-relaxed">
-                Hola <span className="font-semibold text-[#7C3AED]">{"{nombre}"}</span>, te
+                Hola <span className="font-semibold text-[#2563EB]">{"{nombre}"}</span>, te
                 recordamos tu cita en{" "}
-                <span className="font-semibold text-[#7C3AED]">Clínica Bella</span> el{" "}
-                <span className="font-semibold text-[#7C3AED]">{"{fecha}"}</span> a las{" "}
-                <span className="font-semibold text-[#7C3AED]">{"{hora}"}</span>. ¿Confirmas
+                <span className="font-semibold text-[#2563EB]">Clínica Bella</span> el{" "}
+                <span className="font-semibold text-[#2563EB]">{"{fecha}"}</span> a las{" "}
+                <span className="font-semibold text-[#2563EB]">{"{hora}"}</span>. ¿Confirmas
                 asistencia?
               </p>
             </div>
-            <button className="w-full h-7 text-[11px] font-medium text-[#7C3AED] hover:bg-violet-50 rounded-lg transition-colors">
+            <button className="w-full h-7 text-[11px] font-medium text-[#2563EB] hover:bg-blue-50 rounded-lg transition-colors">
               Editar plantilla
             </button>
           </div>

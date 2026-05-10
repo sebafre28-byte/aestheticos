@@ -87,7 +87,7 @@ export default function PacientesPage() {
         </div>
         <Button
           className="h-8 text-[13px] font-medium gap-1.5 border-0 text-white"
-          style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
+          style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}
         >
           <Plus className="size-3.5" />
           Nuevo paciente
@@ -102,7 +102,7 @@ export default function PacientesPage() {
             <input
               type="text"
               placeholder="Buscar paciente..."
-              className="w-full h-8 pl-8 pr-3 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] transition-colors bg-gray-50/50"
+              className="w-full h-8 pl-8 pr-3 rounded-lg border border-gray-200 text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-colors bg-gray-50/50"
             />
           </div>
           <div className="flex items-center gap-1.5">
@@ -111,7 +111,7 @@ export default function PacientesPage() {
                 key={f}
                 className={`h-7 px-3 rounded-lg text-[12px] font-medium transition-colors ${
                   f === "Todos"
-                    ? "bg-[#7C3AED] text-white"
+                    ? "bg-[#2563EB] text-white"
                     : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                 }`}
               >
@@ -148,8 +148,8 @@ export default function PacientesPage() {
               <tr key={p.id} className="hover:bg-gray-50/40 transition-colors">
                 <td className="px-5 py-3.5">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-[#7C3AED]/10">
-                      <span className="text-[11px] font-semibold text-[#7C3AED]">{p.initials}</span>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-[#2563EB]/10">
+                      <span className="text-[11px] font-semibold text-[#2563EB]">{p.initials}</span>
                     </div>
                     <span className="text-[13px] font-medium text-gray-900">{p.nombre}</span>
                   </div>
@@ -200,7 +200,7 @@ export default function PacientesPage() {
             <button className="h-7 px-2.5 rounded-lg text-[12px] text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition-colors border border-gray-100">
               Anterior
             </button>
-            <button className="h-7 px-2.5 rounded-lg text-[12px] bg-[#7C3AED] text-white font-medium">
+            <button className="h-7 px-2.5 rounded-lg text-[12px] bg-[#2563EB] text-white font-medium">
               1
             </button>
             <button className="h-7 px-2.5 rounded-lg text-[12px] text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition-colors border border-gray-100">

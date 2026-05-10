@@ -1,0 +1,340 @@
+'use client'
+
+import React, { useEffect, useRef, useState } from 'react'
+import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
+import type { CitaConRelaciones, ProfesionalRow } from '@/lib/agenda/queries'
+import { BloqueCita, PIXEL_POR_MIN, HORA_GRILLA_INICIO } from './BloquesCita'
+
+const HORA_FIN = 20
+const HORAS_TOTALES = HORA_FIN - HORA_GRILLA_INICIO   // 12 horas
+const ALTURA_HORA_PX = PIXEL_POR_MIN * 60             // 90px por hora
+const ALTO_TOTAL_PX = HORAS_TOTALES * ALTURA_HORA_PX  // 1080px
+
+const horasGrilla = Array.from({ length: HORAS_TOTALES + 1 }, (_, i) => HORA_GRILLA_INICIO + i)
+const DIAS_NOMBRES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+function minutosDia(iso: string): number {
+  return parseInt(iso.slice(11, 13), 10) * 60 + parseInt(iso.slice(14, 16), 10)
+}
+
+// Interval graph coloring: asigna columnas a citas solapadas del mismo día
+function calcularColumnas(citas: CitaConRelaciones[]) {
+  const sorted = [...citas].sort((a, b) => minutosDia(a.inicio) - minutosDia(b.inicio))
+  const cols: number[] = [] // fin del último bloque en cada columna
+  const resultado = sorted.map(cita => {
+    const inicio = minutosDia(cita.inicio)
+    const fin = minutosDia(cita.fin)
+    let col = cols.findIndex(finCol => finCol <= inicio)
+    if (col === -1) { col = cols.length; cols.push(fin) }
+    else cols[col] = fin
+    return { cita, col }
+  })
+  return resultado.map(r => ({ ...r, totalCols: cols.length }))
+}
+
+function etiquetaDesdeY(y: number): string {
+  const totalMin = HORA_GRILLA_INICIO * 60 + Math.floor(y / PIXEL_POR_MIN)
+  const h = Math.min(Math.floor(totalMin / 60), 23)
+  const m = Math.floor((totalMin % 60) / 15) * 15
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+const MAX_COLS_SEMANA = 3
+
+// ─── Columna de un día en la vista semana ────────────────────────────────────
+
+function ColumnaDia({
+  dia,
+  esHoy,
+  citas,
+  profesionales,
+  profesionalesFiltrados,
+  onClickCita,
+  onClickCelda,
+}: {
+  dia: Date
+  esHoy: boolean
+  citas: CitaConRelaciones[]
+  profesionales: ProfesionalRow[]
+  profesionalesFiltrados: string[]
+  onClickCita: (cita: CitaConRelaciones) => void
+  onClickCelda: (profesionalId: string, hora: Date) => void
+}) {
+  const dispuestas = calcularColumnas(citas)
+  const [hoverY, setHoverY] = useState<number | null>(null)
+  const [sobreFondo, setSobreFondo] = useState(false)
+
+  function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target !== e.currentTarget) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const y = e.clientY - rect.top
+    const minutos = Math.floor(y / PIXEL_POR_MIN)
+    const minutosRedondeados = Math.floor(minutos / 15) * 15
+    const hora = new Date(dia)
+    hora.setHours(HORA_GRILLA_INICIO + Math.floor(minutosRedondeados / 60))
+    hora.setMinutes(minutosRedondeados % 60)
+    hora.setSeconds(0)
+    const profId = profesionalesFiltrados.length > 0
+      ? profesionalesFiltrados[0]
+      : profesionales[0]?.id
+    if (profId) onClickCelda(profId, hora)
+  }
+
+  return (
+    <div
+      className={`relative flex-1 border-l border-gray-50 cursor-crosshair min-w-0 ${esHoy ? 'bg-blue-50/15' : ''}`}
+      style={{ height: ALTO_TOTAL_PX }}
+      onClick={handleClick}
+      onMouseMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect()
+        setHoverY(e.clientY - rect.top)
+        setSobreFondo(e.target === e.currentTarget)
+      }}
+      onMouseLeave={() => { setHoverY(null); setSobreFondo(false) }}
+    >
+      {/* Highlight de cuarto de hora al hover sobre fondo */}
+      {sobreFondo && hoverY !== null && (
+        <div
+          className="absolute left-0 right-0 pointer-events-none z-0 bg-gray-50"
+          style={{
+            top: Math.floor(hoverY / (PIXEL_POR_MIN * 15)) * (PIXEL_POR_MIN * 15),
+            height: PIXEL_POR_MIN * 15,
+          }}
+        />
+      )}
+
+      {/* Tooltip de hora al hover sobre fondo */}
+      {sobreFondo && hoverY !== null && (
+        <div
+          className="absolute left-1 pointer-events-none z-30 bg-gray-800 text-white text-[10px] font-medium rounded px-1.5 py-0.5 shadow-md whitespace-nowrap"
+          style={{ top: Math.max(2, hoverY - 10) }}
+        >
+          {etiquetaDesdeY(hoverY)}
+        </div>
+      )}
+
+      {/* Citas posicionadas absolutamente — máximo 3 columnas visibles */}
+      {dispuestas
+        .filter(({ col }) => col < MAX_COLS_SEMANA)
+        .map(({ cita, col, totalCols }) => {
+          const minI = minutosDia(cita.inicio)
+          const minF = minutosDia(cita.fin)
+          const top = Math.max(0, (minI - HORA_GRILLA_INICIO * 60) * PIXEL_POR_MIN)
+          const height = Math.max((minF - minI) * PIXEL_POR_MIN, 24)
+          const colsEfectivas = Math.min(totalCols, MAX_COLS_SEMANA)
+          const ancho = 100 / colsEfectivas
+          const overflowCount = totalCols > MAX_COLS_SEMANA ? totalCols - MAX_COLS_SEMANA : 0
+          const mostrarOverflow = overflowCount > 0 && col === MAX_COLS_SEMANA - 1
+
+          return (
+            <React.Fragment key={cita.id}>
+              <BloqueCita
+                cita={cita}
+                onClick={onClickCita}
+                topPx={top + 1}
+                heightPx={height - 2}
+                leftPercent={col * ancho + 0.5}
+                widthPercent={ancho - 1}
+              />
+              {/* Badge "+N más" cuando hay citas que no caben */}
+              {mostrarOverflow && (
+                <div
+                  className="absolute pointer-events-none z-10 flex items-end justify-end p-1"
+                  style={{
+                    top: top + 1,
+                    height: height - 2,
+                    left: `${col * ancho + 0.5}%`,
+                    width: `${ancho - 1}%`,
+                  }}
+                >
+                  <span className="bg-gray-700/80 text-white text-[9px] font-bold rounded px-1 py-0.5 leading-none">
+                    +{overflowCount}
+                  </span>
+                </div>
+              )}
+            </React.Fragment>
+          )
+        })}
+    </div>
+  )
+}
+
+// ─── Componente principal CalendarioSemana ────────────────────────────────────
+
+type Props = {
+  fechaBase: Date
+  profesionales: ProfesionalRow[]
+  profesionalesFiltrados: string[]
+  citas: CitaConRelaciones[]
+  onClickCita: (cita: CitaConRelaciones) => void
+  onClickCelda: (profesionalId: string, hora: Date) => void
+  onVerDia?: (fecha: Date) => void
+}
+
+export function CalendarioSemana({
+  fechaBase,
+  profesionales,
+  profesionalesFiltrados,
+  citas,
+  onClickCita,
+  onClickCelda,
+  onVerDia,
+}: Props) {
+  const hoy = new Date()
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [lineaHora, setLineaHora] = useState<number | null>(null)
+
+  const lunesSemana = startOfWeek(fechaBase, { weekStartsOn: 1 })
+  const diasFecha = Array.from({ length: 7 }, (_, i) => addDays(lunesSemana, i))
+
+  const citasFiltradas = profesionalesFiltrados.length === 0
+    ? citas
+    : citas.filter((c) => profesionalesFiltrados.includes(c.profesional_id))
+
+  function calcularLineaActual() {
+    const ahora = new Date()
+    const h = ahora.getHours()
+    const m = ahora.getMinutes()
+    if (h < HORA_GRILLA_INICIO || h >= HORA_FIN) { setLineaHora(null); return }
+    setLineaHora((h - HORA_GRILLA_INICIO) * ALTURA_HORA_PX + m * PIXEL_POR_MIN)
+  }
+
+  useEffect(() => {
+    calcularLineaActual()
+    const intervalo = setInterval(calcularLineaActual, 60_000)
+    return () => clearInterval(intervalo)
+  }, [])
+
+  // Scroll automático centrado en la hora actual (o inicio de jornada)
+  useEffect(() => {
+    if (scrollRef.current) {
+      const target = lineaHora !== null ? Math.max(0, lineaHora - 150) : 0
+      scrollRef.current.scrollTo({ top: target, behavior: 'smooth' })
+    }
+  }, [lineaHora])
+
+  // La línea roja se muestra solo si la semana visualizada contiene hoy
+  const esEstaSemana = diasFecha.some((d) => isSameDay(d, hoy))
+
+  return (
+    <div className="flex flex-col h-full bg-white rounded-xl border border-gray-100 overflow-hidden">
+      {/* Cabecera sticky de días */}
+      <div
+        className="flex shrink-0 border-b border-gray-100 bg-white"
+        style={{ paddingLeft: 56 }}
+      >
+        {diasFecha.map((dia, i) => {
+          const esHoy = isSameDay(dia, hoy)
+          const numDia = parseInt(format(dia, 'd'))
+          const diaStr = format(dia, 'yyyy-MM-dd')
+          const totalCitas = citasFiltradas.filter((c) => c.inicio.slice(0, 10) === diaStr).length
+
+          return (
+            <div
+              key={i}
+              className={`flex-1 py-2 text-center border-l border-gray-50 min-w-0 ${esHoy ? 'bg-blue-50/30' : ''}`}
+            >
+              {/* Nombre del día abreviado */}
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                {DIAS_NOMBRES[i]}
+              </p>
+
+              {/* Número del día — círculo si es hoy, clickeable para ir a vista día */}
+              <button
+                type="button"
+                onClick={() => onVerDia?.(dia)}
+                className={`text-[16px] font-bold mt-0.5 w-8 h-8 mx-auto flex items-center justify-center rounded-full transition-colors ${
+                  esHoy
+                    ? 'bg-[#2563EB] text-white'
+                    : onVerDia
+                    ? 'text-gray-700 hover:bg-blue-100 hover:text-blue-700 cursor-pointer'
+                    : 'text-gray-700 cursor-default'
+                }`}
+              >
+                {numDia}
+              </button>
+
+              {/* Contador de citas */}
+              {totalCitas > 0 && (
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  {totalCitas} {totalCitas === 1 ? 'cita' : 'citas'}
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Cuerpo scrolleable */}
+      <div ref={scrollRef} className="flex-1 overflow-auto">
+        <div className="flex" style={{ minHeight: ALTO_TOTAL_PX }}>
+          {/* Columna de horas fija */}
+          <div className="w-14 shrink-0 relative" style={{ height: ALTO_TOTAL_PX }}>
+            {horasGrilla.map((h) => (
+              <div
+                key={h}
+                className="absolute right-2 text-[10px] font-medium text-gray-400"
+                style={{ top: (h - HORA_GRILLA_INICIO) * ALTURA_HORA_PX - 7 }}
+              >
+                {String(h).padStart(2, '0')}:00
+              </div>
+            ))}
+          </div>
+
+          {/* Área de días con líneas de fondo y bloques de citas */}
+          <div className="flex flex-1 relative" style={{ height: ALTO_TOTAL_PX }}>
+            {/* Líneas de hora y cuarto de hora (sobre todos los días) */}
+            <div className="absolute inset-0 pointer-events-none z-0">
+              {horasGrilla.slice(0, -1).map((h) => (
+                <div
+                  key={h}
+                  className="absolute left-0 right-0 border-t border-gray-100"
+                  style={{ top: (h - HORA_GRILLA_INICIO) * ALTURA_HORA_PX }}
+                />
+              ))}
+              {/* Mini-líneas de cuarto de hora */}
+              {horasGrilla.slice(0, -1).flatMap((h) =>
+                [15, 30, 45].map((m) => (
+                  <div
+                    key={`${h}-${m}`}
+                    className="absolute left-0 right-0 border-t border-dashed border-gray-50"
+                    style={{ top: (h - HORA_GRILLA_INICIO) * ALTURA_HORA_PX + m * PIXEL_POR_MIN }}
+                  />
+                ))
+              )}
+            </div>
+
+            {/* Línea roja de hora actual (spans toda la semana) */}
+            {esEstaSemana && lineaHora !== null && (
+              <div
+                className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+                style={{ top: lineaHora }}
+              >
+                <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" style={{ marginLeft: -4 }} />
+                <div className="flex-1 border-t-2 border-red-500" />
+              </div>
+            )}
+
+            {/* Columna de cada día */}
+            {diasFecha.map((dia, i) => {
+              const diaStr = format(dia, 'yyyy-MM-dd')
+              const citasDia = citasFiltradas.filter((c) => c.inicio.slice(0, 10) === diaStr)
+              return (
+                <ColumnaDia
+                  key={i}
+                  dia={dia}
+                  esHoy={isSameDay(dia, hoy)}
+                  citas={citasDia}
+                  profesionales={profesionales}
+                  profesionalesFiltrados={profesionalesFiltrados}
+                  onClickCita={onClickCita}
+                  onClickCelda={onClickCelda}
+                />
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

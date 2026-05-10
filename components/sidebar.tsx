@@ -8,7 +8,6 @@ import {
   Users,
   MessageCircle,
   Settings,
-  ChevronRight,
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -22,6 +21,17 @@ const navItems = [
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ]
 
+// Ícono SimpliClinic: cruz médica en azul sobre fondo blanco
+function LogoIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="32" height="32" rx="9" fill="white" />
+      <rect x="13" y="7" width="6" height="18" rx="3" fill="#2563EB" />
+      <rect x="7" y="13" width="18" height="6" rx="3" fill="#2563EB" />
+    </svg>
+  )
+}
+
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -33,25 +43,27 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-[220px] shrink-0 flex flex-col bg-white border-r border-gray-100 h-full">
-      {/* Logo */}
-      <div className="h-14 flex items-center px-4 border-b border-gray-100">
+    <aside
+      className="w-[220px] shrink-0 flex flex-col h-full"
+      style={{ backgroundColor: '#0B132B' }}
+    >
+      {/* Logo SimpliClinic */}
+      <div className="px-4 pt-5 pb-4 border-b border-white/10">
         <div className="flex items-center gap-2.5">
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" }}
-          >
-            <span className="text-white text-[11px] font-bold leading-none">A</span>
-          </div>
+          <LogoIcon />
           <div>
-            <p className="text-[13px] font-semibold text-gray-900 leading-tight">AestheticOS</p>
-            <p className="text-[10px] text-gray-400 leading-tight">Clínica Bella</p>
+            <p className="text-[14px] font-bold text-white leading-tight tracking-tight">
+              SimpliClinic
+            </p>
+            <p className="text-[10px] leading-tight" style={{ color: '#60A5FA' }}>
+              Tu clínica, más simple.
+            </p>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-2.5 space-y-0.5">
+      <nav className="flex-1 px-3 py-3 space-y-0.5">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
@@ -60,19 +72,19 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-2.5 h-8 px-2.5 rounded-lg text-[13px] font-medium transition-colors group",
+                "flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors group",
                 isActive
-                  ? "bg-violet-50 text-[#7C3AED]"
-                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                  ? "text-white"
+                  : "hover:bg-white/10"
               )}
+              style={
+                isActive
+                  ? { backgroundColor: '#2563EB', color: 'white' }
+                  : { color: 'rgba(255,255,255,0.70)' }
+              }
             >
               <Icon
-                className={cn(
-                  "size-[15px] shrink-0 transition-colors",
-                  isActive
-                    ? "text-[#7C3AED]"
-                    : "text-gray-400 group-hover:text-gray-600"
-                )}
+                className={cn("size-[15px] shrink-0", !isActive && "opacity-70")}
               />
               {item.label}
             </Link>
@@ -80,32 +92,44 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Divider */}
-      <div className="mx-2.5 border-t border-gray-100" />
+      {/* Separador */}
+      <div className="mx-3 border-t border-white/10" />
 
-      {/* User footer */}
-      <div className="p-2.5 space-y-0.5">
-        <button className="w-full flex items-center gap-2.5 h-10 px-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left group">
+      {/* Footer del usuario */}
+      <div className="px-3 py-3 space-y-1">
+        {/* Info del usuario */}
+        <div className="flex items-center gap-2.5 px-3 py-2">
           <div
-            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[10px] font-semibold"
-            style={{ background: "linear-gradient(135deg, #7C3AED 0%, #10B981 100%)" }}
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold"
+            style={{ background: 'linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)' }}
           >
             MG
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[12px] font-semibold text-gray-900 truncate leading-tight">
+            <p className="text-[12px] font-semibold text-white truncate leading-tight">
               María González
             </p>
-            <p className="text-[11px] text-gray-400 truncate leading-tight">Administradora</p>
+            <p className="text-[10px] truncate leading-tight" style={{ color: 'rgba(255,255,255,0.50)' }}>
+              Administradora
+            </p>
           </div>
-          <ChevronRight className="size-3.5 text-gray-300 group-hover:text-gray-400 shrink-0" />
-        </button>
+        </div>
 
+        {/* Cerrar sesión */}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2.5 h-8 px-2.5 rounded-lg text-[13px] font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors group"
+          className="w-full flex items-center gap-2.5 h-8 px-3 rounded-lg text-[13px] font-medium transition-colors group"
+          style={{ color: 'rgba(255,255,255,0.55)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.15)'
+            e.currentTarget.style.color = '#FCA5A5'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent'
+            e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
+          }}
         >
-          <LogOut className="size-[15px] shrink-0 text-gray-400 group-hover:text-red-500 transition-colors" />
+          <LogOut className="size-[15px] shrink-0 opacity-70 group-hover:opacity-100" />
           Cerrar sesión
         </button>
       </div>
