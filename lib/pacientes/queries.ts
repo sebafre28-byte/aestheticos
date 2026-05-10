@@ -161,7 +161,7 @@ export async function getPacienteDetalle(pacienteId: string): Promise<{
 
   return {
     paciente: (paciente ?? null) as PacienteRow | null,
-    historial: (historial ?? []) as HistorialCitaPaciente[],
+    historial: (historial ?? []) as unknown as HistorialCitaPaciente[],
   }
 }
 

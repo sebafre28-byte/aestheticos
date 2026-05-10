@@ -155,7 +155,7 @@ export async function getServicioDetalle(servicioId: string): Promise<{
 
   return {
     servicio: (servicio ?? null) as ServicioRow | null,
-    historial: (historial ?? []) as HistorialServicio[],
+    historial: (historial ?? []) as unknown as HistorialServicio[],
   }
 }
 
