@@ -14,7 +14,7 @@ import type {
   CitaConRelaciones, ProfesionalRow, ServicioRow, EstadoCita
 } from '@/lib/agenda/queries'
 import {
-  getCitasDelDia, getCitasDeSemana, getProfesionales, getServicios, getClinicaId
+  getCitasDelDia, getCitasDeSemana, getProfesionales, getServiciosAgenda, getClinicaId
 } from '@/lib/agenda/queries'
 import { CalendarioDia } from './CalendarioDia'
 import { CalendarioSemana } from './CalendarioSemana'
@@ -54,7 +54,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     async function init() {
       const clinicaId = await getClinicaId()
       console.log('clinicaId recibido:', clinicaId)
-      const [profs, servs] = await Promise.all([getProfesionales(), getServicios()])
+      const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda(true)])
       setProfesionales(profs)
       setServicios(servs)
     }

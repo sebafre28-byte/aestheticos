@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Calendar,
   Users,
+  Scissors,
   MessageCircle,
   Settings,
   LogOut,
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agenda", label: "Agenda", icon: Calendar },
   { href: "/pacientes", label: "Pacientes", icon: Users },
+  { href: "/servicios", label: "Servicios", icon: Scissors },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ]

@@ -169,6 +169,27 @@ export async function getServicios(): Promise<ServicioRow[]> {
   return (data ?? []) as ServicioRow[]
 }
 
+// ─── Servicios para agenda (opcional incluir inactivos) ───────────────────────
+export async function getServiciosAgenda(includeInactivos = false): Promise<ServicioRow[]> {
+  const supabase = createClient()
+
+  let query = supabase
+    .from('servicios')
+    .select('*')
+    .order('nombre', { ascending: true })
+
+  if (!includeInactivos) {
+    query = query.eq('activo', true)
+  }
+
+  const { data, error } = await query
+  if (error) {
+    console.error('Error getServiciosAgenda:', error)
+    return []
+  }
+  return (data ?? []) as ServicioRow[]
+}
+
 // ─── Búsqueda de pacientes por nombre o teléfono ──────────────────────────────
 
 export async function getPacientesBusqueda(query: string): Promise<PacienteRow[]> {

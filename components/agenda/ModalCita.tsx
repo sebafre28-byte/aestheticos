@@ -58,6 +58,16 @@ export function ModalCita({
   onGuardada,
   onCerrar,
 }: Props) {
+  function inferirCategoriaServicio(servicio: ServicioRow): string {
+    const texto = `${servicio.nombre} ${servicio.descripcion ?? ''}`.toLowerCase()
+    if (texto.includes('laser')) return 'Láser'
+    if (texto.includes('toxina') || texto.includes('botox') || texto.includes('relleno')) return 'Inyectables'
+    if (texto.includes('facial') || texto.includes('piel') || texto.includes('limpieza')) return 'Facial'
+    if (texto.includes('corporal') || texto.includes('masaje') || texto.includes('drenaje')) return 'Corporal'
+    if (texto.includes('depil')) return 'Depilación'
+    return 'General'
+  }
+
   const esEdicion = !!citaExistente
 
   // ─── Estado del formulario ─────────────────────────────────────────────────
@@ -68,6 +78,9 @@ export function ModalCita({
   const [mostrarCrearPaciente, setMostrarCrearPaciente] = useState(false)
   const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', telefono: '' })
   const [creandoPaciente, setCreandoPaciente] = useState(false)
+  const [servicioBusqueda, setServicioBusqueda] = useState('')
+  const [filtroEstadoServicio, setFiltroEstadoServicio] = useState<'activos' | 'todos'>('activos')
+  const [categoriaServicio, setCategoriaServicio] = useState<string>('todas')
 
   const [profesionalId, setProfesionalId] = useState(
     citaExistente?.profesional_id ?? profesionalIdInicial ?? profesionales[0]?.id ?? ''
@@ -138,6 +151,17 @@ export function ModalCita({
   }, [profesionalId, fecha, citaExistente?.id])
 
   const servicioActual = servicios.find((s) => s.id === servicioId)
+  const categoriasServicio = ['todas', ...Array.from(new Set(servicios.map(inferirCategoriaServicio))).sort()]
+  const serviciosFiltrados = servicios.filter((s) => {
+    if (filtroEstadoServicio === 'activos' && !s.activo) return false
+    if (categoriaServicio !== 'todas' && inferirCategoriaServicio(s) !== categoriaServicio) return false
+    if (servicioBusqueda.trim()) {
+      const t = servicioBusqueda.trim().toLowerCase()
+      const target = `${s.nombre} ${s.descripcion ?? ''}`.toLowerCase()
+      if (!target.includes(t)) return false
+    }
+    return true
+  })
 
   const horaFin = (() => {
     if (!fecha || !hora || !servicioActual) return ''
@@ -381,7 +405,7 @@ export function ModalCita({
                 className="mt-2 flex items-center gap-1.5 text-[12px] text-[#2563EB] font-medium hover:text-blue-700"
               >
                 <Plus className="size-3.5" />
-                Crear paciente "{busquedaPaciente}"
+                Crear paciente &quot;{busquedaPaciente}&quot;
               </button>
             )}
 
@@ -430,18 +454,70 @@ export function ModalCita({
             <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
               Servicio
             </Label>
+            <div className="space-y-2">
+              <Input
+                value={servicioBusqueda}
+                onChange={(e) => setServicioBusqueda(e.target.value)}
+                placeholder="Buscar servicio..."
+                className="text-[13px]"
+              />
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setFiltroEstadoServicio('activos')}
+                  className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
+                    filtroEstadoServicio === 'activos'
+                      ? 'bg-[#2563EB] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Activos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroEstadoServicio('todos')}
+                  className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
+                    filtroEstadoServicio === 'todos'
+                      ? 'bg-[#2563EB] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Todos
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {categoriasServicio.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategoriaServicio(cat)}
+                    className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
+                      categoriaServicio === cat
+                        ? 'bg-teal-500 text-white'
+                        : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+                    }`}
+                  >
+                    {cat === 'todas' ? 'Todas' : cat}
+                  </button>
+                ))}
+              </div>
+            </div>
             <select
               value={servicioId}
               onChange={(e) => setServicioId(e.target.value)}
               className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
             >
               <option value="">— Selecciona un servicio —</option>
-              {servicios.map((s) => (
+              {serviciosFiltrados.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.nombre} · {s.duracion_minutos} min · ${s.precio.toLocaleString('es-CL')}
+                  {!s.activo ? ' · Inactivo' : ''}
                 </option>
               ))}
             </select>
+            {serviciosFiltrados.length === 0 && (
+              <p className="mt-1 text-[11px] text-gray-400">No hay servicios con ese filtro.</p>
+            )}
             {servicioActual && (
               <div className="mt-1.5 flex items-center gap-2 text-[11px] text-gray-500">
                 <Clock className="size-3 text-gray-400" />
