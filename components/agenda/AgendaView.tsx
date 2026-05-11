@@ -1,28 +1,30 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
   format, addDays, subDays, startOfWeek, endOfWeek,
-  addWeeks, subWeeks, isSameDay
+  addWeeks, subWeeks, isSameDay, addMonths, subMonths
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  ChevronLeft, ChevronRight, Plus, CalendarDays, Clock, AlignLeft
+  ChevronLeft, ChevronRight, Plus, CalendarDays, Clock, AlignLeft, Grid3X3, Keyboard
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type {
   CitaConRelaciones, ProfesionalRow, ServicioRow, EstadoCita
 } from '@/lib/agenda/queries'
 import {
-  getCitasDelDia, getCitasDeSemana, getProfesionales, getServiciosAgenda, getClinicaId
+  getCitasDelDia, getCitasDeSemana, getProfesionales, getServiciosAgenda, getClinicaId, editarCita
 } from '@/lib/agenda/queries'
 import { CalendarioDia } from './CalendarioDia'
 import { CalendarioSemana } from './CalendarioSemana'
 import { ModalCita } from './ModalCita'
 import { PanelDetalleCita } from './PanelDetalleCita'
 import { ListaPendientes } from './ListaPendientes'
+import { CalendarioMes } from './CalendarioMes'
+import { trackAgendaMetric } from '@/lib/agenda/metrics'
 
-type Vista = 'dia' | 'semana' | 'lista'
+type Vista = 'dia' | 'semana' | 'lista' | 'mes'
 
 type Props = {
   // Simula vista de profesional (sin acceso admin). En producción vendría del sesión.
@@ -38,8 +40,11 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   const [profesionales, setProfesionales] = useState<ProfesionalRow[]>([])
   const [servicios, setServicios] = useState<ServicioRow[]>([])
   const [cargando, setCargando] = useState(false)
+  const [errorCarga, setErrorCarga] = useState<string | null>(null)
 
   const [profsFiltrados, setProfsFiltrados] = useState<string[]>([])
+  const [fechaJump, setFechaJump] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [mostrarAyudaTeclado, setMostrarAyudaTeclado] = useState(false)
 
   // ─── Estado del modal y panel ─────────────────────────────────────────────
   const [modalAbierto, setModalAbierto] = useState(false)
@@ -67,35 +72,54 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
   async function cargarCitas() {
     setCargando(true)
-    let datos: CitaConRelaciones[]
+    const startedAt = performance.now()
+    try {
+      let datos: CitaConRelaciones[]
 
-    if (vista === 'dia' || vista === 'lista') {
-      datos = await getCitasDelDia(format(fechaActual, 'yyyy-MM-dd'))
-    } else {
-      const lunes = startOfWeek(fechaActual, { weekStartsOn: 1 })
-      const domingo = endOfWeek(fechaActual, { weekStartsOn: 1 })
-      datos = await getCitasDeSemana(
-        format(lunes, 'yyyy-MM-dd'),
-        format(domingo, 'yyyy-MM-dd')
-      )
+      if (vista === 'dia' || vista === 'lista' || vista === 'mes') {
+        datos = await getCitasDelDia(format(fechaActual, 'yyyy-MM-dd'))
+      } else {
+        const lunes = startOfWeek(fechaActual, { weekStartsOn: 1 })
+        const domingo = endOfWeek(fechaActual, { weekStartsOn: 1 })
+        datos = await getCitasDeSemana(
+          format(lunes, 'yyyy-MM-dd'),
+          format(domingo, 'yyyy-MM-dd')
+        )
+      }
+
+      if (isVistaProfe && profesionalPropio) {
+        datos = datos.filter((c) => c.profesional_id === profesionalPropio)
+      }
+
+      setCitas(datos)
+      setErrorCarga(null)
+      trackAgendaMetric('agenda_load_succeeded', {
+        vista,
+        totalCitas: datos.length,
+        elapsedMs: Math.round(performance.now() - startedAt),
+      })
+    } catch {
+      setErrorCarga('No se pudo cargar la agenda. Intenta nuevamente.')
+      trackAgendaMetric('agenda_load_failed', {
+        vista,
+        elapsedMs: Math.round(performance.now() - startedAt),
+      })
+    } finally {
+      setCargando(false)
     }
-
-    // En vista profesional, mostrar solo sus propias citas
-    if (isVistaProfe && profesionalPropio) {
-      datos = datos.filter((c) => c.profesional_id === profesionalPropio)
-    }
-
-    setCitas(datos)
-    setCargando(false)
   }
 
   // ─── Navegación de fecha ──────────────────────────────────────────────────
   function irAnterior() {
-    setFechaActual((f) => (vista === 'semana' ? subWeeks(f, 1) : subDays(f, 1)))
+    setFechaActual((f) =>
+      vista === 'semana' ? subWeeks(f, 1) : vista === 'mes' ? subMonths(f, 1) : subDays(f, 1)
+    )
   }
 
   function irSiguiente() {
-    setFechaActual((f) => (vista === 'semana' ? addWeeks(f, 1) : addDays(f, 1)))
+    setFechaActual((f) =>
+      vista === 'semana' ? addWeeks(f, 1) : vista === 'mes' ? addMonths(f, 1) : addDays(f, 1)
+    )
   }
 
   function irHoy() {
@@ -127,6 +151,12 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
         case 'l':
           setVista('lista')
           break
+        case 'm':
+          setVista('mes')
+          break
+        case '?':
+          setMostrarAyudaTeclado((v) => !v)
+          break
         case 'n':
           if (!modalAbierto && !isVistaProfe) abrirNuevaCita()
           break
@@ -148,7 +178,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   }
 
   // ─── Abrir modal en celda vacía ───────────────────────────────────────────
-  function handleClickCelda(profesionalId: string, hora: Date) {
+  function handleClickCelda(profesionalId: string | undefined, hora: Date) {
     if (isVistaProfe) return
     setProfesionalModalId(profesionalId)
     setFechaHoraModal(hora)
@@ -169,6 +199,41 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     setCitaDetalle(cita)
   }
 
+  async function moverCita(cita: CitaConRelaciones, profesionalId: string, horaDestino: Date) {
+    const inicioActual = new Date(cita.inicio)
+    const finActual = new Date(cita.fin)
+    const duracionMs = finActual.getTime() - inicioActual.getTime()
+    const inicioNuevo = new Date(horaDestino)
+    const finNuevo = new Date(inicioNuevo.getTime() + duracionMs)
+
+    const actualizada = await editarCita(cita.id, {
+      profesional_id: profesionalId,
+      inicio: inicioNuevo.toISOString(),
+      fin: finNuevo.toISOString(),
+    })
+    if (!actualizada) return
+
+    setCitas((prev) => prev.map((item) => (item.id === cita.id ? actualizada : item)))
+    if (citaDetalle?.id === cita.id) setCitaDetalle(actualizada)
+    trackAgendaMetric('appointment_drag_moved', { citaId: cita.id })
+  }
+
+  async function redimensionarCita(cita: CitaConRelaciones, deltaMinutos: number) {
+    if (deltaMinutos === 0) return
+    const inicio = new Date(cita.inicio)
+    const finActual = new Date(cita.fin)
+    const finNuevo = new Date(finActual.getTime() + deltaMinutos * 60_000)
+    if (finNuevo <= inicio) return
+
+    const actualizada = await editarCita(cita.id, {
+      fin: finNuevo.toISOString(),
+    })
+    if (!actualizada) return
+    setCitas((prev) => prev.map((item) => (item.id === cita.id ? actualizada : item)))
+    if (citaDetalle?.id === cita.id) setCitaDetalle(actualizada)
+    trackAgendaMetric('appointment_resized', { citaId: cita.id, deltaMinutos })
+  }
+
   // ─── Al guardar una cita ──────────────────────────────────────────────────
   function handleCitaGuardada(cita: CitaConRelaciones) {
     setModalAbierto(false)
@@ -183,6 +248,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       return [...prev, cita]
     })
     if (citaDetalle?.id === cita.id) setCitaDetalle(cita)
+    trackAgendaMetric('appointment_saved', { citaId: cita.id, estado: cita.estado })
   }
 
   // ─── Editar desde panel ───────────────────────────────────────────────────
@@ -223,6 +289,9 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       const lunes = startOfWeek(fechaActual, { weekStartsOn: 1 })
       const domingo = endOfWeek(fechaActual, { weekStartsOn: 1 })
       return `${format(lunes, "d MMM", { locale: es })} – ${format(domingo, "d MMM yyyy", { locale: es })}`
+    }
+    if (vista === 'mes') {
+      return format(fechaActual, 'MMMM yyyy', { locale: es })
     }
     const esHoy = isSameDay(fechaActual, new Date())
     const dia = format(fechaActual, "EEEE d 'de' MMMM", { locale: es })
@@ -276,6 +345,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
               { id: 'dia', icon: Clock, label: 'Día' },
               { id: 'semana', icon: CalendarDays, label: 'Semana' },
               { id: 'lista', icon: AlignLeft, label: 'Lista' },
+              { id: 'mes', icon: Grid3X3, label: 'Mes' },
             ] as const).map(({ id, icon: Icon, label }) => (
               <button
                 key={id}
@@ -317,6 +387,29 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
               <ChevronRight className="size-4" />
             </button>
           </div>
+
+          <div className="flex items-center bg-white border border-gray-100 rounded-lg px-2 gap-2 h-8">
+            <input
+              type="date"
+              value={fechaJump}
+              onChange={(e) => {
+                setFechaJump(e.target.value)
+                if (e.target.value) {
+                  setFechaActual(new Date(`${e.target.value}T09:00:00`))
+                }
+              }}
+              className="text-[12px] text-gray-600 outline-none"
+            />
+          </div>
+
+          <button
+            onClick={() => setMostrarAyudaTeclado((v) => !v)}
+            className="h-8 px-2.5 rounded-lg text-[12px] border border-gray-100 bg-white text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
+            aria-label="Mostrar atajos de teclado"
+          >
+            <Keyboard className="size-3.5" />
+            Atajos
+          </button>
 
           {/* Nueva cita — solo recepción */}
           {!isVistaProfe && (
@@ -377,6 +470,14 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
       {/* ── Cuerpo principal ── */}
       <div className="flex-1 min-h-0 relative">
+        {errorCarga && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-red-50 border border-red-100">
+            <div className="text-center">
+              <p className="text-[13px] font-semibold text-red-600">Error cargando agenda</p>
+              <p className="text-[12px] text-red-500 mt-1">{errorCarga}</p>
+            </div>
+          </div>
+        )}
         {cargando && (
           <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center rounded-xl">
             <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
@@ -395,13 +496,22 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             }
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
+            onDropCita={moverCita}
+            onResizeCita={redimensionarCita}
+          />
+        )}
+        {vista === 'dia' && citas.length === 0 && !cargando && (
+          <EstadoVacioAgenda
+            titulo="Sin citas para este día"
+            descripcion="Puedes crear una nueva cita o cambiar la fecha."
+            onNueva={!isVistaProfe ? abrirNuevaCita : undefined}
+            onHoy={irHoy}
           />
         )}
 
         {vista === 'semana' && (
           <CalendarioSemana
             fechaBase={fechaActual}
-            profesionales={profesionales}
             profesionalesFiltrados={
               isVistaProfe && profesionalPropio
                 ? [profesionalPropio]
@@ -410,7 +520,26 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             citas={citas}
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
+            onDropCita={moverCita}
+            onResizeCita={redimensionarCita}
             onVerDia={handleVerDia}
+          />
+        )}
+        {vista === 'semana' && citas.length === 0 && !cargando && (
+          <EstadoVacioAgenda
+            titulo="Semana sin citas"
+            descripcion="No hay citas registradas para esta semana."
+            onNueva={!isVistaProfe ? abrirNuevaCita : undefined}
+            onHoy={irHoy}
+          />
+        )}
+
+        {vista === 'mes' && (
+          <CalendarioMes
+            fechaBase={fechaActual}
+            citas={citas}
+            onVerDia={handleVerDia}
+            onClickCita={handleClickCita}
           />
         )}
 
@@ -507,6 +636,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       {/* ── Panel de detalle de cita ── */}
       {citaDetalle && (
         <PanelDetalleCita
+          key={citaDetalle.id}
           cita={citaDetalle}
           isVistaProfe={isVistaProfe}
           onCerrar={() => setCitaDetalle(null)}
@@ -514,6 +644,62 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
           onEstadoActualizado={handleEstadoActualizado}
         />
       )}
+
+      {mostrarAyudaTeclado && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/25" onClick={() => setMostrarAyudaTeclado(false)} />
+          <div className="relative bg-white rounded-xl border border-gray-100 shadow-2xl p-5 w-full max-w-md">
+            <h3 className="text-[14px] font-semibold text-gray-900 mb-3">Atajos de teclado</h3>
+            <div className="grid grid-cols-2 gap-2 text-[12px] text-gray-600">
+              <p><span className="font-semibold">D</span> vista día</p>
+              <p><span className="font-semibold">S</span> vista semana</p>
+              <p><span className="font-semibold">L</span> vista lista</p>
+              <p><span className="font-semibold">M</span> vista mes</p>
+              <p><span className="font-semibold">N</span> nueva cita</p>
+              <p><span className="font-semibold">←/→</span> navegar fecha</p>
+              <p><span className="font-semibold">Esc</span> cerrar panel/modal</p>
+              <p><span className="font-semibold">?</span> ver atajos</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EstadoVacioAgenda({
+  titulo,
+  descripcion,
+  onNueva,
+  onHoy,
+}: {
+  titulo: string
+  descripcion: string
+  onNueva?: () => void
+  onHoy: () => void
+}) {
+  return (
+    <div className="absolute inset-0 z-[5] flex items-center justify-center pointer-events-none">
+      <div className="pointer-events-auto bg-white/95 border border-gray-100 rounded-xl shadow-sm px-6 py-5 text-center max-w-sm">
+        <p className="text-[14px] font-semibold text-gray-900">{titulo}</p>
+        <p className="text-[12px] text-gray-500 mt-1">{descripcion}</p>
+        <div className="mt-3 flex items-center justify-center gap-2">
+          {onNueva && (
+            <button
+              onClick={onNueva}
+              className="h-8 px-3 rounded-lg text-[12px] font-medium text-white bg-[#2563EB]"
+            >
+              Nueva cita
+            </button>
+          )}
+          <button
+            onClick={onHoy}
+            className="h-8 px-3 rounded-lg text-[12px] font-medium border border-gray-200 text-gray-700"
+          >
+            Ir a hoy
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

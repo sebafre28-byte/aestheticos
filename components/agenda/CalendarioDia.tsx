@@ -58,12 +58,16 @@ function ColumnaProfesional({
   citas,
   onClickCita,
   onClickCelda,
+  onDropCita,
+  onResizeCita,
   fecha,
 }: {
   profesional: ProfesionalRow
   citas: CitaConRelaciones[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string, hora: Date) => void
+  onDropCita: (cita: CitaConRelaciones, profesionalId: string, hora: Date) => void
+  onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   fecha: Date
 }) {
   const dispuestas = calcularColumnas(citas)
@@ -83,6 +87,16 @@ function ColumnaProfesional({
     onClickCelda(profesional.id, hora)
   }
 
+  function horaDesdeY(y: number): Date {
+    const minutos = Math.floor(y / PIXEL_POR_MIN)
+    const minutosRedondeados = Math.floor(minutos / 15) * 15
+    const hora = new Date(fecha)
+    hora.setHours(HORA_GRILLA_INICIO + Math.floor(minutosRedondeados / 60))
+    hora.setMinutes(minutosRedondeados % 60)
+    hora.setSeconds(0)
+    return hora
+  }
+
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
     setHoverY(e.clientY - rect.top)
@@ -96,6 +110,16 @@ function ColumnaProfesional({
       onClick={handleClickFondo}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => { setHoverY(null); setSobreFondo(false) }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault()
+        const citaId = e.dataTransfer.getData('text/cita-id')
+        const cita = citas.find((item) => item.id === citaId)
+        if (!cita) return
+        const rect = e.currentTarget.getBoundingClientRect()
+        const y = e.clientY - rect.top
+        onDropCita(cita, profesional.id, horaDesdeY(y))
+      }}
     >
       {/* Highlight de cuarto de hora al pasar el mouse sobre fondo vacío */}
       {sobreFondo && hoverY !== null && (
@@ -127,6 +151,7 @@ function ColumnaProfesional({
             key={cita.id}
             cita={cita}
             onClick={onClickCita}
+            onResize={onResizeCita}
             topPx={top + 1}
             heightPx={height - 2}
             leftPercent={col * ancho + 0.5}
@@ -146,7 +171,9 @@ type Props = {
   citas: CitaConRelaciones[]
   profesionalesFiltrados: string[]
   onClickCita: (cita: CitaConRelaciones) => void
-  onClickCelda: (profesionalId: string, hora: Date) => void
+  onClickCelda: (profesionalId: string | undefined, hora: Date) => void
+  onDropCita: (cita: CitaConRelaciones, profesionalId: string, hora: Date) => void
+  onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
 }
 
 export function CalendarioDia({
@@ -156,8 +183,16 @@ export function CalendarioDia({
   profesionalesFiltrados,
   onClickCita,
   onClickCelda,
+  onDropCita,
+  onResizeCita,
 }: Props) {
-  const [lineaHora, setLineaHora] = useState<number | null>(null)
+  const [lineaHora, setLineaHora] = useState<number | null>(() => {
+    const ahora = new Date()
+    const h = ahora.getHours()
+    const m = ahora.getMinutes()
+    if (h < HORA_GRILLA_INICIO || h >= HORA_FIN_GRILLA) return null
+    return (h - HORA_GRILLA_INICIO) * ALTURA_HORA_PX + m * PIXEL_POR_MIN
+  })
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const profsVisibles = profesionales.filter(
@@ -176,7 +211,6 @@ export function CalendarioDia({
   }
 
   useEffect(() => {
-    calcularLineaActual()
     const intervalo = setInterval(calcularLineaActual, 60_000)
     return () => clearInterval(intervalo)
   }, [])
@@ -300,6 +334,8 @@ export function CalendarioDia({
                     citas={citasProf}
                     onClickCita={onClickCita}
                     onClickCelda={onClickCelda}
+                  onDropCita={onDropCita}
+                  onResizeCita={onResizeCita}
                     fecha={fecha}
                   />
                 </div>

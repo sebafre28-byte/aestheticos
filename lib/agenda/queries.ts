@@ -3,6 +3,52 @@
 import { createClient } from '@/lib/supabase/client'
 import { addDays } from 'date-fns'
 
+const agendaCache = new Map<string, { expiresAt: number; value: unknown }>()
+const inflight = new Map<string, Promise<unknown>>()
+
+function withCache<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
+  const cached = agendaCache.get(key)
+  if (cached && cached.expiresAt > Date.now()) {
+    return Promise.resolve(cached.value as T)
+  }
+
+  const current = inflight.get(key)
+  if (current) return current as Promise<T>
+
+  const promise = load()
+    .then((value) => {
+      agendaCache.set(key, { expiresAt: Date.now() + ttlMs, value })
+      inflight.delete(key)
+      return value
+    })
+    .catch((error) => {
+      inflight.delete(key)
+      throw error
+    })
+
+  inflight.set(key, promise)
+  return promise
+}
+
+function invalidateAgendaCache() {
+  for (const key of agendaCache.keys()) {
+    if (key.startsWith('citas-')) agendaCache.delete(key)
+  }
+}
+
+async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
+  let lastError: unknown
+  for (let i = 0; i <= attempts; i += 1) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error
+      await new Promise((resolve) => setTimeout(resolve, 150 * (i + 1)))
+    }
+  }
+  throw lastError
+}
+
 // ─── Tipos que reflejan exactamente las columnas de Supabase ───────────────────
 
 export type ProfesionalRow = {
@@ -56,6 +102,13 @@ export type CitaConRelaciones = {
   estado: EstadoCita
   notas: string | null
   recordatorio_enviado: boolean
+  updated_at?: string
+  lock_version?: number
+  recurrence_kind?: 'none' | 'daily' | 'weekly' | 'monthly' | 'rrule'
+  recurrence_rule?: string | null
+  recurrence_parent_id?: string | null
+  recurrence_instance_date?: string | null
+  event_timezone?: string
   created_at: string
   pacientes: PacienteRow
   profesionales: ProfesionalRow
@@ -70,33 +123,71 @@ export type NuevaCitaData = {
   inicio: string  // ISO string
   fin: string     // ISO string
   notas?: string
+  estado?: EstadoCita
+  expected_lock_version?: number
+  recurrence_kind?: 'none' | 'daily' | 'weekly' | 'monthly' | 'rrule'
+  recurrence_rule?: string | null
+  recurrence_parent_id?: string | null
+  recurrence_instance_date?: string | null
+}
+
+export type DisponibilidadRow = {
+  id: string
+  clinica_id: string
+  profesional_id: string
+  dia_semana: number
+  hora_inicio: string
+  hora_fin: string
+  activo: boolean
+}
+
+export type BloqueoAgendaRow = {
+  id: string
+  clinica_id: string
+  profesional_id: string | null
+  titulo: string
+  motivo: string | null
+  inicio: string
+  fin: string
+  tipo: 'bloqueo' | 'vacaciones' | 'feriado' | 'almuerzo' | 'capacitacion'
+}
+
+export type AuditLogRow = {
+  id: string
+  clinica_id: string
+  cita_id: string | null
+  actor_id: string | null
+  accion: string
+  antes: Record<string, unknown> | null
+  despues: Record<string, unknown> | null
+  created_at: string
 }
 
 // ─── Citas del día con joins completos ────────────────────────────────────────
 
 export async function getCitasDelDia(fecha: string): Promise<CitaConRelaciones[]> {
-  const supabase = createClient()
+  return withCache(`citas-dia:${fecha}`, 20_000, async () => {
+    const supabase = createClient()
+    const { data, error } = await withRetry(() =>
+      supabase
+        .from('citas')
+        .select(`
+          *,
+          pacientes(*),
+          profesionales(*),
+          servicios(*)
+        `)
+        .gte('inicio', `${fecha}T00:00:00`)
+        .lte('inicio', `${fecha}T23:59:59`)
+        .order('inicio', { ascending: true })
+    )
 
-  const { data, error } = await supabase
-    .from('citas')
-    .select(`
-      *,
-      pacientes(*),
-      profesionales(*),
-      servicios(*)
-    `)
-    .gte('inicio', `${fecha}T00:00:00`)
-    .lte('inicio', `${fecha}T23:59:59`)
-    .order('inicio', { ascending: true })
-
-  console.log('Citas resultado:', data, 'Error:', error)
-  console.log('Fecha buscada:', `${fecha}T00:00:00`, `${fecha}T23:59:59`)
-
-  if (error) {
-    console.error('Error getCitasDelDia:', error)
-    return []
-  }
-  return (data ?? []) as CitaConRelaciones[]
+    if (error) {
+      console.error('Error getCitasDelDia:', error)
+      return []
+    }
+    return (data ?? []) as CitaConRelaciones[]
+  })
 }
 
 // ─── Citas de la semana (filtrable por profesional) ───────────────────────────
@@ -106,31 +197,31 @@ export async function getCitasDeSemana(
   fechaFin: string,
   profesionalId?: string
 ): Promise<CitaConRelaciones[]> {
-  const supabase = createClient()
+  return withCache(`citas-semana:${fechaInicio}:${fechaFin}:${profesionalId ?? 'all'}`, 20_000, async () => {
+    const supabase = createClient()
+    let query = supabase
+      .from('citas')
+      .select(`
+        *,
+        pacientes(*),
+        profesionales(*),
+        servicios(*)
+      `)
+      .gte('inicio', `${fechaInicio}T00:00:00`)
+      .lte('inicio', `${fechaFin}T23:59:59`)
+      .order('inicio', { ascending: true })
 
-  let query = supabase
-    .from('citas')
-    .select(`
-      *,
-      pacientes(*),
-      profesionales(*),
-      servicios(*)
-    `)
-    .gte('inicio', `${fechaInicio}T00:00:00`)
-    .lte('inicio', `${fechaFin}T23:59:59`)
-    .order('inicio', { ascending: true })
+    if (profesionalId) {
+      query = query.eq('profesional_id', profesionalId)
+    }
 
-  if (profesionalId) {
-    query = query.eq('profesional_id', profesionalId)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    console.error('Error getCitasDeSemana:', error)
-    return []
-  }
-  return (data ?? []) as CitaConRelaciones[]
+    const { data, error } = await withRetry(() => query)
+    if (error) {
+      console.error('Error getCitasDeSemana:', error)
+      return []
+    }
+    return (data ?? []) as CitaConRelaciones[]
+  })
 }
 
 // ─── Profesionales activos de la clínica ──────────────────────────────────────
@@ -272,26 +363,64 @@ export async function verificarConflicto(
 export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones | null> {
   const supabase = createClient()
 
-  const { data: nueva, error } = await supabase
-    .from('citas')
-    .insert({
-      clinica_id: data.clinica_id,
-      paciente_id: data.paciente_id,
-      profesional_id: data.profesional_id,
-      servicio_id: data.servicio_id,
-      inicio: data.inicio,
-      fin: data.fin,
-      notas: data.notas ?? null,
-      estado: 'pendiente',
-    })
-    .select(`*, pacientes(*), profesionales(*), servicios(*)`)
-    .single()
+  const { data: creadaPorRpc, error: errorRpc } = await supabase.rpc('upsert_cita_atomic', {
+    p_cita_id: null,
+    p_clinica_id: data.clinica_id,
+    p_paciente_id: data.paciente_id,
+    p_profesional_id: data.profesional_id,
+    p_servicio_id: data.servicio_id,
+    p_inicio: data.inicio,
+    p_fin: data.fin,
+    p_notas: data.notas ?? null,
+    p_estado: data.estado ?? 'pendiente',
+    p_expected_lock_version: null,
+  })
 
-  if (error) {
-    console.error('Error crearCita:', error)
+  const citaId = (creadaPorRpc as { id?: string } | null)?.id
+  if (errorRpc && errorRpc.code !== '42883') {
+    console.error('Error crearCita RPC:', errorRpc)
     return null
   }
-  return nueva as CitaConRelaciones
+
+  if (!citaId) {
+    const { data: nueva, error } = await supabase
+      .from('citas')
+      .insert({
+        clinica_id: data.clinica_id,
+        paciente_id: data.paciente_id,
+        profesional_id: data.profesional_id,
+        servicio_id: data.servicio_id,
+        inicio: data.inicio,
+        fin: data.fin,
+        notas: data.notas ?? null,
+        estado: data.estado ?? 'pendiente',
+        recurrence_kind: data.recurrence_kind ?? 'none',
+        recurrence_rule: data.recurrence_rule ?? null,
+        recurrence_parent_id: data.recurrence_parent_id ?? null,
+        recurrence_instance_date: data.recurrence_instance_date ?? null,
+      })
+      .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+      .single()
+
+    if (error) {
+      console.error('Error crearCita fallback:', error)
+      return null
+    }
+    return nueva as CitaConRelaciones
+  }
+
+  const { data: citaCompleta, error: errorSelect } = await supabase
+    .from('citas')
+    .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+    .eq('id', citaId)
+    .single()
+
+  if (errorSelect) {
+    console.error('Error crearCita select:', errorSelect)
+    return null
+  }
+  invalidateAgendaCache()
+  return citaCompleta as CitaConRelaciones
 }
 
 // ─── Editar cita existente ────────────────────────────────────────────────────
@@ -302,17 +431,59 @@ export async function editarCita(
 ): Promise<CitaConRelaciones | null> {
   const supabase = createClient()
 
+  const { data: previa } = await supabase
+    .from('citas')
+    .select('clinica_id, paciente_id, profesional_id, servicio_id, inicio, fin, notas, estado, lock_version')
+    .eq('id', citaId)
+    .single()
+
+  if (!previa) return null
+
+  const { data: actualizadaRpc, error: errorRpc } = await supabase.rpc('upsert_cita_atomic', {
+    p_cita_id: citaId,
+    p_clinica_id: previa.clinica_id,
+    p_paciente_id: data.paciente_id ?? previa.paciente_id,
+    p_profesional_id: data.profesional_id ?? previa.profesional_id,
+    p_servicio_id: data.servicio_id ?? previa.servicio_id,
+    p_inicio: data.inicio ?? previa.inicio,
+    p_fin: data.fin ?? previa.fin,
+    p_notas: data.notas ?? previa.notas,
+    p_estado: data.estado ?? previa.estado,
+    p_expected_lock_version: data.expected_lock_version ?? previa.lock_version ?? null,
+  })
+
+  if (errorRpc && errorRpc.code !== '42883') {
+    console.error('Error editarCita RPC:', errorRpc)
+    return null
+  }
+
+  if (!actualizadaRpc) {
+    const { data: actualizadaFallback, error: errorFallback } = await supabase
+      .from('citas')
+      .update(data)
+      .eq('id', citaId)
+      .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+      .single()
+
+    if (errorFallback) {
+      console.error('Error editarCita fallback:', errorFallback)
+      return null
+    }
+    invalidateAgendaCache()
+    return actualizadaFallback as CitaConRelaciones
+  }
+
   const { data: actualizada, error } = await supabase
     .from('citas')
-    .update(data)
-    .eq('id', citaId)
     .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+    .eq('id', citaId)
     .single()
 
   if (error) {
-    console.error('Error editarCita:', error)
+    console.error('Error editarCita select:', error)
     return null
   }
+  invalidateAgendaCache()
   return actualizada as CitaConRelaciones
 }
 
@@ -333,7 +504,82 @@ export async function actualizarEstadoCita(
     console.error('Error actualizarEstadoCita:', error)
     return false
   }
+  invalidateAgendaCache()
   return true
+}
+
+// ─── Disponibilidad por profesional y fecha ────────────────────────────────────
+export async function getDisponibilidadProfesional(profesionalId: string): Promise<DisponibilidadRow[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('agenda_disponibilidad')
+    .select('*')
+    .eq('profesional_id', profesionalId)
+    .eq('activo', true)
+    .order('dia_semana', { ascending: true })
+
+  if (error) {
+    console.error('Error getDisponibilidadProfesional:', error)
+    return []
+  }
+  return (data ?? []) as DisponibilidadRow[]
+}
+
+export async function getBloqueosRango(
+  fechaInicioIso: string,
+  fechaFinIso: string
+): Promise<BloqueoAgendaRow[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('agenda_bloqueos')
+    .select('*')
+    .lt('inicio', fechaFinIso)
+    .gt('fin', fechaInicioIso)
+    .order('inicio', { ascending: true })
+
+  if (error) {
+    console.error('Error getBloqueosRango:', error)
+    return []
+  }
+  return (data ?? []) as BloqueoAgendaRow[]
+}
+
+export async function crearRecordatorioCita(
+  clinicaId: string,
+  citaId: string,
+  canal: 'whatsapp' | 'email' | 'push',
+  minutosAntes: number
+): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from('agenda_recordatorios').insert({
+    clinica_id: clinicaId,
+    cita_id: citaId,
+    canal,
+    minutos_antes: minutosAntes,
+    activo: true,
+  })
+
+  if (error) {
+    console.error('Error crearRecordatorioCita:', error)
+    return false
+  }
+  return true
+}
+
+export async function getAuditCita(citaId: string): Promise<AuditLogRow[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('agenda_audit_log')
+    .select('*')
+    .eq('cita_id', citaId)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  if (error) {
+    console.error('Error getAuditCita:', error)
+    return []
+  }
+  return (data ?? []) as AuditLogRow[]
 }
 
 // ─── Historial de visitas de un paciente (últimas 5) ─────────────────────────

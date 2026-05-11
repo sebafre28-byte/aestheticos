@@ -12,8 +12,9 @@ import type {
 } from '@/lib/agenda/queries'
 import {
   getPacientesBusqueda, crearPacienteRapido, crearCita, editarCita,
-  verificarConflicto, getClinicaId, getCitasDelDia,
+  verificarConflicto, getClinicaId, getCitasDelDia, getDisponibilidadProfesional, getBloqueosRango, crearRecordatorioCita,
 } from '@/lib/agenda/queries'
+import { useDialogA11y } from './useDialogA11y'
 
 // Slots de 08:00 a 19:45 en intervalos de 15 min
 const SLOTS_HORA: string[] = Array.from({ length: 48 }, (_, i) => {
@@ -71,8 +72,8 @@ export function ModalCita({
   const esEdicion = !!citaExistente
 
   // ─── Estado del formulario ─────────────────────────────────────────────────
-  const [busquedaPaciente, setBusquedaPaciente] = useState('')
-  const [pacienteSeleccionado, setPacienteSeleccionado] = useState<PacienteRow | null>(null)
+  const [busquedaPaciente, setBusquedaPaciente] = useState(citaExistente?.pacientes?.nombre ?? '')
+  const [pacienteSeleccionado, setPacienteSeleccionado] = useState<PacienteRow | null>(citaExistente?.pacientes ?? null)
   const [resultadosBusqueda, setResultadosBusqueda] = useState<PacienteRow[]>([])
   const [buscando, setBuscando] = useState(false)
   const [mostrarCrearPaciente, setMostrarCrearPaciente] = useState(false)
@@ -103,17 +104,40 @@ export function ModalCita({
       : '09:00'
   )
   const [notas, setNotas] = useState(citaExistente?.notas ?? '')
+  const [recurrenceKind, setRecurrenceKind] = useState<'none' | 'daily' | 'weekly' | 'monthly'>(
+    (citaExistente?.recurrence_kind as 'none' | 'daily' | 'weekly' | 'monthly' | undefined) ?? 'none'
+  )
+  const [serieEditMode, setSerieEditMode] = useState<'single' | 'future' | 'all'>('single')
 
   const [conflicto, setConflicto] = useState<CitaConRelaciones | null>(null)
+  const [alertaSoft, setAlertaSoft] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [recordatorioWhatsApp, setRecordatorioWhatsApp] = useState(true)
+  const [recordatorioMinutos, setRecordatorioMinutos] = useState(120)
 
   // ─── Time picker ───────────────────────────────────────────────────────────
   const [abiertoPicker, setAbiertoPicker] = useState(false)
   const [citasDelProfesional, setCitasDelProfesional] = useState<CitaConRelaciones[]>([])
+  const [disponibilidadValida, setDisponibilidadValida] = useState(true)
   const pickerRef = useRef<HTMLDivElement>(null)
+  const servicioActual = servicios.find((s) => s.id === servicioId)
+  const categoriasServicio = ['todas', ...Array.from(new Set(servicios.map(inferirCategoriaServicio))).sort()]
+  const serviciosFiltrados = servicios.filter((s) => {
+    if (filtroEstadoServicio === 'activos' && !s.activo) return false
+    if (categoriaServicio !== 'todas' && inferirCategoriaServicio(s) !== categoriaServicio) return false
+    if (servicioBusqueda.trim()) {
+      const t = servicioBusqueda.trim().toLowerCase()
+      const target = `${s.nombre} ${s.descripcion ?? ''}`.toLowerCase()
+      if (!target.includes(t)) return false
+    }
+    return true
+  })
+
   const slotSeleccionadoRef = useRef<HTMLButtonElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogA11y(dialogRef, onCerrar)
 
   // Cerrar picker al hacer click fuera
   useEffect(() => {
@@ -136,7 +160,7 @@ export function ModalCita({
 
   // Cargar citas del profesional para detectar slots ocupados
   useEffect(() => {
-    if (!profesionalId || !fecha) { setCitasDelProfesional([]); return }
+    if (!profesionalId || !fecha) { return }
     getCitasDelDia(fecha).then((todas) => {
       setCitasDelProfesional(
         todas.filter(
@@ -150,18 +174,47 @@ export function ModalCita({
     })
   }, [profesionalId, fecha, citaExistente?.id])
 
-  const servicioActual = servicios.find((s) => s.id === servicioId)
-  const categoriasServicio = ['todas', ...Array.from(new Set(servicios.map(inferirCategoriaServicio))).sort()]
-  const serviciosFiltrados = servicios.filter((s) => {
-    if (filtroEstadoServicio === 'activos' && !s.activo) return false
-    if (categoriaServicio !== 'todas' && inferirCategoriaServicio(s) !== categoriaServicio) return false
-    if (servicioBusqueda.trim()) {
-      const t = servicioBusqueda.trim().toLowerCase()
-      const target = `${s.nombre} ${s.descripcion ?? ''}`.toLowerCase()
-      if (!target.includes(t)) return false
+  useEffect(() => {
+    let active = true
+    async function validarDisponibilidad() {
+      if (!profesionalId || !fecha || !hora || !servicioActual) return
+      const diaSemana = new Date(`${fecha}T12:00:00`).getDay()
+      const diaSemanaISO = diaSemana === 0 ? 7 : diaSemana
+      const disponibilidad = await getDisponibilidadProfesional(profesionalId)
+      const tramosDia = disponibilidad.filter((d) => d.dia_semana === diaSemanaISO)
+      if (tramosDia.length === 0) {
+        if (active) {
+          setDisponibilidadValida(false)
+          setAlertaSoft('El profesional no tiene disponibilidad declarada para este día.')
+        }
+        return
+      }
+
+      const inicioMin = parseInt(hora.slice(0, 2), 10) * 60 + parseInt(hora.slice(3, 5), 10)
+      const finIso = calcularFin(fecha, hora, servicioActual.duracion_minutos)
+      const finMin = parseInt(finIso.slice(11, 13), 10) * 60 + parseInt(finIso.slice(14, 16), 10)
+      const dentro = tramosDia.some((d) => {
+        const inicioDisp = parseInt(d.hora_inicio.slice(0, 2), 10) * 60 + parseInt(d.hora_inicio.slice(3, 5), 10)
+        const finDisp = parseInt(d.hora_fin.slice(0, 2), 10) * 60 + parseInt(d.hora_fin.slice(3, 5), 10)
+        return inicioMin >= inicioDisp && finMin <= finDisp
+      })
+
+      const bloqueos = await getBloqueosRango(`${fecha}T00:00:00`, `${fecha}T23:59:59`)
+      const inicioIso = `${fecha}T${hora}:00`
+      const bloquea = bloqueos.some((b) => (b.profesional_id === null || b.profesional_id === profesionalId) && b.inicio < finIso && b.fin > inicioIso)
+
+      if (active) {
+        setDisponibilidadValida(dentro && !bloquea)
+        if (!dentro) setAlertaSoft('Horario fuera de disponibilidad del profesional.')
+        else if (bloquea) setAlertaSoft('Existe un bloqueo de agenda para ese horario.')
+        else setAlertaSoft(null)
+      }
     }
-    return true
-  })
+    validarDisponibilidad()
+    return () => {
+      active = false
+    }
+  }, [profesionalId, fecha, hora, servicioActual])
 
   const horaFin = (() => {
     if (!fecha || !hora || !servicioActual) return ''
@@ -234,13 +287,6 @@ export function ModalCita({
     }
   }
 
-  useEffect(() => {
-    if (citaExistente?.pacientes) {
-      setPacienteSeleccionado(citaExistente.pacientes)
-      setBusquedaPaciente(citaExistente.pacientes.nombre)
-    }
-  }, [citaExistente])
-
   // ─── Verificar conflicto al cambiar profesional/fecha/hora ───────────────
   useEffect(() => {
     async function verificar() {
@@ -263,6 +309,8 @@ export function ModalCita({
     if (!profesionalId) { setError('Selecciona un profesional'); return }
     if (!servicioId) { setError('Selecciona un servicio'); return }
     if (!fecha || !hora) { setError('Indica fecha y hora'); return }
+    if (conflicto) { setError('Existe conflicto de horario. Selecciona otro bloque.'); return }
+    if (!disponibilidadValida) { setError('Horario no disponible según reglas de agenda.'); return }
 
     setError(null)
     setGuardando(true)
@@ -281,6 +329,8 @@ export function ModalCita({
           inicio,
           fin,
           notas: notas || undefined,
+          recurrence_kind: recurrenceKind,
+          recurrence_rule: recurrenceKind === 'none' ? null : `FREQ=${recurrenceKind.toUpperCase()}`,
         })
       } else {
         const clinicaId = await getClinicaId()
@@ -293,6 +343,8 @@ export function ModalCita({
           inicio,
           fin,
           notas: notas || undefined,
+          recurrence_kind: recurrenceKind,
+          recurrence_rule: recurrenceKind === 'none' ? null : `FREQ=${recurrenceKind.toUpperCase()}`,
         }
         resultado = await crearCita(datos)
       }
@@ -300,6 +352,12 @@ export function ModalCita({
       if (!resultado) {
         setError('Error al guardar la cita. Inténtalo de nuevo.')
       } else {
+        if (recordatorioWhatsApp) {
+          const clinicaId = await getClinicaId()
+          if (clinicaId) {
+            await crearRecordatorioCita(clinicaId, resultado.id, 'whatsapp', recordatorioMinutos)
+          }
+        }
         onGuardada(resultado)
       }
     } catch {
@@ -326,7 +384,13 @@ export function ModalCita({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCerrar} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={esEdicion ? 'Editar cita' : 'Nueva cita'}
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
           <h2 className="text-[16px] font-semibold text-gray-900">
@@ -587,7 +651,7 @@ export function ModalCita({
                           key={slot}
                           type="button"
                           ref={seleccionado ? slotSeleccionadoRef : undefined}
-                          disabled={false}
+                          disabled={ocupado}
                           onClick={() => { setHora(slot); setAbiertoPicker(false) }}
                           className={`w-full text-left px-3 py-1.5 text-[13px] transition-colors flex items-center justify-between ${
                             seleccionado
@@ -645,6 +709,40 @@ export function ModalCita({
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
+                Recurrencia
+              </Label>
+              <select
+                value={recurrenceKind}
+                onChange={(e) => setRecurrenceKind(e.target.value as 'none' | 'daily' | 'weekly' | 'monthly')}
+                className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+              >
+                <option value="none">No repetir</option>
+                <option value="daily">Diaria</option>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensual</option>
+              </select>
+            </div>
+            {esEdicion && recurrenceKind !== 'none' && (
+              <div>
+                <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
+                  Aplicar cambios a
+                </Label>
+                <select
+                  value={serieEditMode}
+                  onChange={(e) => setSerieEditMode(e.target.value as 'single' | 'future' | 'all')}
+                  className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+                >
+                  <option value="single">Solo esta cita</option>
+                  <option value="future">Esta y siguientes</option>
+                  <option value="all">Toda la serie</option>
+                </select>
+              </div>
+            )}
+          </div>
+
           {/* ── Advertencia de conflicto mejorada ── */}
           {conflicto && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
@@ -672,6 +770,36 @@ export function ModalCita({
               </div>
             </div>
           )}
+
+          {alertaSoft && !conflicto && (
+            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+              <p className="text-[12px] font-semibold text-orange-700">Alerta de agenda</p>
+              <p className="text-[11px] text-orange-600 mt-0.5">{alertaSoft}</p>
+            </div>
+          )}
+
+          <div className="p-3 bg-gray-50 border border-gray-100 rounded-lg space-y-2">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Recordatorios</p>
+            <label className="flex items-center gap-2 text-[12px] text-gray-700">
+              <input
+                type="checkbox"
+                checked={recordatorioWhatsApp}
+                onChange={(e) => setRecordatorioWhatsApp(e.target.checked)}
+              />
+              Enviar recordatorio por WhatsApp
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-gray-600">Minutos antes</span>
+              <Input
+                type="number"
+                min={15}
+                step={15}
+                value={recordatorioMinutos}
+                onChange={(e) => setRecordatorioMinutos(Number(e.target.value))}
+                className="h-8 max-w-[100px] text-[12px]"
+              />
+            </div>
+          </div>
 
           {/* ── Error general ── */}
           {error && (

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
-import type { CitaConRelaciones, ProfesionalRow } from '@/lib/agenda/queries'
+import type { CitaConRelaciones } from '@/lib/agenda/queries'
 import { BloqueCita, PIXEL_POR_MIN, HORA_GRILLA_INICIO } from './BloquesCita'
 
 const HORA_FIN = 20
@@ -47,18 +47,20 @@ function ColumnaDia({
   dia,
   esHoy,
   citas,
-  profesionales,
   profesionalesFiltrados,
   onClickCita,
   onClickCelda,
+  onDropCita,
+  onResizeCita,
 }: {
   dia: Date
   esHoy: boolean
   citas: CitaConRelaciones[]
-  profesionales: ProfesionalRow[]
   profesionalesFiltrados: string[]
   onClickCita: (cita: CitaConRelaciones) => void
-  onClickCelda: (profesionalId: string, hora: Date) => void
+  onClickCelda: (profesionalId: string | undefined, hora: Date) => void
+  onDropCita: (cita: CitaConRelaciones, profesionalId: string, hora: Date) => void
+  onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
 }) {
   const dispuestas = calcularColumnas(citas)
   const [hoverY, setHoverY] = useState<number | null>(null)
@@ -74,10 +76,8 @@ function ColumnaDia({
     hora.setHours(HORA_GRILLA_INICIO + Math.floor(minutosRedondeados / 60))
     hora.setMinutes(minutosRedondeados % 60)
     hora.setSeconds(0)
-    const profId = profesionalesFiltrados.length > 0
-      ? profesionalesFiltrados[0]
-      : profesionales[0]?.id
-    if (profId) onClickCelda(profId, hora)
+    const profId = profesionalesFiltrados.length === 1 ? profesionalesFiltrados[0] : undefined
+    onClickCelda(profId, hora)
   }
 
   return (
@@ -91,6 +91,22 @@ function ColumnaDia({
         setSobreFondo(e.target === e.currentTarget)
       }}
       onMouseLeave={() => { setHoverY(null); setSobreFondo(false) }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault()
+        const citaId = e.dataTransfer.getData('text/cita-id')
+        const cita = citas.find((item) => item.id === citaId)
+        if (!cita) return
+        const rect = e.currentTarget.getBoundingClientRect()
+        const y = e.clientY - rect.top
+        const minutos = Math.floor(y / PIXEL_POR_MIN)
+        const minutosRedondeados = Math.floor(minutos / 15) * 15
+        const hora = new Date(dia)
+        hora.setHours(HORA_GRILLA_INICIO + Math.floor(minutosRedondeados / 60))
+        hora.setMinutes(minutosRedondeados % 60)
+        hora.setSeconds(0)
+        onDropCita(cita, cita.profesional_id, hora)
+      }}
     >
       {/* Highlight de cuarto de hora al hover sobre fondo */}
       {sobreFondo && hoverY !== null && (
@@ -131,6 +147,7 @@ function ColumnaDia({
               <BloqueCita
                 cita={cita}
                 onClick={onClickCita}
+                onResize={onResizeCita}
                 topPx={top + 1}
                 heightPx={height - 2}
                 leftPercent={col * ancho + 0.5}
@@ -163,26 +180,34 @@ function ColumnaDia({
 
 type Props = {
   fechaBase: Date
-  profesionales: ProfesionalRow[]
   profesionalesFiltrados: string[]
   citas: CitaConRelaciones[]
   onClickCita: (cita: CitaConRelaciones) => void
-  onClickCelda: (profesionalId: string, hora: Date) => void
+  onClickCelda: (profesionalId: string | undefined, hora: Date) => void
+  onDropCita: (cita: CitaConRelaciones, profesionalId: string, hora: Date) => void
+  onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onVerDia?: (fecha: Date) => void
 }
 
 export function CalendarioSemana({
   fechaBase,
-  profesionales,
   profesionalesFiltrados,
   citas,
   onClickCita,
   onClickCelda,
+  onDropCita,
+  onResizeCita,
   onVerDia,
 }: Props) {
   const hoy = new Date()
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [lineaHora, setLineaHora] = useState<number | null>(null)
+  const [lineaHora, setLineaHora] = useState<number | null>(() => {
+    const ahora = new Date()
+    const h = ahora.getHours()
+    const m = ahora.getMinutes()
+    if (h < HORA_GRILLA_INICIO || h >= HORA_FIN) return null
+    return (h - HORA_GRILLA_INICIO) * ALTURA_HORA_PX + m * PIXEL_POR_MIN
+  })
 
   const lunesSemana = startOfWeek(fechaBase, { weekStartsOn: 1 })
   const diasFecha = Array.from({ length: 7 }, (_, i) => addDays(lunesSemana, i))
@@ -200,7 +225,6 @@ export function CalendarioSemana({
   }
 
   useEffect(() => {
-    calcularLineaActual()
     const intervalo = setInterval(calcularLineaActual, 60_000)
     return () => clearInterval(intervalo)
   }, [])
@@ -325,10 +349,11 @@ export function CalendarioSemana({
                   dia={dia}
                   esHoy={isSameDay(dia, hoy)}
                   citas={citasDia}
-                  profesionales={profesionales}
                   profesionalesFiltrados={profesionalesFiltrados}
                   onClickCita={onClickCita}
                   onClickCelda={onClickCelda}
+                  onDropCita={onDropCita}
+                  onResizeCita={onResizeCita}
                 />
               )
             })}

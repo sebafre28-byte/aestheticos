@@ -44,6 +44,8 @@ const ESTADO_BORDE: Record<EstadoCita, { color: string; style: 'solid' | 'dashed
 type Props = {
   cita: CitaConRelaciones
   onClick: (cita: CitaConRelaciones) => void
+  onDragStart?: (cita: CitaConRelaciones) => void
+  onResize?: (cita: CitaConRelaciones, deltaMinutos: number) => void
   topPx: number
   heightPx: number
   leftPercent?: number
@@ -53,6 +55,8 @@ type Props = {
 export function BloqueCita({
   cita,
   onClick,
+  onDragStart,
+  onResize,
   topPx,
   heightPx,
   leftPercent = 0,
@@ -103,12 +107,36 @@ export function BloqueCita({
     ? `${nombrePaciente}${nombreServicio ? ' · ' + nombreServicio : ''} · ${horaInicio}–${horaFin}`
     : undefined
 
+  function iniciarResize(event: React.MouseEvent<HTMLButtonElement>) {
+    if (!onResize) return
+    event.stopPropagation()
+    const yInicio = event.clientY
+
+    function onMove(e: MouseEvent) {
+      const diffPx = e.clientY - yInicio
+      const diffMin = Math.round((diffPx / PIXEL_POR_MIN) / 15) * 15
+      onResize(cita, diffMin)
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={() => onClick(cita)}
       onKeyDown={(e) => e.key === 'Enter' && onClick(cita)}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/cita-id', cita.id)
+        onDragStart?.(cita)
+      }}
       title={tituloTooltip}
       className="absolute rounded-md cursor-pointer transition-all hover:brightness-95 select-none overflow-hidden"
       style={estiloBloque}
@@ -159,6 +187,14 @@ export function BloqueCita({
           </p>
         )}
       </div>
+      {onResize && (
+        <button
+          type="button"
+          aria-label="Ajustar duración de cita"
+          onMouseDown={iniciarResize}
+          className="absolute bottom-0 right-0 left-0 h-2 cursor-ns-resize bg-transparent hover:bg-black/10"
+        />
+      )}
     </div>
   )
 }

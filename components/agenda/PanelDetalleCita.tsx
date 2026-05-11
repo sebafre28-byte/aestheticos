@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { format, parseISO, differenceInMinutes, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
@@ -10,7 +10,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
-import { actualizarEstadoCita, getHistorialPaciente, editarCita } from '@/lib/agenda/queries'
+import { actualizarEstadoCita, getHistorialPaciente, editarCita, getAuditCita, type AuditLogRow } from '@/lib/agenda/queries'
+import { useDialogA11y } from './useDialogA11y'
 
 // Configuración visual del badge prominente de estado
 const estadoConfig: Record<EstadoCita, {
@@ -141,10 +142,13 @@ export function PanelDetalleCita({
   onEditar,
   onEstadoActualizado,
 }: Props) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  useDialogA11y(panelRef, onCerrar)
   const [estadoActual, setEstadoActual] = useState<EstadoCita>(cita.estado)
   const [actualizando, setActualizando] = useState<EstadoCita | null>(null)
   const [historial, setHistorial] = useState<CitaConRelaciones[]>([])
-  const [cargandoHistorial, setCargandoHistorial] = useState(false)
+  const [cargandoHistorial, setCargandoHistorial] = useState(true)
+  const [audit, setAudit] = useState<AuditLogRow[]>([])
 
   const [mostrarNota, setMostrarNota] = useState(false)
   const [textoNota, setTextoNota] = useState(cita.notas ?? '')
@@ -166,7 +170,6 @@ export function PanelDetalleCita({
 
   useEffect(() => {
     if (!paciente?.id) return
-    setCargandoHistorial(true)
     getHistorialPaciente(paciente.id).then((h) => {
       setHistorial(h.filter((c) => c.id !== cita.id).slice(0, 5))
       setCargandoHistorial(false)
@@ -174,12 +177,8 @@ export function PanelDetalleCita({
   }, [paciente?.id, cita.id])
 
   useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCerrar()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onCerrar])
+    getAuditCita(cita.id).then(setAudit)
+  }, [cita.id])
 
   async function cambiarEstado(nuevoEstado: EstadoCita) {
     setActualizando(nuevoEstado)
@@ -218,7 +217,13 @@ export function PanelDetalleCita({
       <div className="fixed inset-0 bg-black/20 z-40" onClick={onCerrar} />
 
       {/* Panel lateral derecho */}
-      <div className="fixed top-0 right-0 h-full w-[380px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-100 animate-slide-in-right">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isVistaProfe ? 'Detalle de mi cita' : 'Detalle de cita'}
+        className="fixed top-0 right-0 h-full w-[380px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-100 animate-slide-in-right"
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
@@ -293,6 +298,13 @@ export function PanelDetalleCita({
               label="Profesional"
               value={`${profesional?.nombre ?? '—'}${profesional?.especialidad ? ` · ${profesional.especialidad}` : ''}`}
             />
+            {(cita.recurrence_kind ?? 'none') !== 'none' && (
+              <DetalleItem
+                icon={<Calendar className="size-3.5 text-gray-400" />}
+                label="Recurrencia"
+                value={`Serie ${cita.recurrence_kind}`}
+              />
+            )}
             <DetalleItem
               icon={<FileText className="size-3.5 text-gray-400" />}
               label="Notas"
@@ -427,6 +439,24 @@ export function PanelDetalleCita({
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </div>
+
+          <div className="px-5 py-4 border-t border-gray-50">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
+              Auditoría
+            </p>
+            {audit.length === 0 ? (
+              <p className="text-[12px] text-gray-400">Sin eventos de auditoría.</p>
+            ) : (
+              <div className="space-y-1">
+                {audit.slice(0, 5).map((entry) => (
+                  <div key={entry.id} className="text-[11px] text-gray-500 border-b border-gray-50 pb-1">
+                    <span className="font-semibold text-gray-700">{entry.accion}</span>
+                    <span className="ml-1">{formatDistanceToNow(parseISO(entry.created_at), { locale: es, addSuffix: true })}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
