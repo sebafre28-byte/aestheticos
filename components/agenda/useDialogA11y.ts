@@ -18,10 +18,11 @@ export function useDialogA11y(
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
+    const trapRoot: HTMLElement = container
 
     const previousActive = document.activeElement as HTMLElement | null
-    const focusables = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-    ;(focusables[0] ?? container).focus()
+    const focusables = Array.from(trapRoot.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+    ;(focusables[0] ?? trapRoot).focus()
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && onClose) {
@@ -31,7 +32,7 @@ export function useDialogA11y(
       }
 
       if (event.key !== 'Tab') return
-      const currentFocusables = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+      const currentFocusables = Array.from(trapRoot.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
       if (currentFocusables.length === 0) return
 
       const first = currentFocusables[0]

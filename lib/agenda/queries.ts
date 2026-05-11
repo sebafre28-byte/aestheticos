@@ -1,7 +1,11 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
+import type { PostgrestError } from '@supabase/supabase-js'
 import { addDays } from 'date-fns'
+
+/** Resultado típico de `.select()` en listas; evita que `withRetry` infiera `unknown`. */
+type SupabaseListResult<T> = { data: T[] | null; error: PostgrestError | null }
 
 const agendaCache = new Map<string, { expiresAt: number; value: unknown }>()
 const inflight = new Map<string, Promise<unknown>>()
@@ -36,11 +40,11 @@ function invalidateAgendaCache() {
   }
 }
 
-async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
+async function withRetry<T>(fn: () => PromiseLike<T> | T, attempts = 2): Promise<T> {
   let lastError: unknown
   for (let i = 0; i <= attempts; i += 1) {
     try {
-      return await fn()
+      return await Promise.resolve(fn())
     } catch (error) {
       lastError = error
       await new Promise((resolve) => setTimeout(resolve, 150 * (i + 1)))
@@ -168,7 +172,7 @@ export type AuditLogRow = {
 export async function getCitasDelDia(fecha: string): Promise<CitaConRelaciones[]> {
   return withCache(`citas-dia:${fecha}`, 20_000, async () => {
     const supabase = createClient()
-    const { data, error } = await withRetry(() =>
+    const { data, error } = await withRetry<SupabaseListResult<CitaConRelaciones>>(() =>
       supabase
         .from('citas')
         .select(`
@@ -215,7 +219,7 @@ export async function getCitasDeSemana(
       query = query.eq('profesional_id', profesionalId)
     }
 
-    const { data, error } = await withRetry(() => query)
+    const { data, error } = await withRetry<SupabaseListResult<CitaConRelaciones>>(() => query)
     if (error) {
       console.error('Error getCitasDeSemana:', error)
       return []

@@ -108,14 +108,15 @@ export function BloqueCita({
     : undefined
 
   function iniciarResize(event: React.MouseEvent<HTMLButtonElement>) {
-    if (!onResize) return
+    if (onResize == null) return
+    const handleResize: (c: CitaConRelaciones, deltaMinutos: number) => void = onResize
     event.stopPropagation()
     const yInicio = event.clientY
 
     function onMove(e: MouseEvent) {
       const diffPx = e.clientY - yInicio
       const diffMin = Math.round((diffPx / PIXEL_POR_MIN) / 15) * 15
-      onResize(cita, diffMin)
+      handleResize(cita, diffMin)
     }
     function onUp() {
       window.removeEventListener('mousemove', onMove)
