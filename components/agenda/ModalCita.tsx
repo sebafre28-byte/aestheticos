@@ -119,7 +119,6 @@ export function ModalCita({
   // ─── Time picker ───────────────────────────────────────────────────────────
   const [abiertoPicker, setAbiertoPicker] = useState(false)
   const [citasDelProfesional, setCitasDelProfesional] = useState<CitaConRelaciones[]>([])
-  const [disponibilidadValida, setDisponibilidadValida] = useState(true)
   const pickerRef = useRef<HTMLDivElement>(null)
   const servicioActual = servicios.find((s) => s.id === servicioId)
   const categoriasServicio = ['todas', ...Array.from(new Set(servicios.map(inferirCategoriaServicio))).sort()]
@@ -184,7 +183,6 @@ export function ModalCita({
       const tramosDia = disponibilidad.filter((d) => d.dia_semana === diaSemanaISO)
       if (tramosDia.length === 0) {
         if (active) {
-          setDisponibilidadValida(false)
           setAlertaSoft('El profesional no tiene disponibilidad declarada para este día.')
         }
         return
@@ -204,7 +202,6 @@ export function ModalCita({
       const bloquea = bloqueos.some((b) => (b.profesional_id === null || b.profesional_id === profesionalId) && b.inicio < finIso && b.fin > inicioIso)
 
       if (active) {
-        setDisponibilidadValida(dentro && !bloquea)
         if (!dentro) setAlertaSoft('Horario fuera de disponibilidad del profesional.')
         else if (bloquea) setAlertaSoft('Existe un bloqueo de agenda para ese horario.')
         else setAlertaSoft(null)
@@ -310,7 +307,6 @@ export function ModalCita({
     if (!servicioId) { setError('Selecciona un servicio'); return }
     if (!fecha || !hora) { setError('Indica fecha y hora'); return }
     if (conflicto) { setError('Existe conflicto de horario. Selecciona otro bloque.'); return }
-    if (!disponibilidadValida) { setError('Horario no disponible según reglas de agenda.'); return }
 
     setError(null)
     setGuardando(true)
