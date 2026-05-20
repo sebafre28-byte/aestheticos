@@ -1,11 +1,16 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { addHours, format, subMinutes } from 'date-fns'
+import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { Job } from 'bullmq'
 import { Queue, Worker } from 'bullmq'
 import Redis from 'ioredis'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import {
+  CLINIC_TIMEZONE,
+  citaInicioToUtcMs,
+  storedInicioOffsetMs,
+} from '@/lib/agenda/datetime'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   clinicPhoneToWhatsApp,
@@ -28,6 +33,126 @@ export type WhatsappJobData = {
   clinicaId: string
   citaId: string
   tipoMensaje: WhatsappLogTipo
+}
+
+const MS_PER_HOUR = 60 * 60 * 1000
+
+export { CLINIC_TIMEZONE, citaInicioToUtcMs, storedInicioOffsetMs }
+
+/** Ventana UTC en milisegundos (independiente de TZ del runtime). */
+export function utcWindowFromNow(
+  hoursFromNowMin: number,
+  hoursFromNowMax: number,
+  nowMs: number = Date.now(),
+): { desde: Date; hasta: Date; desdeUtc: string; hastaUtc: string; nowUtc: string } {
+  const now = new Date(nowMs)
+  const desde = new Date(nowMs + hoursFromNowMin * MS_PER_HOUR)
+  const hasta = new Date(nowMs + hoursFromNowMax * MS_PER_HOUR)
+  return {
+    desde,
+    hasta,
+    nowUtc: now.toISOString(),
+    desdeUtc: desde.toISOString(),
+    hastaUtc: hasta.toISOString(),
+  }
+}
+
+export function hoursUntilInicioUtc(
+  inicioIso: string,
+  nowMs: number = Date.now(),
+  timeZone: string = CLINIC_TIMEZONE,
+): number {
+  return (citaInicioToUtcMs(inicioIso, timeZone) - nowMs) / MS_PER_HOUR
+}
+
+/** Límites ISO para filtrar `inicio` en BD (naive local) + ventana UTC real para debug. */
+export function reminderQueryBounds(
+  hoursFromNowMin: number,
+  hoursFromNowMax: number,
+  nowMs: number = Date.now(),
+  timeZone: string = CLINIC_TIMEZONE,
+  queryPaddingHours = 2,
+): {
+  trueWindow: ReturnType<typeof utcWindowFromNow>
+  queryDesdeUtc: string
+  queryHastaUtc: string
+  offsetMsAtMid: number
+} {
+  const trueWindow = utcWindowFromNow(hoursFromNowMin, hoursFromNowMax, nowMs)
+  const midMs = nowMs + ((hoursFromNowMin + hoursFromNowMax) / 2) * MS_PER_HOUR
+  const offsetMs = storedInicioOffsetMs(midMs, timeZone)
+
+  const queryDesde = new Date(trueWindow.desde.getTime() - offsetMs - queryPaddingHours * MS_PER_HOUR)
+  const queryHasta = new Date(trueWindow.hasta.getTime() - offsetMs + queryPaddingHours * MS_PER_HOUR)
+
+  return {
+    trueWindow,
+    queryDesdeUtc: queryDesde.toISOString(),
+    queryHastaUtc: queryHasta.toISOString(),
+    offsetMsAtMid: offsetMs,
+  }
+}
+
+export function citaEnVentanaHoras(
+  inicioIso: string,
+  hoursMin: number,
+  hoursMax: number,
+  nowMs: number = Date.now(),
+  timeZone: string = CLINIC_TIMEZONE,
+): boolean {
+  const h = hoursUntilInicioUtc(inicioIso, nowMs, timeZone)
+  return h >= hoursMin && h <= hoursMax
+}
+
+type CitaCronRow = {
+  id: string
+  clinica_id: string
+  inicio: string
+  pacientes: { telefono: string | null } | { telefono: string | null }[] | null
+}
+
+function normalizePacienteTelefono(
+  pacientes: CitaCronRow['pacientes'],
+): string | null {
+  if (!pacientes) return null
+  const row = Array.isArray(pacientes) ? pacientes[0] : pacientes
+  return row?.telefono ?? null
+}
+
+export type CronRecordatoriosDebug = {
+  nowUtc: string
+  /** Referencia: ahora + 24 h en UTC (instante objetivo del recordatorio 24 h). */
+  nowPlus24hUtc: string
+  clinicTimezone: string
+  ventanas: Array<{
+    tipo: WhatsappLogTipo
+    /** Ventana real en UTC (horas hasta inicio corregidas por America/Santiago). */
+    trueDesdeUtc: string
+    trueHastaUtc: string
+    /** Límites usados en `.gte/.lte('inicio', …)` sobre valores guardados en BD. */
+    queryDesdeUtc: string
+    queryHastaUtc: string
+    offsetMsAtMid: number
+    horasMin: number
+    horasMax: number
+    encontradasQuery: number
+    encontradasEnVentana: number
+    muestras: Array<{
+      citaId: string
+      inicioUtc: string
+      horasHastaInicio: number
+      telefono: string | null
+    }>
+  }>
+  postCita?: {
+    trueDesdeUtc: string
+    trueHastaUtc: string
+    queryDesdeUtc: string
+    queryHastaUtc: string
+    encontradasQuery: number
+    encontradas: number
+  }
+  envioDetalle: Array<{ citaId: string; tipo: WhatsappLogTipo; status: string; reason?: string }>
 }
 
 type CitaWhatsAppRow = {
@@ -222,6 +347,9 @@ export async function sendWhatsappReminderInternal(
   }
 
   const rawPhone = row.pacientes?.telefono
+  if (!rawPhone) {
+    console.log('[whatsapp] paciente sin telefono', { citaId, tipoMensaje, paciente: row.pacientes })
+  }
   const to = toWhatsAppE164(rawPhone ?? '')
   if (!to) {
     await supabase.from('whatsapp_logs').insert({
@@ -329,8 +457,27 @@ export async function runHourlyRecordatorios(): Promise<{
   fallidos: number
   omitidos: number
   errores: string[]
+  debug: CronRecordatoriosDebug
 }> {
-  const out = { enviados: 0, fallidos: 0, omitidos: 0, errores: [] as string[] }
+  const out: {
+    enviados: number
+    fallidos: number
+    omitidos: number
+    errores: string[]
+    debug: CronRecordatoriosDebug
+  } = {
+    enviados: 0,
+    fallidos: 0,
+    omitidos: 0,
+    errores: [],
+    debug: {
+      nowUtc: new Date().toISOString(),
+      nowPlus24hUtc: new Date(Date.now() + 24 * MS_PER_HOUR).toISOString(),
+      clinicTimezone: CLINIC_TIMEZONE,
+      ventanas: [],
+      envioDetalle: [],
+    },
+  }
 
   let supabase: SupabaseClient
   try {
@@ -340,70 +487,176 @@ export async function runHourlyRecordatorios(): Promise<{
     return out
   }
 
-  const now = new Date()
+  const nowMs = Date.now()
+  out.debug.nowUtc = new Date(nowMs).toISOString()
+  out.debug.nowPlus24hUtc = new Date(nowMs + 24 * MS_PER_HOUR).toISOString()
+  out.debug.clinicTimezone = CLINIC_TIMEZONE
 
-  const ventanas: { tipo: WhatsappLogTipo; desde: Date; hasta: Date }[] = [
-    {
-      tipo: 'recordatorio_24h',
-      desde: addHours(now, 23),
-      hasta: addHours(now, 25),
-    },
-    {
-      tipo: 'recordatorio_2h',
-      desde: addHours(now, 1),
-      hasta: addHours(now, 3),
-    },
+  // Ventana real en UTC; 22–26 h / 0.5–3.5 h toleran cron horario. Query en BD compensa inicio guardado sin offset.
+  const ventanasConfig: { tipo: WhatsappLogTipo; horasMin: number; horasMax: number }[] = [
+    { tipo: 'recordatorio_24h', horasMin: 22, horasMax: 26 },
+    { tipo: 'recordatorio_2h', horasMin: 0.5, horasMax: 3.5 },
   ]
 
-  for (const v of ventanas) {
+  console.log('[cron/recordatorios] inicio', {
+    nowUtc: out.debug.nowUtc,
+    nowPlus24hUtc: out.debug.nowPlus24hUtc,
+    clinicTimezone: CLINIC_TIMEZONE,
+    tzRuntime: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  })
+
+  for (const cfg of ventanasConfig) {
+    const bounds = reminderQueryBounds(cfg.horasMin, cfg.horasMax, nowMs)
+
     const { data: citas, error } = await supabase
       .from('citas')
-      .select('id, clinica_id')
+      .select('id, clinica_id, inicio, pacientes ( telefono )')
       .in('estado', ['pendiente', 'confirmada'])
-      .gte('inicio', v.desde.toISOString())
-      .lte('inicio', v.hasta.toISOString())
+      .gte('inicio', bounds.queryDesdeUtc)
+      .lte('inicio', bounds.queryHastaUtc)
+
+    const queryRows = (citas ?? []) as CitaCronRow[]
+    const rows = queryRows.filter((c) =>
+      citaEnVentanaHoras(c.inicio, cfg.horasMin, cfg.horasMax, nowMs),
+    )
+
+    const ventanaDebug = {
+      tipo: cfg.tipo,
+      trueDesdeUtc: bounds.trueWindow.desdeUtc,
+      trueHastaUtc: bounds.trueWindow.hastaUtc,
+      queryDesdeUtc: bounds.queryDesdeUtc,
+      queryHastaUtc: bounds.queryHastaUtc,
+      offsetMsAtMid: bounds.offsetMsAtMid,
+      horasMin: cfg.horasMin,
+      horasMax: cfg.horasMax,
+      encontradasQuery: queryRows.length,
+      encontradasEnVentana: rows.length,
+      muestras: rows.slice(0, 8).map((c) => ({
+        citaId: c.id,
+        inicioUtc: c.inicio,
+        horasHastaInicio: Math.round(hoursUntilInicioUtc(c.inicio, nowMs) * 100) / 100,
+        telefono: normalizePacienteTelefono(c.pacientes),
+      })),
+    }
+    out.debug.ventanas.push(ventanaDebug)
+
+    console.log('[cron/recordatorios] ventana', ventanaDebug)
+
+    if (rows.length === 0 && !error) {
+      const { data: proximas } = await supabase
+        .from('citas')
+        .select('id, inicio, estado, pacientes ( telefono )')
+        .in('estado', ['pendiente', 'confirmada'])
+        .gte('inicio', new Date(nowMs).toISOString())
+        .order('inicio', { ascending: true })
+        .limit(5)
+      console.log('[cron/recordatorios] sin citas en ventana — próximas 5 (UTC)', {
+        tipo: cfg.tipo,
+        ventana: {
+          trueDesdeUtc: bounds.trueWindow.desdeUtc,
+          trueHastaUtc: bounds.trueWindow.hastaUtc,
+          queryDesdeUtc: bounds.queryDesdeUtc,
+          queryHastaUtc: bounds.queryHastaUtc,
+        },
+        proximas: (proximas ?? []).map((c) => {
+          const row = c as { id: string; inicio: string; estado: string; pacientes: CitaCronRow['pacientes'] }
+          return {
+            id: row.id,
+            inicioUtc: row.inicio,
+            horasHastaInicio: Math.round(hoursUntilInicioUtc(row.inicio, nowMs) * 100) / 100,
+            telefono: normalizePacienteTelefono(row.pacientes),
+            estado: row.estado,
+          }
+        }),
+      })
+    }
 
     if (error) {
-      out.errores.push(`list ${v.tipo}: ${error.message}`)
+      out.errores.push(`list ${cfg.tipo}: ${error.message}`)
+      console.error('[cron/recordatorios] query error', cfg.tipo, error)
       continue
     }
 
-    for (const c of citas ?? []) {
+    for (const c of rows) {
       const r = await sendWhatsappReminderInternal(supabase, {
         clinicaId: c.clinica_id,
         citaId: c.id,
-        tipoMensaje: v.tipo,
+        tipoMensaje: cfg.tipo,
       })
+      const detalle = {
+        citaId: c.id,
+        tipo: cfg.tipo,
+        status: r.status,
+        ...(r.status === 'omitido' ? { reason: r.reason } : {}),
+        ...(r.status === 'fallido' ? { reason: r.error } : {}),
+      }
+      out.debug.envioDetalle.push(detalle)
+      console.log('[cron/recordatorios] envio', detalle)
+
       if (r.status === 'enviado') out.enviados += 1
       else if (r.status === 'fallido') out.fallidos += 1
       else out.omitidos += 1
     }
   }
 
-  const postDesde = subMinutes(now, 150)
-  const postHasta = subMinutes(now, 90)
+  const postTrueDesdeMs = nowMs - 150 * 60 * 1000
+  const postTrueHastaMs = nowMs - 90 * 60 * 1000
+  const postOffsetMs = storedInicioOffsetMs((postTrueDesdeMs + postTrueHastaMs) / 2)
+  const postQueryDesdeUtc = new Date(postTrueDesdeMs - postOffsetMs - 2 * MS_PER_HOUR).toISOString()
+  const postQueryHastaUtc = new Date(postTrueHastaMs - postOffsetMs + 2 * MS_PER_HOUR).toISOString()
+  const postTrueDesdeUtc = new Date(postTrueDesdeMs).toISOString()
+  const postTrueHastaUtc = new Date(postTrueHastaMs).toISOString()
 
-  const { data: postCitas, error: postErr } = await supabase
+  const { data: postCitasRaw, error: postErr } = await supabase
     .from('citas')
-    .select('id, clinica_id')
+    .select('id, clinica_id, fin, pacientes ( telefono )')
     .eq('estado', 'completada')
-    .gte('fin', postDesde.toISOString())
-    .lte('fin', postHasta.toISOString())
+    .gte('fin', postQueryDesdeUtc)
+    .lte('fin', postQueryHastaUtc)
+
+  const postCitas = (postCitasRaw ?? []).filter((c) => {
+    const finMs = citaInicioToUtcMs(c.fin as string)
+    return finMs >= postTrueDesdeMs && finMs <= postTrueHastaMs
+  })
+
+  out.debug.postCita = {
+    trueDesdeUtc: postTrueDesdeUtc,
+    trueHastaUtc: postTrueHastaUtc,
+    queryDesdeUtc: postQueryDesdeUtc,
+    queryHastaUtc: postQueryHastaUtc,
+    encontradasQuery: postCitasRaw?.length ?? 0,
+    encontradas: postCitas.length,
+  }
+  console.log('[cron/recordatorios] post_cita', out.debug.postCita)
 
   if (postErr) {
     out.errores.push(`list post_cita: ${postErr.message}`)
   } else {
-    for (const c of postCitas ?? []) {
+    for (const c of postCitas) {
       const r = await sendWhatsappReminderInternal(supabase, {
         clinicaId: c.clinica_id,
         citaId: c.id,
         tipoMensaje: 'post_cita',
       })
+      out.debug.envioDetalle.push({
+        citaId: c.id,
+        tipo: 'post_cita',
+        status: r.status,
+        ...(r.status === 'omitido' ? { reason: r.reason } : {}),
+        ...(r.status === 'fallido' ? { reason: r.error } : {}),
+      })
       if (r.status === 'enviado') out.enviados += 1
       else if (r.status === 'fallido') out.fallidos += 1
       else out.omitidos += 1
     }
   }
+
+  console.log('[cron/recordatorios] resumen', {
+    enviados: out.enviados,
+    fallidos: out.fallidos,
+    omitidos: out.omitidos,
+    errores: out.errores,
+  })
 
   return out
 }

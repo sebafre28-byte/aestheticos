@@ -1,5 +1,6 @@
 'use client'
 
+import { clinicDayUtcBounds } from '@/lib/agenda/datetime'
 import { createClient } from '@/lib/supabase/client'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { addDays } from 'date-fns'
@@ -170,6 +171,7 @@ export type AuditLogRow = {
 // ─── Citas del día con joins completos ────────────────────────────────────────
 
 export async function getCitasDelDia(fecha: string): Promise<CitaConRelaciones[]> {
+  const { desdeIso, hastaIso } = clinicDayUtcBounds(fecha)
   return withCache(`citas-dia:${fecha}`, 20_000, async () => {
     const supabase = createClient()
     const { data, error } = await withRetry<SupabaseListResult<CitaConRelaciones>>(() =>
@@ -181,8 +183,8 @@ export async function getCitasDelDia(fecha: string): Promise<CitaConRelaciones[]
           profesionales(*),
           servicios(*)
         `)
-        .gte('inicio', `${fecha}T00:00:00`)
-        .lte('inicio', `${fecha}T23:59:59`)
+        .gte('inicio', desdeIso)
+        .lte('inicio', hastaIso)
         .order('inicio', { ascending: true })
     )
 
@@ -201,6 +203,8 @@ export async function getCitasDeSemana(
   fechaFin: string,
   profesionalId?: string
 ): Promise<CitaConRelaciones[]> {
+  const { desdeIso } = clinicDayUtcBounds(fechaInicio)
+  const { hastaIso } = clinicDayUtcBounds(fechaFin)
   return withCache(`citas-semana:${fechaInicio}:${fechaFin}:${profesionalId ?? 'all'}`, 20_000, async () => {
     const supabase = createClient()
     let query = supabase
@@ -211,8 +215,8 @@ export async function getCitasDeSemana(
         profesionales(*),
         servicios(*)
       `)
-      .gte('inicio', `${fechaInicio}T00:00:00`)
-      .lte('inicio', `${fechaFin}T23:59:59`)
+      .gte('inicio', desdeIso)
+      .lte('inicio', hastaIso)
       .order('inicio', { ascending: true })
 
     if (profesionalId) {

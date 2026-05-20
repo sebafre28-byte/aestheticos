@@ -11,6 +11,14 @@ import type {
   CitaConRelaciones, ProfesionalRow, ServicioRow, PacienteRow, NuevaCitaData,
 } from '@/lib/agenda/queries'
 import {
+  clinicDayUtcBounds,
+  clinicLocalFinIso,
+  clinicLocalToIso,
+  isoToClinicLocalDateForForm,
+  isoToClinicLocalTime,
+  isoToClinicLocalTimeForForm,
+} from '@/lib/agenda/datetime'
+import {
   getPacientesBusqueda, crearPacienteRapido, crearCita, editarCita,
   verificarConflicto, getClinicaId, getCitasDelDia, getDisponibilidadProfesional, getBloqueosRango, crearRecordatorioCita,
 } from '@/lib/agenda/queries'
@@ -23,14 +31,6 @@ const SLOTS_HORA: string[] = Array.from({ length: 48 }, (_, i) => {
   const m = (totalMin % 60).toString().padStart(2, '0')
   return `${h}:${m}`
 })
-
-function calcularFin(fecha: string, hora: string, duracionMin: number): string {
-  const [hh, mm] = hora.split(':').map(Number)
-  const totalMin = hh * 60 + mm + duracionMin
-  const finHH = Math.floor(totalMin / 60).toString().padStart(2, '0')
-  const finMM = (totalMin % 60).toString().padStart(2, '0')
-  return `${fecha}T${finHH}:${finMM}:00`
-}
 
 function hexToRgba(hex: string, alpha: number): string {
   const h = hex.replace('#', '')
@@ -91,14 +91,14 @@ export function ModalCita({
   )
   const [fecha, setFecha] = useState(
     citaExistente
-      ? citaExistente.inicio.slice(0, 10)
+      ? isoToClinicLocalDateForForm(citaExistente.inicio)
       : fechaHoraInicial
       ? format(fechaHoraInicial, 'yyyy-MM-dd')
       : format(new Date(), 'yyyy-MM-dd')
   )
   const [hora, setHora] = useState(
     citaExistente
-      ? citaExistente.inicio.slice(11, 16)
+      ? isoToClinicLocalTimeForForm(citaExistente.inicio)
       : fechaHoraInicial
       ? format(fechaHoraInicial, 'HH:mm')
       : '09:00'
@@ -189,17 +189,26 @@ export function ModalCita({
       }
 
       const inicioMin = parseInt(hora.slice(0, 2), 10) * 60 + parseInt(hora.slice(3, 5), 10)
-      const finIso = calcularFin(fecha, hora, servicioActual.duracion_minutos)
-      const finMin = parseInt(finIso.slice(11, 13), 10) * 60 + parseInt(finIso.slice(14, 16), 10)
+      const finIso = clinicLocalFinIso(fecha, hora, servicioActual.duracion_minutos)
+      const finMin = (() => {
+        const t = isoToClinicLocalTime(finIso)
+        return parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 10)
+      })()
       const dentro = tramosDia.some((d) => {
         const inicioDisp = parseInt(d.hora_inicio.slice(0, 2), 10) * 60 + parseInt(d.hora_inicio.slice(3, 5), 10)
         const finDisp = parseInt(d.hora_fin.slice(0, 2), 10) * 60 + parseInt(d.hora_fin.slice(3, 5), 10)
         return inicioMin >= inicioDisp && finMin <= finDisp
       })
 
-      const bloqueos = await getBloqueosRango(`${fecha}T00:00:00`, `${fecha}T23:59:59`)
-      const inicioIso = `${fecha}T${hora}:00`
-      const bloquea = bloqueos.some((b) => (b.profesional_id === null || b.profesional_id === profesionalId) && b.inicio < finIso && b.fin > inicioIso)
+      const { desdeIso: diaDesde, hastaIso: diaHasta } = clinicDayUtcBounds(fecha)
+      const bloqueos = await getBloqueosRango(diaDesde, diaHasta)
+      const inicioIso = clinicLocalToIso(fecha, hora)
+      const bloquea = bloqueos.some(
+        (b) =>
+          (b.profesional_id === null || b.profesional_id === profesionalId) &&
+          new Date(b.inicio).getTime() < new Date(finIso).getTime() &&
+          new Date(b.fin).getTime() > new Date(inicioIso).getTime(),
+      )
 
       if (active) {
         if (!dentro) setAlertaSoft('Horario fuera de disponibilidad del profesional.')
@@ -215,14 +224,14 @@ export function ModalCita({
 
   const horaFin = (() => {
     if (!fecha || !hora || !servicioActual) return ''
-    return calcularFin(fecha, hora, servicioActual.duracion_minutos).slice(11, 16)
+    return isoToClinicLocalTime(clinicLocalFinIso(fecha, hora, servicioActual.duracion_minutos))
   })()
 
   // Detectar si un slot está ocupado por otra cita del profesional
   function slotOcupado(slotHora: string): boolean {
     if (!servicioActual) return false
-    const slotInicio = `${fecha}T${slotHora}:00`
-    const slotFin = calcularFin(fecha, slotHora, servicioActual.duracion_minutos)
+    const slotInicio = clinicLocalToIso(fecha, slotHora)
+    const slotFin = clinicLocalFinIso(fecha, slotHora, servicioActual.duracion_minutos)
     return citasDelProfesional.some((c) => c.inicio < slotFin && c.fin > slotInicio)
   }
 
@@ -236,8 +245,9 @@ export function ModalCita({
     ? SLOTS_HORA.find((s) => {
         const [hh, mm] = s.split(':').map(Number)
         const slotMin = hh * 60 + mm
-        const finConflictoH = parseInt(conflicto.fin.slice(11, 13))
-        const finConflictoM = parseInt(conflicto.fin.slice(14, 16))
+        const finConflicto = isoToClinicLocalTime(conflicto.fin)
+        const finConflictoH = parseInt(finConflicto.slice(0, 2), 10)
+        const finConflictoM = parseInt(finConflicto.slice(3, 5), 10)
         const finMin = finConflictoH * 60 + finConflictoM
         return slotMin >= finMin && !slotOcupado(s)
       })
@@ -289,8 +299,8 @@ export function ModalCita({
     async function verificar() {
       if (!profesionalId || !fecha || !hora || !servicioActual) { setConflicto(null); return }
       try {
-        const inicio = `${fecha}T${hora}:00`
-        const fin = calcularFin(fecha, hora, servicioActual.duracion_minutos)
+        const inicio = clinicLocalToIso(fecha, hora)
+        const fin = clinicLocalFinIso(fecha, hora, servicioActual.duracion_minutos)
         const c = await verificarConflicto(profesionalId, inicio, fin, citaExistente?.id)
         setConflicto(c)
       } catch {
@@ -312,8 +322,8 @@ export function ModalCita({
     setGuardando(true)
 
     try {
-      const inicio = `${fecha}T${hora}:00`
-      const fin = calcularFin(fecha, hora, servicioActual!.duracion_minutos)
+      const inicio = clinicLocalToIso(fecha, hora)
+      const fin = clinicLocalFinIso(fecha, hora, servicioActual!.duracion_minutos)
 
       let resultado: CitaConRelaciones | null
 
@@ -748,7 +758,7 @@ export function ModalCita({
                   <p className="text-[12px] font-semibold text-amber-700">Conflicto de horario</p>
                   <p className="text-[11px] text-amber-600 mt-0.5">
                     <span className="font-medium">{conflicto.pacientes?.nombre}</span> tiene cita a esta hora
-                    ({conflicto.inicio.slice(11, 16)} – {conflicto.fin.slice(11, 16)}).
+                    ({isoToClinicLocalTimeForForm(conflicto.inicio)} – {isoToClinicLocalTimeForForm(conflicto.fin)}).
                   </p>
                   {siguienteLibre && (
                     <p className="text-[11px] text-amber-600 mt-1">
