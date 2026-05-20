@@ -33,8 +33,10 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/agenda') ||
     pathname.startsWith('/pacientes') ||
+    pathname.startsWith('/servicios') ||
     pathname.startsWith('/whatsapp') ||
-    pathname.startsWith('/configuracion')
+    pathname.startsWith('/configuracion') ||
+    pathname.startsWith('/onboarding')
 
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()

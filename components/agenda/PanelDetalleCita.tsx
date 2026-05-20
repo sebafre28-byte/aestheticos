@@ -11,6 +11,8 @@ import {
 import { Button } from '@/components/ui/button'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
 import { actualizarEstadoCita, getHistorialPaciente, editarCita, getAuditCita, type AuditLogRow } from '@/lib/agenda/queries'
+import type { PagoCitaFields } from '@/lib/cobros/queries'
+import { SeccionCobroCita } from './SeccionCobroCita'
 import { useDialogA11y } from './useDialogA11y'
 
 // Configuración visual del badge prominente de estado
@@ -133,6 +135,7 @@ type Props = {
   onCerrar: () => void
   onEditar: (cita: CitaConRelaciones) => void
   onEstadoActualizado: (citaId: string, nuevoEstado: EstadoCita) => void
+  onPagoActualizado?: (citaId: string, pago: PagoCitaFields) => void
 }
 
 export function PanelDetalleCita({
@@ -141,6 +144,7 @@ export function PanelDetalleCita({
   onCerrar,
   onEditar,
   onEstadoActualizado,
+  onPagoActualizado,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null)
   useDialogA11y(panelRef, onCerrar)
@@ -313,6 +317,10 @@ export function PanelDetalleCita({
               muted={!cita.notas}
             />
           </div>
+
+          {!isVistaProfe && onPagoActualizado && (
+            <SeccionCobroCita cita={cita} onPagoActualizado={onPagoActualizado} />
+          )}
 
           {/* ── Cambiar estado (solo recepción) ── */}
           {!isVistaProfe && (

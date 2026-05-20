@@ -11,8 +11,9 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type {
-  CitaConRelaciones, ProfesionalRow, ServicioRow, EstadoCita
+  CitaConRelaciones, ProfesionalRow, ServicioRow, EstadoCita, PagoEstado, PagoMetodo,
 } from '@/lib/agenda/queries'
+import type { PagoCitaFields } from '@/lib/cobros/queries'
 import {
   getCitasDelDia, getCitasDeSemana, getProfesionales, getServiciosAgenda, getClinicaId, editarCita
 } from '@/lib/agenda/queries'
@@ -266,6 +267,19 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     )
     if (citaDetalle?.id === citaId) {
       setCitaDetalle((prev) => prev ? { ...prev, estado: nuevoEstado } : prev)
+    }
+  }
+
+  function handlePagoActualizado(citaId: string, pago: PagoCitaFields) {
+    const patch = {
+      pago_monto: pago.pago_monto,
+      pago_estado: pago.pago_estado as PagoEstado,
+      pago_metodo: pago.pago_metodo as PagoMetodo | null,
+      pago_registrado_at: pago.pago_registrado_at,
+    }
+    setCitas((prev) => prev.map((c) => (c.id === citaId ? { ...c, ...patch } : c)))
+    if (citaDetalle?.id === citaId) {
+      setCitaDetalle((prev) => (prev ? { ...prev, ...patch } : prev))
     }
   }
 
@@ -643,6 +657,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
           onCerrar={() => setCitaDetalle(null)}
           onEditar={handleEditarDesdePanel}
           onEstadoActualizado={handleEstadoActualizado}
+          onPagoActualizado={handlePagoActualizado}
         />
       )}
 

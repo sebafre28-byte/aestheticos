@@ -93,6 +93,8 @@ export type ServicioRow = {
 }
 
 export type EstadoCita = 'pendiente' | 'confirmada' | 'completada' | 'cancelada' | 'no_asistio'
+export type PagoEstado = 'pendiente' | 'pagado' | 'parcial'
+export type PagoMetodo = 'efectivo' | 'transferencia' | 'debito' | 'credito'
 
 // Cita con joins a paciente, profesional y servicio
 export type CitaConRelaciones = {
@@ -113,6 +115,10 @@ export type CitaConRelaciones = {
   recurrence_parent_id?: string | null
   recurrence_instance_date?: string | null
   event_timezone?: string
+  pago_monto?: number
+  pago_estado?: PagoEstado
+  pago_metodo?: PagoMetodo | null
+  pago_registrado_at?: string | null
   created_at: string
   pacientes: PacienteRow
   profesionales: ProfesionalRow

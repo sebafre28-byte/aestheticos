@@ -1,10 +1,16 @@
-import { Sidebar } from "@/components/sidebar"
+import { redirect } from 'next/navigation'
+import { Sidebar } from '@/components/sidebar'
+import { needsOnboarding } from '@/lib/onboarding/queries-server'
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  if (await needsOnboarding()) {
+    redirect('/onboarding')
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <Sidebar />

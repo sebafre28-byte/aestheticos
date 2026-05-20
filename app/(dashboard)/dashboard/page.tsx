@@ -41,7 +41,7 @@ export default async function DashboardPage() {
         <MetricCard
           title="Ingresos del día"
           value={formatCurrency(data.ingresosHoy)}
-          detail="Suma de servicios agendados hoy"
+          detail="Pagos registrados hoy (pagado y parcial)"
           subtitle="CLP"
           icon={DollarSign}
           accent="teal"

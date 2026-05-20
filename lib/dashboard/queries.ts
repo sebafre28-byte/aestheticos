@@ -1,12 +1,17 @@
+import { montoIngresoCobrado } from '@/lib/cobros/utils'
 import { createClient } from '@/lib/supabase/server'
 import { endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subMonths } from 'date-fns'
 
 type EstadoCita = 'pendiente' | 'confirmada' | 'completada' | 'cancelada' | 'no_asistio'
 
+type PagoEstado = 'pendiente' | 'pagado' | 'parcial'
+
 type CitaDashboardRow = {
   id: string
   inicio: string
   estado: EstadoCita
+  pago_monto: number
+  pago_estado: PagoEstado
   pacientes: { nombre: string }[] | { nombre: string } | null
   profesionales: { nombre: string }[] | { nombre: string } | null
   servicios: { nombre: string; precio: number }[] | { nombre: string; precio: number } | null
@@ -111,6 +116,8 @@ export async function getDashboardData(): Promise<DashboardData> {
         id,
         inicio,
         estado,
+        pago_monto,
+        pago_estado,
         servicio_id,
         pacientes(nombre),
         profesionales(nombre),
@@ -161,10 +168,10 @@ export async function getDashboardData(): Promise<DashboardData> {
   const totalCitasHoy = citasHoyValidas.length
   const confirmadasHoy = citasHoyValidas.filter((cita) => cita.estado === 'confirmada').length
   const pendientesHoy = citasHoyValidas.filter((cita) => cita.estado === 'pendiente').length
-  const ingresosHoy = citasHoyValidas.reduce((acc, cita) => {
-    const servicio = fromMaybeArray(cita.servicios)
-    return acc + (servicio?.precio ?? 0)
-  }, 0)
+  const ingresosHoy = citasHoyValidas.reduce(
+    (acc, cita) => acc + montoIngresoCobrado(cita.pago_estado ?? 'pendiente', cita.pago_monto ?? 0),
+    0,
+  )
 
   const proximasCitas = citasHoyValidas
     .filter((cita) => cita.inicio >= nowIso)
