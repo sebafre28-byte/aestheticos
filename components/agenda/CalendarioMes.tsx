@@ -1,7 +1,8 @@
 'use client'
 
-import { endOfMonth, endOfWeek, format, isSameMonth, isToday, parseISO, startOfMonth, startOfWeek, addDays } from 'date-fns'
+import { endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { citaWallClockDate, citaWallClockTime } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones } from '@/lib/agenda/queries'
 
 type Props = {
@@ -37,7 +38,7 @@ export function CalendarioMes({ fechaBase, citas, onVerDia, onClickCita }: Props
         {days.map((day) => {
           const dayKey = format(day, 'yyyy-MM-dd')
           const citasDia = citas
-            .filter((c) => c.inicio.slice(0, 10) === dayKey)
+            .filter((c) => citaWallClockDate(c.inicio) === dayKey)
             .sort((a, b) => a.inicio.localeCompare(b.inicio))
           return (
             <button
@@ -65,7 +66,7 @@ export function CalendarioMes({ fechaBase, citas, onVerDia, onClickCita }: Props
                     className="text-[10px] rounded px-1.5 py-1 truncate"
                     style={{ backgroundColor: `${cita.profesionales?.color ?? '#2563EB'}22`, color: cita.profesionales?.color ?? '#2563EB' }}
                   >
-                    {parseISO(cita.inicio).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} · {cita.pacientes?.nombre}
+                    {citaWallClockTime(cita.inicio)} · {cita.pacientes?.nombre}
                   </div>
                 ))}
                 {citasDia.length > 3 && (

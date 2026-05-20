@@ -22,6 +22,7 @@ import { ModalCita } from './ModalCita'
 import { PanelDetalleCita } from './PanelDetalleCita'
 import { ListaPendientes } from './ListaPendientes'
 import { CalendarioMes } from './CalendarioMes'
+import { citaWallClockTime } from '@/lib/agenda/datetime'
 import { trackAgendaMetric } from '@/lib/agenda/metrics'
 
 type Vista = 'dia' | 'semana' | 'lista' | 'mes'
@@ -569,8 +570,8 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
               <div className="flex-1 overflow-auto divide-y divide-gray-50">
                 {citasLista.map((cita) => {
                   const color = cita.profesionales?.color ?? '#2563EB'
-                  const horaInicio = cita.inicio.slice(11, 16)
-                  const horaFin = cita.fin.slice(11, 16)
+                  const horaInicio = citaWallClockTime(cita.inicio)
+                  const horaFin = citaWallClockTime(cita.fin)
 
                   const estadoLabel: Record<string, string> = {
                     pendiente: 'Pendiente',

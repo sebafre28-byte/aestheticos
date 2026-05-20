@@ -1,6 +1,7 @@
 'use client'
 
 import { Clock, CheckCircle, CheckCircle2, XCircle, UserX } from 'lucide-react'
+import { citaWallClockTime } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
 
 export const PIXEL_POR_MIN = 1.5
@@ -63,8 +64,8 @@ export function BloqueCita({
   widthPercent = 100,
 }: Props) {
   const color = cita.profesionales?.color ?? '#2563EB'
-  const horaInicio = cita.inicio.slice(11, 16)
-  const horaFin = cita.fin.slice(11, 16)
+  const horaInicio = citaWallClockTime(cita.inicio)
+  const horaFin = citaWallClockTime(cita.fin)
   const nombrePaciente = cita.pacientes?.nombre ?? 'Paciente'
   const nombreServicio = cita.servicios?.nombre ?? ''
 

@@ -11,12 +11,12 @@ import type {
   CitaConRelaciones, ProfesionalRow, ServicioRow, PacienteRow, NuevaCitaData,
 } from '@/lib/agenda/queries'
 import {
-  clinicDayUtcBounds,
-  clinicLocalFinIso,
-  clinicLocalToIso,
+  citaInstantMs,
+  citaWallClockTime,
   isoToClinicLocalDateForForm,
-  isoToClinicLocalTime,
   isoToClinicLocalTimeForForm,
+  modalWallClockFinIso,
+  modalWallClockToIso,
 } from '@/lib/agenda/datetime'
 import {
   getPacientesBusqueda, crearPacienteRapido, crearCita, editarCita,
@@ -189,9 +189,9 @@ export function ModalCita({
       }
 
       const inicioMin = parseInt(hora.slice(0, 2), 10) * 60 + parseInt(hora.slice(3, 5), 10)
-      const finIso = clinicLocalFinIso(fecha, hora, servicioActual.duracion_minutos)
+      const finIso = modalWallClockFinIso(fecha, hora, servicioActual.duracion_minutos)
       const finMin = (() => {
-        const t = isoToClinicLocalTime(finIso)
+        const t = citaWallClockTime(finIso)
         return parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 10)
       })()
       const dentro = tramosDia.some((d) => {
@@ -200,14 +200,13 @@ export function ModalCita({
         return inicioMin >= inicioDisp && finMin <= finDisp
       })
 
-      const { desdeIso: diaDesde, hastaIso: diaHasta } = clinicDayUtcBounds(fecha)
-      const bloqueos = await getBloqueosRango(diaDesde, diaHasta)
-      const inicioIso = clinicLocalToIso(fecha, hora)
+      const bloqueos = await getBloqueosRango(`${fecha}T00:00:00`, `${fecha}T23:59:59`)
+      const inicioIso = modalWallClockToIso(fecha, hora)
       const bloquea = bloqueos.some(
         (b) =>
           (b.profesional_id === null || b.profesional_id === profesionalId) &&
-          new Date(b.inicio).getTime() < new Date(finIso).getTime() &&
-          new Date(b.fin).getTime() > new Date(inicioIso).getTime(),
+          citaInstantMs(b.fin) > citaInstantMs(inicioIso) &&
+          citaInstantMs(b.inicio) < citaInstantMs(finIso),
       )
 
       if (active) {
@@ -224,15 +223,17 @@ export function ModalCita({
 
   const horaFin = (() => {
     if (!fecha || !hora || !servicioActual) return ''
-    return isoToClinicLocalTime(clinicLocalFinIso(fecha, hora, servicioActual.duracion_minutos))
+    return citaWallClockTime(modalWallClockFinIso(fecha, hora, servicioActual.duracion_minutos))
   })()
 
   // Detectar si un slot está ocupado por otra cita del profesional
   function slotOcupado(slotHora: string): boolean {
     if (!servicioActual) return false
-    const slotInicio = clinicLocalToIso(fecha, slotHora)
-    const slotFin = clinicLocalFinIso(fecha, slotHora, servicioActual.duracion_minutos)
-    return citasDelProfesional.some((c) => c.inicio < slotFin && c.fin > slotInicio)
+    const slotInicio = modalWallClockToIso(fecha, slotHora)
+    const slotFin = modalWallClockFinIso(fecha, slotHora, servicioActual.duracion_minutos)
+    return citasDelProfesional.some(
+      (c) => citaInstantMs(c.inicio) < citaInstantMs(slotFin) && citaInstantMs(c.fin) > citaInstantMs(slotInicio),
+    )
   }
 
   // Próximos 3 slots libres (solo cuando no viene hora pre-llenada)
@@ -245,7 +246,7 @@ export function ModalCita({
     ? SLOTS_HORA.find((s) => {
         const [hh, mm] = s.split(':').map(Number)
         const slotMin = hh * 60 + mm
-        const finConflicto = isoToClinicLocalTime(conflicto.fin)
+        const finConflicto = citaWallClockTime(conflicto.fin)
         const finConflictoH = parseInt(finConflicto.slice(0, 2), 10)
         const finConflictoM = parseInt(finConflicto.slice(3, 5), 10)
         const finMin = finConflictoH * 60 + finConflictoM
@@ -299,8 +300,8 @@ export function ModalCita({
     async function verificar() {
       if (!profesionalId || !fecha || !hora || !servicioActual) { setConflicto(null); return }
       try {
-        const inicio = clinicLocalToIso(fecha, hora)
-        const fin = clinicLocalFinIso(fecha, hora, servicioActual.duracion_minutos)
+        const inicio = modalWallClockToIso(fecha, hora)
+        const fin = modalWallClockFinIso(fecha, hora, servicioActual.duracion_minutos)
         const c = await verificarConflicto(profesionalId, inicio, fin, citaExistente?.id)
         setConflicto(c)
       } catch {
@@ -322,8 +323,8 @@ export function ModalCita({
     setGuardando(true)
 
     try {
-      const inicio = clinicLocalToIso(fecha, hora)
-      const fin = clinicLocalFinIso(fecha, hora, servicioActual!.duracion_minutos)
+      const inicio = modalWallClockToIso(fecha, hora)
+      const fin = modalWallClockFinIso(fecha, hora, servicioActual!.duracion_minutos)
 
       let resultado: CitaConRelaciones | null
 

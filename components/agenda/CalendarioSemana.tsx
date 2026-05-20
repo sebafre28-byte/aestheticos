@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
+import { citaWallClockDate, citaWallClockMinutes } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones } from '@/lib/agenda/queries'
 import { BloqueCita, PIXEL_POR_MIN, HORA_GRILLA_INICIO } from './BloquesCita'
 
@@ -14,7 +15,7 @@ const horasGrilla = Array.from({ length: HORAS_TOTALES + 1 }, (_, i) => HORA_GRI
 const DIAS_NOMBRES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 function minutosDia(iso: string): number {
-  return parseInt(iso.slice(11, 13), 10) * 60 + parseInt(iso.slice(14, 16), 10)
+  return citaWallClockMinutes(iso)
 }
 
 // Interval graph coloring: asigna columnas a citas solapadas del mismo día
@@ -251,7 +252,7 @@ export function CalendarioSemana({
           const esHoy = isSameDay(dia, hoy)
           const numDia = parseInt(format(dia, 'd'))
           const diaStr = format(dia, 'yyyy-MM-dd')
-          const totalCitas = citasFiltradas.filter((c) => c.inicio.slice(0, 10) === diaStr).length
+          const totalCitas = citasFiltradas.filter((c) => citaWallClockDate(c.inicio) === diaStr).length
 
           return (
             <div
@@ -342,7 +343,7 @@ export function CalendarioSemana({
             {/* Columna de cada día */}
             {diasFecha.map((dia, i) => {
               const diaStr = format(dia, 'yyyy-MM-dd')
-              const citasDia = citasFiltradas.filter((c) => c.inicio.slice(0, 10) === diaStr)
+              const citasDia = citasFiltradas.filter((c) => citaWallClockDate(c.inicio) === diaStr)
               return (
                 <ColumnaDia
                   key={i}

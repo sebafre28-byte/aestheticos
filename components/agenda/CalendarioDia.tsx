@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
+import { citaWallClockMinutes } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones, ProfesionalRow } from '@/lib/agenda/queries'
 import { BloqueCita, PIXEL_POR_MIN, HORA_GRILLA_INICIO } from './BloquesCita'
 
@@ -16,7 +17,7 @@ const horasGrilla = Array.from(
 )
 
 function minutosDia(iso: string): number {
-  return parseInt(iso.slice(11, 13), 10) * 60 + parseInt(iso.slice(14, 16), 10)
+  return citaWallClockMinutes(iso)
 }
 
 // Algoritmo interval graph coloring para asignar columnas sin solapamiento

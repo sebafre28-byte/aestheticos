@@ -45,6 +45,66 @@ export function clinicLocalToIso(fecha: string, hora: string): string {
   return new Date(clinicLocalDateTimeToUtcMs(fecha, hora)).toISOString()
 }
 
+/**
+ * ISO para guardar desde el modal: hora de pared Chile sin convertir a UTC.
+ * Lo que el usuario elige (ej. 23:00) es lo que debe verse en el calendario.
+ */
+export function modalWallClockToIso(fecha: string, hora: string): string {
+  const [hh, mm] = hora.split(':')
+  return `${fecha}T${hh.padStart(2, '0')}:${mm.padStart(2, '0')}:00`
+}
+
+export function modalWallClockFinIso(fecha: string, hora: string, duracionMin: number): string {
+  const [hh, mm] = hora.split(':').map(Number)
+  const totalMin = hh * 60 + mm + duracionMin
+  const finHH = Math.floor(totalMin / 60)
+    .toString()
+    .padStart(2, '0')
+  const finMM = (totalMin % 60).toString().padStart(2, '0')
+  return modalWallClockToIso(fecha, `${finHH}:${finMM}`)
+}
+
+/** true si el valor en BD es timestamptz UTC correcto (no hora naive legacy). */
+export function isCorrectUtcStorage(iso: string): boolean {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+  if (!m) return true
+  const parsed = new Date(iso).getTime()
+  const asLocal = clinicLocalDateTimeToUtcMs(`${m[1]}-${m[2]}-${m[3]}`, `${m[4]}:${m[5]}`)
+  return Math.abs(asLocal - parsed) <= 30 * 60 * 1000
+}
+
+/** Hora HH:mm para calendario y UI (misma que eligió el usuario en el modal). */
+export function citaWallClockTime(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+  if (!m) return isoToClinicLocalTime(iso)
+  if (!isCorrectUtcStorage(iso)) return `${m[4]}:${m[5]}`
+  return isoToClinicLocalTime(iso)
+}
+
+/** Fecha yyyy-MM-dd para agrupar citas en el calendario. */
+export function citaWallClockDate(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return isoToClinicLocalDate(iso)
+  if (!isCorrectUtcStorage(iso)) return `${m[1]}-${m[2]}-${m[3]}`
+  return isoToClinicLocalDate(iso)
+}
+
+/** Instant UTC para comparar solapamientos (cualquier formato en BD). */
+export function citaInstantMs(iso: string): number {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+  if (!m) return new Date(iso).getTime()
+  if (!isCorrectUtcStorage(iso)) {
+    return clinicLocalDateTimeToUtcMs(`${m[1]}-${m[2]}-${m[3]}`, `${m[4]}:${m[5]}`)
+  }
+  return new Date(iso).getTime()
+}
+
+export function citaWallClockMinutes(iso: string): number {
+  const t = citaWallClockTime(iso)
+  const [h, mi] = t.split(':').map(Number)
+  return h * 60 + mi
+}
+
 export function clinicLocalFinIso(fecha: string, hora: string, duracionMin: number): string {
   const { h, mi } = parseLocalParts(fecha, hora)
   const totalMin = h * 60 + mi + duracionMin
@@ -75,26 +135,14 @@ export function isoToClinicLocalDate(iso: string, timeZone: string = CLINIC_TIME
   }).format(new Date(iso))
 }
 
-/** Hora para el formulario: soporta citas legacy (naive) y nuevas (UTC correcto). */
+/** Hora para el formulario (misma regla que el calendario). */
 export function isoToClinicLocalTimeForForm(iso: string): string {
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
-  if (!m) return isoToClinicLocalTime(iso)
-  const parsed = new Date(iso).getTime()
-  if (Math.abs(citaInicioToUtcMs(iso) - parsed) > 30 * 60 * 1000) {
-    return `${m[4]}:${m[5]}`
-  }
-  return isoToClinicLocalTime(iso)
+  return citaWallClockTime(iso)
 }
 
-/** Fecha para el formulario: soporta citas legacy y nuevas. */
+/** Fecha para el formulario (misma regla que el calendario). */
 export function isoToClinicLocalDateForForm(iso: string): string {
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (!m) return isoToClinicLocalDate(iso)
-  const parsed = new Date(iso).getTime()
-  if (Math.abs(citaInicioToUtcMs(iso) - parsed) > 30 * 60 * 1000) {
-    return `${m[1]}-${m[2]}-${m[3]}`
-  }
-  return isoToClinicLocalDate(iso)
+  return citaWallClockDate(iso)
 }
 
 export function isoToClinicLocalTime(iso: string, timeZone: string = CLINIC_TIMEZONE): string {
@@ -117,19 +165,8 @@ export function citaInicioToUtcMs(
   inicioIso: string,
   timeZone: string = CLINIC_TIMEZONE,
 ): number {
-  const parsed = new Date(inicioIso).getTime()
-  const m = inicioIso.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
-  if (!m) return parsed
-
-  const asLocal = clinicLocalDateTimeToUtcMs(
-    `${m[1]}-${m[2]}-${m[3]}`,
-    `${m[4]}:${m[5]}`,
-    timeZone,
-  )
-  const driftMs = Math.abs(asLocal - parsed)
-  // Legacy: componentes wall-clock ≈ UTC almacenado (drift ≈ offset Chile). Nueva cita: drift ≈ 0.
-  if (driftMs > 30 * 60 * 1000) return asLocal
-  return parsed
+  void timeZone
+  return citaInstantMs(inicioIso)
 }
 
 export function storedInicioOffsetMs(
