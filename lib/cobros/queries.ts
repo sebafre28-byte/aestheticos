@@ -1,6 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
+import { getClinicaId } from '@/lib/onboarding/queries'
 
 export type PagoEstado = 'pendiente' | 'pagado' | 'parcial'
 export type PagoMetodo = 'efectivo' | 'transferencia' | 'debito' | 'credito'
@@ -37,6 +38,12 @@ export async function actualizarPagoCita(
   citaId: string,
   input: ActualizarPagoInput,
 ): Promise<PagoCitaFields | null> {
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) {
+    console.error('actualizarPagoCita: sin sesión activa')
+    return null
+  }
+
   const supabase = createClient()
 
   const monto = Math.max(0, Math.round(input.pago_monto))
@@ -59,6 +66,7 @@ export async function actualizarPagoCita(
     .from('citas')
     .update(payload)
     .eq('id', citaId)
+    .eq('clinica_id', clinicaId)
     .select('pago_monto, pago_estado, pago_metodo, pago_registrado_at')
     .single()
 

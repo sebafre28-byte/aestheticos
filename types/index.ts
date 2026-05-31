@@ -45,7 +45,7 @@ export type Paciente = {
   creadoEn: Date
 }
 
-export type EstadoCita = "pendiente" | "confirmada" | "completada" | "cancelada" | "no-show"
+export type EstadoCita = "pendiente" | "confirmada" | "completada" | "cancelada" | "no_asistio"
 
 export type Cita = {
   id: string

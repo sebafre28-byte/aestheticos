@@ -1,118 +1,31 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
-  MessageCircle,
-  CheckCheck,
-  Check,
-  Clock,
-  TrendingDown,
-  Send,
-  Bell,
-  BellOff,
-  Wifi,
-  WifiOff,
-  ChevronRight,
+  MessageCircle, CheckCheck, Check, Clock, Send, Bell, BellOff,
+  Wifi, WifiOff, ChevronRight, Loader2, AlertCircle, RefreshCw,
 } from "lucide-react"
-
-const conversaciones = [
-  {
-    paciente: "Ana García",
-    initials: "AG",
-    ultimoMensaje: "Recordatorio: cita mañana a las 09:00 ✓",
-    hora: "hace 2 h",
-    estado: "leido",
-    citaPendiente: "Mañana 09:00",
-  },
-  {
-    paciente: "Sofía Mendoza",
-    initials: "SM",
-    ultimoMensaje: "Confirma tu cita de hoy a las 10:30",
-    hora: "hace 3 h",
-    estado: "entregado",
-    citaPendiente: "Hoy 10:30",
-  },
-  {
-    paciente: "Carmen Ruiz",
-    initials: "CR",
-    ultimoMensaje: "¡Hola! Perfecto, ahí estaré. Gracias.",
-    hora: "hace 1 h",
-    estado: "leido",
-    citaPendiente: "Jueves 11:00",
-  },
-  {
-    paciente: "Pedro Castro",
-    initials: "PC",
-    ultimoMensaje: "Tu cita fue cancelada. Reagenda aquí 🔗",
-    hora: "hace 5 h",
-    estado: "enviado",
-    citaPendiente: null,
-  },
-  {
-    paciente: "Valentina Soto",
-    initials: "VS",
-    ultimoMensaje: "¿Puedo cambiar la hora a las 16:00?",
-    hora: "hace 45 min",
-    estado: "no_leido",
-    citaPendiente: "Hoy 15:30",
-  },
-  {
-    paciente: "Isabel Morales",
-    initials: "IM",
-    ultimoMensaje: "Recordatorio enviado para el viernes",
-    hora: "hace 4 h",
-    estado: "entregado",
-    citaPendiente: "Viernes 15:30",
-  },
-  {
-    paciente: "Lucía Fernández",
-    initials: "LF",
-    ultimoMensaje: "Confirmada ✓ ¡Muchas gracias!",
-    hora: "hace 6 h",
-    estado: "leido",
-    citaPendiente: "Lunes 13:00",
-  },
-]
-
-const recordatorios = [
-  {
-    id: "r1",
-    label: "Recordatorio 24 h antes",
-    descripcion: "Mensaje automático el día anterior a la cita",
-    defaultActivo: true,
-  },
-  {
-    id: "r2",
-    label: "Recordatorio 2 h antes",
-    descripcion: "Aviso el mismo día, 2 horas antes",
-    defaultActivo: true,
-  },
-  {
-    id: "r3",
-    label: "Confirmación de cita",
-    descripcion: "Solicita confirmación 48 h antes",
-    defaultActivo: true,
-  },
-  {
-    id: "r4",
-    label: "Post-cita: feedback",
-    descripcion: "Encuesta de satisfacción al finalizar",
-    defaultActivo: false,
-  },
-  {
-    id: "r5",
-    label: "Reagendamiento automático",
-    descripcion: "Ofrece nueva fecha si cancela",
-    defaultActivo: false,
-  },
-]
+import {
+  getConversaciones,
+  getWhatsappStats,
+  tipoMensajeLabel,
+  horaRelativa,
+  type ConversacionResumen,
+  type WhatsappStats,
+} from "@/lib/whatsapp/queries"
 
 const estadoIcono = {
-  leido: <CheckCheck className="size-3.5 text-blue-400" />,
-  entregado: <CheckCheck className="size-3.5 text-gray-400" />,
-  enviado: <Check className="size-3.5 text-gray-300" />,
-  no_leido: <Clock className="size-3.5 text-amber-400" />,
+  enviado:    <Check className="size-3.5 text-gray-300" />,
+  respondido: <CheckCheck className="size-3.5 text-blue-400" />,
+  fallido:    <AlertCircle className="size-3.5 text-red-400" />,
 }
+
+const recordatorios = [
+  { id: "r1", label: "Recordatorio 24 h antes",  descripcion: "Mensaje automático el día anterior a la cita", defaultActivo: true },
+  { id: "r2", label: "Recordatorio 2 h antes",   descripcion: "Aviso el mismo día, 2 horas antes",            defaultActivo: true },
+  { id: "r3", label: "Confirmación de cita",      descripcion: "Solicita confirmación 48 h antes",             defaultActivo: true },
+  { id: "r4", label: "Post-cita: feedback",       descripcion: "Encuesta de satisfacción al finalizar",        defaultActivo: false },
+]
 
 function Toggle({ activo, onChange }: { activo: boolean; onChange: () => void }) {
   return (
@@ -131,17 +44,49 @@ function Toggle({ activo, onChange }: { activo: boolean; onChange: () => void })
   )
 }
 
+function iniciales(nombre: string | null, telefono: string): string {
+  if (nombre) {
+    const partes = nombre.trim().split(" ")
+    return partes.length >= 2
+      ? (partes[0][0] + partes[1][0]).toUpperCase()
+      : nombre.slice(0, 2).toUpperCase()
+  }
+  return telefono.slice(-2)
+}
+
 export default function WhatsAppPage() {
-  const [conectado, setConectado] = useState(true)
+  const [conectado] = useState(true)
   const [toggles, setToggles] = useState<Record<string, boolean>>(
     Object.fromEntries(recordatorios.map((r) => [r.id, r.defaultActivo]))
   )
+  const [conversaciones, setConversaciones] = useState<ConversacionResumen[]>([])
+  const [stats, setStats] = useState<WhatsappStats | null>(null)
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    setError(null)
+    try {
+      const [convs, st] = await Promise.all([getConversaciones(), getWhatsappStats()])
+      setConversaciones(convs)
+      setStats(st)
+    } catch {
+      setError("No se pudo cargar la información de WhatsApp.")
+    } finally {
+      setCargando(false)
+    }
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
 
   function flipToggle(id: string) {
     setToggles((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
   const activosCount = Object.values(toggles).filter(Boolean).length
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const twilioFrom = ((process as any).env?.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM as string | undefined) ?? null
 
   return (
     <div className="p-6 space-y-6 max-w-[1100px]">
@@ -154,67 +99,79 @@ export default function WhatsAppPage() {
           </p>
         </div>
 
-        {/* Estado de conexión */}
-        <button
-          onClick={() => setConectado((v) => !v)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[12px] font-semibold transition-colors ${
-            conectado
-              ? "bg-emerald-50 border-emerald-100 text-[#10B981] hover:bg-emerald-100"
-              : "bg-red-50 border-red-100 text-red-500 hover:bg-red-100"
-          }`}
-        >
-          {conectado ? (
-            <>
-              <Wifi className="size-3.5" />
-              +56 9 1234 5678 · Conectado
-            </>
-          ) : (
-            <>
-              <WifiOff className="size-3.5" />
-              Desconectado · Reconectar
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={cargar}
+            disabled={cargando}
+            className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition-colors"
+          >
+            <RefreshCw className={`size-3.5 text-gray-500 ${cargando ? "animate-spin" : ""}`} />
+          </button>
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[12px] font-semibold ${
+              conectado
+                ? "bg-emerald-50 border-emerald-100 text-[#10B981]"
+                : "bg-red-50 border-red-100 text-red-500"
+            }`}
+          >
+            {conectado ? (
+              <>
+                <Wifi className="size-3.5" />
+                {twilioFrom ?? "Sandbox conectado"}
+              </>
+            ) : (
+              <>
+                <WifiOff className="size-3.5" />
+                Desconectado
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-100 text-[13px] text-red-600">
+          <AlertCircle className="size-4 shrink-0" />
+          {error}
+        </div>
+      )}
 
       {/* Estadísticas */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <div className="w-8 h-8 bg-[#25D366]/10 rounded-lg flex items-center justify-center mb-3">
-            <Send className="size-4 text-[#25D366]" />
-          </div>
-          <p className="text-[24px] font-bold text-gray-900 leading-none">24</p>
-          <p className="text-[12px] text-gray-500 mt-1.5">Mensajes enviados hoy</p>
-          <p className="text-[11px] mt-1 font-medium text-[#10B981]">+6 vs ayer</p>
+      {cargando && !stats ? (
+        <div className="grid grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-28 rounded-xl bg-slate-200 animate-pulse" />
+          ))}
         </div>
-
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-3">
-            <CheckCheck className="size-4 text-[#2563EB]" />
-          </div>
-          <p className="text-[24px] font-bold text-gray-900 leading-none">87%</p>
-          <p className="text-[12px] text-gray-500 mt-1.5">Tasa de confirmación</p>
-          <p className="text-[11px] mt-1 font-medium text-[#10B981]">+4% este mes</p>
+      ) : (
+        <div className="grid grid-cols-4 gap-4">
+          <StatCard
+            icon={<Send className="size-4 text-[#25D366]" />}
+            iconBg="bg-[#25D366]/10"
+            valor={stats?.enviados_hoy ?? 0}
+            label="Mensajes enviados hoy"
+          />
+          <StatCard
+            icon={<CheckCheck className="size-4 text-[#2563EB]" />}
+            iconBg="bg-blue-50"
+            valor={`${stats?.tasa_confirmacion ?? 0}%`}
+            label="Tasa de respuesta (7 días)"
+          />
+          <StatCard
+            icon={<Clock className="size-4 text-amber-600" />}
+            iconBg="bg-amber-50"
+            valor={stats?.sin_respuesta ?? 0}
+            label="Sin respuesta esta semana"
+          />
+          <StatCard
+            icon={<MessageCircle className="size-4 text-sky-600" />}
+            iconBg="bg-sky-50"
+            valor={stats?.conversaciones_activas ?? 0}
+            label="Contactos activos (7 días)"
+          />
         </div>
-
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <div className="w-8 h-8 bg-sky-50 rounded-lg flex items-center justify-center mb-3">
-            <TrendingDown className="size-4 text-sky-600" />
-          </div>
-          <p className="text-[24px] font-bold text-gray-900 leading-none">11</p>
-          <p className="text-[12px] text-gray-500 mt-1.5">No-shows evitados</p>
-          <p className="text-[11px] mt-1 font-medium text-[#10B981]">este mes</p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-3">
-            <MessageCircle className="size-4 text-amber-600" />
-          </div>
-          <p className="text-[24px] font-bold text-gray-900 leading-none">7</p>
-          <p className="text-[12px] text-gray-500 mt-1.5">Conversaciones activas</p>
-          <p className="text-[11px] mt-1 font-medium text-amber-500">1 sin responder</p>
-        </div>
-      </div>
+      )}
 
       {/* Conversaciones + Recordatorios */}
       <div className="grid grid-cols-[1fr_340px] gap-4">
@@ -224,7 +181,7 @@ export default function WhatsAppPage() {
             <div>
               <h2 className="text-[14px] font-semibold text-gray-900">Conversaciones recientes</h2>
               <p className="text-[12px] text-gray-400 mt-0.5">
-                {conversaciones.length} pacientes
+                {cargando ? "Cargando..." : `${conversaciones.length} contactos últimos 30 días`}
               </p>
             </div>
             <button className="text-[12px] text-[#2563EB] font-medium flex items-center gap-0.5 hover:underline">
@@ -232,63 +189,65 @@ export default function WhatsAppPage() {
             </button>
           </div>
 
-          <div className="divide-y divide-gray-50">
-            {conversaciones.map((conv, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50/50 transition-colors cursor-pointer"
-              >
-                {/* Avatar */}
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                    conv.estado === "no_leido"
-                      ? "bg-[#2563EB]/10"
-                      : "bg-gray-100"
-                  }`}
-                >
-                  <span
-                    className={`text-[11px] font-bold ${
-                      conv.estado === "no_leido" ? "text-[#2563EB]" : "text-gray-500"
-                    }`}
+          {cargando ? (
+            <div className="flex items-center justify-center py-12 gap-2 text-[13px] text-gray-400">
+              <Loader2 className="size-4 animate-spin" />
+              Cargando conversaciones…
+            </div>
+          ) : conversaciones.length === 0 ? (
+            <div className="text-center py-12 space-y-2">
+              <MessageCircle className="size-8 text-gray-300 mx-auto" />
+              <p className="text-[14px] font-medium text-gray-600">Sin mensajes enviados aún</p>
+              <p className="text-[12px] text-gray-400">
+                Los recordatorios automáticos aparecerán aquí cuando se envíen.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {conversaciones.slice(0, 10).map((conv, i) => {
+                const initials = iniciales(conv.paciente_nombre, conv.telefono)
+                const estadoKey = conv.ultimo_mensaje_estado as keyof typeof estadoIcono
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50/50 transition-colors cursor-pointer"
                   >
-                    {conv.initials}
-                  </span>
-                </div>
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                      !conv.respondio ? "bg-[#2563EB]/10" : "bg-gray-100"
+                    }`}>
+                      <span className={`text-[11px] font-bold ${!conv.respondio ? "text-[#2563EB]" : "text-gray-500"}`}>
+                        {initials}
+                      </span>
+                    </div>
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <span
-                      className={`text-[13px] font-medium truncate ${
-                        conv.estado === "no_leido" ? "text-gray-900 font-semibold" : "text-gray-700"
-                      }`}
-                    >
-                      {conv.paciente}
-                    </span>
-                    <span className="text-[11px] text-gray-400 shrink-0">{conv.hora}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <span className={`text-[13px] font-medium truncate ${!conv.respondio ? "text-gray-900 font-semibold" : "text-gray-700"}`}>
+                          {conv.paciente_nombre ?? conv.telefono}
+                        </span>
+                        <span className="text-[11px] text-gray-400 shrink-0">
+                          {horaRelativa(conv.ultimo_mensaje_at)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {estadoIcono[estadoKey] ?? estadoIcono.enviado}
+                        <p className="text-[12px] text-gray-400 truncate">
+                          {tipoMensajeLabel(conv.ultimo_mensaje_tipo)}
+                          {conv.respondio && " · Respondió"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {conv.cita_id && (
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-[#2563EB] shrink-0">
+                        Con cita
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {estadoIcono[conv.estado as keyof typeof estadoIcono]}
-                    <p className="text-[12px] text-gray-400 truncate">{conv.ultimoMensaje}</p>
-                  </div>
-                </div>
-
-                {/* Badge cita */}
-                {conv.citaPendiente && (
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-[#2563EB] shrink-0">
-                    {conv.citaPendiente}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="p-3 border-t border-gray-50">
-            <button className="w-full h-8 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] text-[12px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5">
-              <Send className="size-3.5" />
-              Enviar recordatorios pendientes (3)
-            </button>
-          </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Panel de recordatorios automáticos */}
@@ -314,16 +273,13 @@ export default function WhatsAppPage() {
               <div key={rec.id} className="flex items-center justify-between px-5 py-4 gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-gray-900">{rec.label}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">
-                    {rec.descripcion}
-                  </p>
+                  <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{rec.descripcion}</p>
                 </div>
                 <Toggle activo={toggles[rec.id]} onChange={() => flipToggle(rec.id)} />
               </div>
             ))}
           </div>
 
-          {/* Plantilla del mensaje */}
           <div className="p-4 border-t border-gray-50 space-y-2">
             <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
               Plantilla activa
@@ -331,19 +287,35 @@ export default function WhatsAppPage() {
             <div className="bg-[#f0fdf4] rounded-lg p-3 border border-emerald-100">
               <p className="text-[12px] text-gray-700 leading-relaxed">
                 Hola <span className="font-semibold text-[#2563EB]">{"{nombre}"}</span>, te
-                recordamos tu cita en{" "}
-                <span className="font-semibold text-[#2563EB]">Clínica Bella</span> el{" "}
+                recordamos tu cita el{" "}
                 <span className="font-semibold text-[#2563EB]">{"{fecha}"}</span> a las{" "}
-                <span className="font-semibold text-[#2563EB]">{"{hora}"}</span>. ¿Confirmas
-                asistencia?
+                <span className="font-semibold text-[#2563EB]">{"{hora}"}</span>. Responde{" "}
+                <span className="font-semibold">SI</span> para confirmar o{" "}
+                <span className="font-semibold">NO</span> para cancelar.
               </p>
             </div>
-            <button className="w-full h-7 text-[11px] font-medium text-[#2563EB] hover:bg-blue-50 rounded-lg transition-colors">
-              Editar plantilla
-            </button>
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function StatCard({
+  icon, iconBg, valor, label,
+}: {
+  icon: React.ReactNode
+  iconBg: string
+  valor: string | number
+  label: string
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-5">
+      <div className={`w-8 h-8 ${iconBg} rounded-lg flex items-center justify-center mb-3`}>
+        {icon}
+      </div>
+      <p className="text-[24px] font-bold text-gray-900 leading-none">{valor}</p>
+      <p className="text-[12px] text-gray-500 mt-1.5">{label}</p>
     </div>
   )
 }

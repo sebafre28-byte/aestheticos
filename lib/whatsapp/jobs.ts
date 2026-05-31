@@ -171,7 +171,10 @@ let redisConn: Redis | null = null
 
 function getRedis(): Redis | null {
   const url = process.env.REDIS_URL
-  if (!url) return null
+  if (!url) {
+    console.warn('[whatsapp] REDIS_URL no configurada — recordatorios operan solo vía cron horario. Jobs BullMQ deshabilitados.')
+    return null
+  }
   if (!redisConn) {
     redisConn = new Redis(url, { maxRetriesPerRequest: null })
   }
@@ -408,6 +411,23 @@ export async function processWhatsappJob(job: Job<WhatsappJobData>): Promise<voi
  * Programa jobs diferidos (24h, 2h y post-cita) en BullMQ si hay REDIS_URL.
  * Idempotente por jobId fijo por cita + tipo.
  */
+/**
+ * Cancela los jobs pendientes de BullMQ para una cita (al editar hora o cancelar).
+ * No lanza excepción si Redis no está disponible.
+ */
+export async function cancelWhatsappJobsForCita(citaId: string): Promise<void> {
+  const queue = getWhatsappQueue()
+  if (!queue) return
+
+  const jobIds = [`${citaId}-r24`, `${citaId}-r2`, `${citaId}-post`]
+  await Promise.allSettled(
+    jobIds.map(async (jobId) => {
+      const job = await queue.getJob(jobId)
+      if (job) await job.remove()
+    }),
+  )
+}
+
 export async function scheduleWhatsappJobsForCitaId(citaId: string): Promise<{
   ok: boolean
   detail: string
