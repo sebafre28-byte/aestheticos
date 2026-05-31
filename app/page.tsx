@@ -11,7 +11,21 @@ import {
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 
-function Logo() {
+function Logo({ dark = false }: { dark?: boolean }) {
+  if (dark) {
+    // On dark backgrounds: white pill wrapper so the jpg white bg blends cleanly
+    return (
+      <span className="inline-flex items-center bg-white rounded-xl px-3 py-1.5 shadow-sm">
+        <Image
+          src="/logo-horizontal.jpg"
+          alt="SimpliClinic"
+          width={160}
+          height={40}
+          className="h-8 w-auto object-contain"
+        />
+      </span>
+    )
+  }
   return (
     <Image
       src="/logo-horizontal.jpg"
