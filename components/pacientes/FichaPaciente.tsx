@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { differenceInYears, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { CalendarDays, Clock3, MessageCircle, Phone, User, X } from 'lucide-react'
+import { CalendarDays, Clock3, MessageCircle, Phone, Trash2, User, UserCheck, UserX, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { actualizarNotasPaciente, getPacienteDetalle, type HistorialCitaPaciente, type PacienteRow } from '@/lib/pacientes/queries'
 
@@ -13,6 +13,8 @@ type Props = {
   pacienteId: string
   onClose: () => void
   onEditar: (paciente: PacienteRow) => void
+  onToggleActivo?: (paciente: PacienteRow) => void
+  onEliminar?: (paciente: PacienteRow) => void
 }
 
 function iniciales(nombre: string) {
@@ -29,7 +31,7 @@ function getEdad(fechaNacimiento: string | null): string {
   return `${differenceInYears(new Date(), parseISO(fechaNacimiento))} años`
 }
 
-export function FichaPaciente({ pacienteId, onClose, onEditar }: Props) {
+export function FichaPaciente({ pacienteId, onClose, onEditar, onToggleActivo, onEliminar }: Props) {
   const [tab, setTab] = useState<Tab>('informacion')
   const [paciente, setPaciente] = useState<PacienteRow | null>(null)
   const [historial, setHistorial] = useState<HistorialCitaPaciente[]>([])
@@ -212,13 +214,38 @@ export function FichaPaciente({ pacienteId, onClose, onEditar }: Props) {
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-gray-100 flex gap-2">
-          <Button variant="outline" onClick={() => onEditar(paciente)} className="flex-1">
-            Editar
-          </Button>
-          <Button onClick={abrirWhatsApp} className="flex-1 text-white bg-teal-500 hover:bg-teal-600">
-            WhatsApp
-          </Button>
+        <div className="px-5 py-4 border-t border-gray-100 space-y-2">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onEditar(paciente)} className="flex-1">
+              Editar
+            </Button>
+            <Button onClick={abrirWhatsApp} className="flex-1 text-white bg-teal-500 hover:bg-teal-600">
+              WhatsApp
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            {onToggleActivo && (
+              <Button
+                variant="outline"
+                onClick={() => onToggleActivo(paciente)}
+                className="flex-1 text-[12px]"
+              >
+                {paciente.activo
+                  ? <><UserX className="size-3.5 mr-1.5 text-amber-400" />Desactivar</>
+                  : <><UserCheck className="size-3.5 mr-1.5 text-emerald-500" />Activar</>}
+              </Button>
+            )}
+            {onEliminar && (
+              <Button
+                variant="outline"
+                onClick={() => onEliminar(paciente)}
+                className="flex-1 text-[12px] text-red-600 hover:bg-red-50 hover:border-red-200"
+              >
+                <Trash2 className="size-3.5 mr-1.5" />
+                Eliminar
+              </Button>
+            )}
+          </div>
         </div>
       </aside>
     </>

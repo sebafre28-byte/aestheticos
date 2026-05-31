@@ -191,6 +191,34 @@ export async function crearServicio(input: ServicioInput): Promise<ServicioRow |
   return data as ServicioRow
 }
 
+export async function toggleActivoServicio(servicioId: string, activo: boolean): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('servicios')
+    .update({ activo })
+    .eq('id', servicioId)
+
+  if (error) {
+    console.error('Error toggleActivoServicio:', error)
+    return false
+  }
+  return true
+}
+
+export async function eliminarServicio(servicioId: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('servicios')
+    .delete()
+    .eq('id', servicioId)
+
+  if (error) {
+    console.error('Error eliminarServicio:', error)
+    return false
+  }
+  return true
+}
+
 export async function actualizarServicio(servicioId: string, input: ServicioInput): Promise<ServicioRow | null> {
   const supabase = createClient()
   const payload = {

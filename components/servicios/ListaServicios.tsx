@@ -1,8 +1,9 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import { format, isAfter, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Search } from 'lucide-react'
+import { MoreHorizontal, Pencil, Search, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { ServicioListaItem } from '@/lib/servicios/queries'
@@ -22,12 +23,78 @@ type Props = {
   onPageChange: (value: number) => void
   onNuevoServicio: () => void
   onSelectServicio: (servicio: ServicioListaItem) => void
+  onEditar: (servicio: ServicioListaItem) => void
+  onToggleActivo: (servicio: ServicioListaItem) => void
+  onEliminar: (servicio: ServicioListaItem) => void
 }
 
 function estadoServicio(s: ServicioListaItem): 'nuevo' | 'activo' | 'inactivo' {
   if (!s.activo) return 'inactivo'
   if (isAfter(parseISO(s.created_at), subDays(new Date(), 30))) return 'nuevo'
   return 'activo'
+}
+
+function AccionesMenu({
+  servicio,
+  onEditar,
+  onToggleActivo,
+  onEliminar,
+}: {
+  servicio: ServicioListaItem
+  onEditar: () => void
+  onToggleActivo: () => void
+  onEliminar: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+      >
+        <MoreHorizontal className="size-4" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-xl border border-gray-100 shadow-lg py-1 text-[13px]">
+          <button
+            onClick={() => { setOpen(false); onEditar() }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-50"
+          >
+            <Pencil className="size-3.5 text-gray-400" />
+            Editar
+          </button>
+          <button
+            onClick={() => { setOpen(false); onToggleActivo() }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-50"
+          >
+            {servicio.activo
+              ? <ToggleLeft className="size-3.5 text-amber-400" />
+              : <ToggleRight className="size-3.5 text-emerald-500" />}
+            {servicio.activo ? 'Desactivar' : 'Activar'}
+          </button>
+          <div className="my-1 border-t border-gray-50" />
+          <button
+            onClick={() => { setOpen(false); onEliminar() }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-red-600 hover:bg-red-50"
+          >
+            <Trash2 className="size-3.5" />
+            Eliminar
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function ListaServicios({
@@ -43,6 +110,9 @@ export function ListaServicios({
   onPageChange,
   onNuevoServicio,
   onSelectServicio,
+  onEditar,
+  onToggleActivo,
+  onEliminar,
 }: Props) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const inicio = total === 0 ? 0 : (page - 1) * pageSize + 1
@@ -97,18 +167,19 @@ export function ListaServicios({
             <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Última cita</th>
             <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Total citas</th>
             <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Estado</th>
+            <th className="px-5 py-3 w-10" />
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {loading ? (
             <tr>
-              <td colSpan={6} className="px-5 py-8 text-center text-[13px] text-gray-400">
+              <td colSpan={7} className="px-5 py-8 text-center text-[13px] text-gray-400">
                 Cargando servicios...
               </td>
             </tr>
           ) : servicios.length === 0 ? (
             <tr>
-              <td colSpan={6} className="px-5 py-8 text-center text-[13px] text-gray-400">
+              <td colSpan={7} className="px-5 py-8 text-center text-[13px] text-gray-400">
                 No hay servicios para este filtro.
               </td>
             </tr>
@@ -119,13 +190,18 @@ export function ListaServicios({
                 <tr
                   key={servicio.id}
                   onClick={() => onSelectServicio(servicio)}
-                  className="hover:bg-gray-50/40 transition-colors cursor-pointer"
+                  className="hover:bg-gray-50/40 transition-colors cursor-pointer group"
                 >
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2.5">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: servicio.color }} />
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: servicio.activo ? servicio.color : '#D1D5DB' }}
+                      />
                       <div>
-                        <p className="text-[13px] font-medium text-gray-900">{servicio.nombre}</p>
+                        <p className={`text-[13px] font-medium ${servicio.activo ? 'text-gray-900' : 'text-gray-400'}`}>
+                          {servicio.nombre}
+                        </p>
                         <p className="text-[11px] text-gray-500 line-clamp-1">{servicio.descripcion || 'Sin descripción'}</p>
                       </div>
                     </div>
@@ -136,7 +212,7 @@ export function ListaServicios({
                   </td>
                   <td className="px-5 py-3.5 text-[13px] text-gray-600">
                     {servicio.ultimaCita
-                      ? format(parseISO(servicio.ultimaCita), "d MMM, yyyy", { locale: es })
+                      ? format(parseISO(servicio.ultimaCita), 'd MMM, yyyy', { locale: es })
                       : 'Sin citas'}
                   </td>
                   <td className="px-5 py-3.5 text-[13px] font-semibold text-gray-900">{servicio.totalCitas}</td>
@@ -153,6 +229,16 @@ export function ListaServicios({
                       {estado === 'activo' ? 'Activo' : estado === 'nuevo' ? 'Nuevo' : 'Inactivo'}
                     </span>
                   </td>
+                  <td className="px-3 py-3.5">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <AccionesMenu
+                        servicio={servicio}
+                        onEditar={() => onEditar(servicio)}
+                        onToggleActivo={() => onToggleActivo(servicio)}
+                        onEliminar={() => onEliminar(servicio)}
+                      />
+                    </div>
+                  </td>
                 </tr>
               )
             })
@@ -162,7 +248,7 @@ export function ListaServicios({
 
       <div className="px-5 py-3 border-t border-gray-50 flex items-center justify-between">
         <span className="text-[12px] text-gray-400">
-          Mostrando {inicio}-{fin} de {total} servicios
+          Mostrando {inicio}–{fin} de {total} servicios
         </span>
         <div className="flex items-center gap-1">
           <button
