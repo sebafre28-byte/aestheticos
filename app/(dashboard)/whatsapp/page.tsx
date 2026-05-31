@@ -56,7 +56,7 @@ function iniciales(nombre: string | null, telefono: string): string {
 }
 
 export default function WhatsAppPage() {
-  const [conectado] = useState(true)
+  const [conectado] = useState(!!process.env.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM)
   const [toggles, setToggles] = useState<Record<string, boolean>>(
     Object.fromEntries(recordatorios.map((r) => [r.id, r.defaultActivo]))
   )
