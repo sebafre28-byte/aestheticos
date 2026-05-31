@@ -8,8 +8,9 @@ import {
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  ChevronLeft, ChevronRight, Plus, CalendarDays, Clock, AlignLeft, Grid3X3, Keyboard, Search
+  ChevronLeft, ChevronRight, Plus, CalendarDays, Clock, AlignLeft, Grid3X3, Keyboard, Search, Lock
 } from 'lucide-react'
+import { useSubscripcion } from '@/lib/subscriptions/useSubscripcion'
 import { Button } from '@/components/ui/button'
 import type {
   CitaConRelaciones, ProfesionalRow, ServicioRow, EstadoCita, PagoEstado, PagoMetodo,
@@ -36,6 +37,8 @@ type Props = {
 }
 
 export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
+  const { puedeUsar } = useSubscripcion()
+
   // ─── Estado general ───────────────────────────────────────────────────────
   const [vista, setVista] = useState<Vista>('dia')
   const [fechaActual, setFechaActual] = useState(new Date())
@@ -382,24 +385,36 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
           {/* Selector de vista */}
           <div className="flex items-center bg-white border border-gray-100 rounded-lg p-0.5 gap-0.5">
             {([
-              { id: 'dia', icon: Clock, label: 'Día' },
-              { id: 'semana', icon: CalendarDays, label: 'Semana' },
-              { id: 'lista', icon: AlignLeft, label: 'Lista' },
-              { id: 'mes', icon: Grid3X3, label: 'Mes' },
-            ] as const).map(({ id, icon: Icon, label }) => (
-              <button
-                key={id}
-                onClick={() => setVista(id)}
-                className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium transition-colors ${
-                  vista === id
-                    ? 'bg-[#2563EB] text-white'
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <Icon className="size-3.5" />
-                {label}
-              </button>
-            ))}
+              { id: 'dia',    icon: Clock,        label: 'Día',    feature: null },
+              { id: 'semana', icon: CalendarDays,  label: 'Semana', feature: 'agenda_semana' },
+              { id: 'lista',  icon: AlignLeft,     label: 'Lista',  feature: null },
+              { id: 'mes',    icon: Grid3X3,       label: 'Mes',    feature: 'agenda_mes' },
+            ] as const).map(({ id, icon: Icon, label, feature }) => {
+              const bloqueado = feature !== null && !puedeUsar(feature)
+              return (
+                <button
+                  key={id}
+                  onClick={() => {
+                    if (bloqueado) {
+                      window.location.href = '/configuracion?tab=plan'
+                      return
+                    }
+                    setVista(id)
+                  }}
+                  title={bloqueado ? 'Requiere plan Pro — Ver planes' : undefined}
+                  className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium transition-colors ${
+                    vista === id
+                      ? 'bg-[#2563EB] text-white'
+                      : bloqueado
+                      ? 'text-gray-300 cursor-pointer'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  {bloqueado ? <Lock className="size-3.5" /> : <Icon className="size-3.5" />}
+                  {label}
+                </button>
+              )
+            })}
           </div>
 
           {/* Navegación de fecha */}

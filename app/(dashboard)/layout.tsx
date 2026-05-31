@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/sidebar'
 import { needsOnboarding } from '@/lib/onboarding/queries-server'
+import { TrialBanner } from '@/components/subscriptions/TrialBanner'
 
 export default async function DashboardLayout({
   children,
@@ -14,7 +15,10 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <Sidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TrialBanner />
+        <main className="flex-1 overflow-auto">{children}</main>
+      </div>
     </div>
   )
 }

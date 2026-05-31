@@ -1,3 +1,4 @@
+import { ReportesGuard } from './ReportesGuard'
 import { getReporteData, getMesesDisponibles } from '@/lib/reportes/queries'
 import { formatCLP } from '@/lib/cobros/utils'
 import { SelectorMes } from '@/components/reportes/SelectorMes'
@@ -42,6 +43,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: Sea
   ]
 
   return (
+    <ReportesGuard>
     <div className="flex flex-col gap-6 p-6 min-h-full bg-slate-50">
       {/* Header */}
       <div className="flex items-center justify-between print:hidden">
@@ -196,5 +198,6 @@ export default async function ReportesPage({ searchParams }: { searchParams: Sea
         </p>
       </div>
     </div>
+    </ReportesGuard>
   )
 }
