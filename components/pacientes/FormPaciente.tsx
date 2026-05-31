@@ -13,6 +13,8 @@ type FormData = {
   email: string
   rut: string
   fecha_nacimiento: string
+  genero: string
+  direccion: string
 }
 
 type Props = {
@@ -61,6 +63,8 @@ export function FormPaciente({ open, paciente, onClose, onSubmit }: Props) {
     email: paciente?.email ?? '',
     rut: paciente?.rut ?? '',
     fecha_nacimiento: paciente?.fecha_nacimiento ?? '',
+    genero: paciente?.genero ?? '',
+    direccion: paciente?.direccion ?? '',
   })
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -130,6 +134,28 @@ export function FormPaciente({ open, paciente, onClose, onSubmit }: Props) {
               type="date"
               value={data.fecha_nacimiento}
               onChange={(e) => setData((v) => ({ ...v, fecha_nacimiento: e.target.value }))}
+            />
+          </div>
+          <div>
+            <Label className="mb-1.5 block text-[12px] font-semibold">Género</Label>
+            <select
+              value={data.genero}
+              onChange={(e) => setData((v) => ({ ...v, genero: e.target.value }))}
+              className="w-full h-9 px-3 rounded-md border border-input bg-background text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+            >
+              <option value="">Sin especificar</option>
+              <option value="masculino">Masculino</option>
+              <option value="femenino">Femenino</option>
+              <option value="otro">Otro</option>
+              <option value="prefiero_no_decir">Prefiero no decir</option>
+            </select>
+          </div>
+          <div className="col-span-2">
+            <Label className="mb-1.5 block text-[12px] font-semibold">Dirección</Label>
+            <Input
+              value={data.direccion}
+              onChange={(e) => setData((v) => ({ ...v, direccion: e.target.value }))}
+              placeholder="Calle, número, ciudad..."
             />
           </div>
           {error && <p className="col-span-2 text-[12px] text-red-500 font-medium">{error}</p>}
