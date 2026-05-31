@@ -1,9 +1,12 @@
+import { ReportesGuard } from './ReportesGuard'
 import { getReporteData, getMesesDisponibles } from '@/lib/reportes/queries'
 import { formatCLP } from '@/lib/cobros/utils'
 import { SelectorMes } from '@/components/reportes/SelectorMes'
 import { ExportButtons } from '@/components/reportes/ExportButtons'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 
 type SearchParams = Promise<{ year?: string; month?: string }>
 
@@ -16,6 +19,10 @@ const estadoConfig: Record<string, { label: string; className: string }> = {
 }
 
 export default async function ReportesPage({ searchParams }: { searchParams: SearchParams }) {
+  const supabase = await createClient()
+  const { data: rol } = await supabase.rpc('auth_rol_usuario')
+  if (rol !== 'admin') redirect('/dashboard')
+
   const params = await searchParams
   const now = new Date()
   const year = params.year ? parseInt(params.year) : now.getFullYear()
@@ -36,6 +43,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: Sea
   ]
 
   return (
+    <ReportesGuard>
     <div className="flex flex-col gap-6 p-6 min-h-full bg-slate-50">
       {/* Header */}
       <div className="flex items-center justify-between print:hidden">
@@ -190,5 +198,6 @@ export default async function ReportesPage({ searchParams }: { searchParams: Sea
         </p>
       </div>
     </div>
+    </ReportesGuard>
   )
 }

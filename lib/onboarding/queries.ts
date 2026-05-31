@@ -11,6 +11,7 @@ export type ClinicaBasica = {
   plan: string
   sitio_web: string | null
   logo_url: string | null
+  slug: string | null
 }
 
 export type HorarioDia = { activo: boolean; desde: string; hasta: string }
@@ -69,7 +70,7 @@ export async function getClinicaBasica(): Promise<ClinicaBasica | null> {
 
   const { data, error } = await supabase
     .from('clinicas')
-    .select('id, nombre, email, telefono, direccion, plan, sitio_web, logo_url')
+    .select('id, nombre, email, telefono, direccion, plan, sitio_web, logo_url, slug')
     .eq('owner_id', user.id)
     .single()
 
@@ -103,7 +104,7 @@ export async function actualizarClinicaBasica(input: {
       logo_url: input.logo_url?.trim() || null,
     })
     .eq('id', clinicaId)
-    .select('id, nombre, email, telefono, direccion, plan, sitio_web, logo_url')
+    .select('id, nombre, email, telefono, direccion, plan, sitio_web, logo_url, slug')
     .single()
 
   if (error) {

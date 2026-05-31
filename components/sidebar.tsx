@@ -18,16 +18,17 @@ import {
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { getClinicaBasica } from "@/lib/onboarding/queries"
+import { useRol, puedeAcceder } from "@/lib/auth/useRol"
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/agenda", label: "Agenda", icon: Calendar },
-  { href: "/pacientes", label: "Pacientes", icon: Users },
-  { href: "/servicios", label: "Servicios", icon: Scissors },
-  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { href: "/inbox", label: "Inbox", icon: MessageSquare },
-  { href: "/reportes", label: "Reportes", icon: BarChart2 },
-  { href: "/configuracion", label: "Configuración", icon: Settings },
+  { href: "/dashboard",     label: "Dashboard",     icon: LayoutDashboard, modulo: "dashboard" },
+  { href: "/agenda",        label: "Agenda",         icon: Calendar,        modulo: "agenda" },
+  { href: "/pacientes",     label: "Pacientes",      icon: Users,           modulo: "pacientes" },
+  { href: "/servicios",     label: "Servicios",      icon: Scissors,        modulo: "servicios" },
+  { href: "/whatsapp",      label: "WhatsApp",       icon: MessageCircle,   modulo: "whatsapp" },
+  { href: "/inbox",         label: "Inbox",          icon: MessageSquare,   modulo: "inbox" },
+  { href: "/reportes",      label: "Reportes",       icon: BarChart2,       modulo: "reportes" },
+  { href: "/configuracion", label: "Configuración",  icon: Settings,        modulo: "configuracion" },
 ]
 
 // Ícono SimpliClinic: cruz médica en azul sobre fondo blanco
@@ -41,9 +42,15 @@ function LogoIcon() {
   )
 }
 
-export function Sidebar() {
+type SidebarProps = {
+  open?: boolean
+  onClose?: () => void
+}
+
+export function Sidebar({ open, onClose }: SidebarProps = {}) {
   const pathname = usePathname()
   const router = useRouter()
+  const { rol } = useRol()
   const [nombreUsuario, setNombreUsuario] = useState('')
   const [inicialesUsuario, setInicialesUsuario] = useState('')
   const [rolUsuario, setRolUsuario] = useState('')
@@ -77,6 +84,8 @@ export function Sidebar() {
     router.push('/login')
   }
 
+  const isMobileDrawer = onClose !== undefined
+
   return (
     <aside
       className="w-[220px] shrink-0 flex flex-col h-full"
@@ -103,13 +112,14 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-3 space-y-0.5">
-        {navItems.map((item) => {
+        {navItems.filter(item => puedeAcceder(rol, item.modulo)).map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={cn(
                 "flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors group",
                 isActive

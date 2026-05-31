@@ -1,5 +1,6 @@
 'use client'
 
+import { PlanGate } from '@/components/subscriptions/PlanGate'
 import { useState } from 'react'
 import { MessageSquare, Send, Phone, MoreVertical, Search, Archive, UserCheck } from 'lucide-react'
 
@@ -201,6 +202,7 @@ export default function InboxPage() {
   const inicial = seleccionada ? iniciales(seleccionada.paciente_nombre, seleccionada.telefono) : ''
 
   return (
+    <PlanGate feature="inbox">
     <div className="flex h-[calc(100vh-0px)] bg-white overflow-hidden">
       {/* ── Left: conversation list ── */}
       <div className="w-80 flex-shrink-0 border-r border-gray-200 flex flex-col">
@@ -313,5 +315,6 @@ export default function InboxPage() {
         </div>
       )}
     </div>
+    </PlanGate>
   )
 }
