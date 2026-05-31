@@ -3,20 +3,28 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
+import { ArrowRight, Eye, EyeOff } from "lucide-react"
 
-// Ícono de la marca SimpliClinic
-function LogoSimpliclinic() {
+function ClinicIcon({ size = 30 }: { size?: number }) {
   return (
-    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="44" height="44" rx="12" fill="#2563EB" />
-      <rect x="18" y="9" width="8" height="26" rx="4" fill="white" />
-      <rect x="9" y="18" width="26" height="8" rx="4" fill="white" />
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
+      <rect x="1.5" y="1.5" width="33" height="33" rx="9" stroke="#2563EB" strokeWidth="2.8"/>
+      <path d="M10.5 20.5 Q18 27 25.5 20.5" stroke="#2563EB" strokeWidth="2.8" strokeLinecap="round" fill="none"/>
+      <circle cx="24" cy="12" r="2.2" fill="#2563EB"/>
     </svg>
+  )
+}
+
+function Logo() {
+  return (
+    <div className="flex items-center gap-2 select-none">
+      <span className="text-[20px] font-extrabold leading-none tracking-tight">
+        <span style={{ color: '#0B132B' }}>Simpli</span>
+        <span style={{ color: '#2563EB' }}>Clinic</span>
+      </span>
+      <ClinicIcon size={28} />
+    </div>
   )
 }
 
@@ -24,6 +32,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -38,11 +47,11 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      if (error.message.toLowerCase().includes('email not confirmed')) {
-        setError('Debes confirmar tu email antes de iniciar sesión.')
-      } else {
-        setError('Credenciales incorrectas. Verifica tu email y contraseña.')
-      }
+      setError(
+        error.message.toLowerCase().includes('email not confirmed')
+          ? 'Debes confirmar tu email antes de iniciar sesión.'
+          : 'Credenciales incorrectas. Verifica tu email y contraseña.'
+      )
       setLoading(false)
       return
     }
@@ -51,76 +60,103 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full max-w-sm">
-      {/* Logo y título */}
-      <div className="flex flex-col items-center mb-8">
-        <LogoSimpliclinic />
-        <h1 className="text-[18px] font-bold text-gray-900 mt-3">SimpliClinic</h1>
-        <p className="text-[13px] text-gray-500 mt-0.5">Tu clínica, más simple.</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex flex-col items-center justify-center px-5 py-12">
 
-      <Card className="gap-0 py-0 shadow-sm border-gray-200">
-        <CardHeader className="px-7 pt-7 pb-5">
-          <h2 className="text-[15px] font-semibold text-gray-900">Iniciar sesión</h2>
-        </CardHeader>
+      {/* Back to landing */}
+      <Link href="/" className="absolute top-6 left-6 text-[13px] text-gray-500 hover:text-gray-800 transition-colors flex items-center gap-1">
+        ← Volver al inicio
+      </Link>
 
-        <CardContent className="px-7 pb-7">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-[13px] text-gray-700">
+      <div className="w-full max-w-[400px]">
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <Logo />
+        </div>
+
+        {/* Card */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-8 py-8">
+          <div className="mb-7">
+            <h1 className="text-[22px] font-extrabold text-gray-900 tracking-tight">Bienvenido de nuevo</h1>
+            <p className="text-[14px] text-gray-500 mt-1">Ingresa a tu cuenta para continuar</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-[13px] font-medium text-gray-700 mb-1.5">
                 Email
-              </Label>
-              <Input
+              </label>
+              <input
                 id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
                 placeholder="tu@clinica.com"
                 required
+                className="w-full h-11 px-4 rounded-xl border border-gray-200 text-[14px] text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all bg-gray-50 focus:bg-white"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-[13px] text-gray-700">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="block text-[13px] font-medium text-gray-700">
                   Contraseña
-                </Label>
+                </label>
                 <a href="#" className="text-[12px] text-[#2563EB] hover:underline font-medium">
                   ¿Olvidaste tu contraseña?
                 </a>
               </div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                required
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  required
+                  className="w-full h-11 px-4 pr-11 rounded-xl border border-gray-200 text-[14px] text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all bg-gray-50 focus:bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </div>
 
             {error && (
-              <p className="text-[12px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              <div className="flex items-start gap-2 text-[12px] text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
+                <span className="mt-0.5 shrink-0">⚠️</span>
+                {error}
+              </div>
             )}
 
-            <Button
+            <button
               type="submit"
               disabled={loading}
-              className="w-full h-9 text-[13px] font-medium rounded-lg border-0 mt-1 text-white disabled:opacity-70"
-              style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}
+              className="w-full h-12 rounded-xl text-[15px] font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 hover:scale-[1.01] disabled:opacity-60 disabled:scale-100 shadow-lg shadow-blue-200 mt-1"
+              style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
             >
-              {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-            </Button>
+              {loading ? (
+                <svg className="animate-spin size-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+              ) : (
+                <>Iniciar sesión <ArrowRight className="size-4" /></>
+              )}
+            </button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
 
-      <p className="text-center text-[13px] text-gray-500 mt-5">
-        ¿Sin cuenta?{" "}
-        <Link href="/register" className="text-[#2563EB] font-semibold hover:underline">
-          Registra tu clínica
-        </Link>
-      </p>
+        <p className="text-center text-[13px] text-gray-500 mt-5">
+          ¿Sin cuenta?{' '}
+          <Link href="/register" className="text-[#2563EB] font-semibold hover:underline">
+            Registra tu clínica gratis
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }
