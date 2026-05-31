@@ -181,6 +181,7 @@ export default function InboxPage() {
   const [seleccionada, setSeleccionada] = useState<Conversacion | null>(MOCK_CONVERSACIONES[0])
   const [busqueda, setBusqueda] = useState('')
   const [texto, setTexto] = useState('')
+  const [mostrarChat, setMostrarChat] = useState(false)
 
   const filtradas = conversaciones.filter(c => {
     if (!busqueda) return true
@@ -203,9 +204,9 @@ export default function InboxPage() {
 
   return (
     <PlanGate feature="inbox">
-    <div className="flex h-[calc(100vh-0px)] bg-white overflow-hidden">
+    <div className="relative flex h-[calc(100vh-0px)] bg-white overflow-hidden">
       {/* ── Left: conversation list ── */}
-      <div className="w-80 flex-shrink-0 border-r border-gray-200 flex flex-col">
+      <div className={`${mostrarChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-shrink-0 border-r border-gray-200 flex-col`}>
         {/* Header */}
         <div className="px-4 py-4 border-b border-gray-200">
           <h1 className="text-lg font-semibold text-gray-900 mb-3">Inbox</h1>
@@ -234,7 +235,7 @@ export default function InboxPage() {
                 key={conv.id}
                 conv={conv}
                 selected={seleccionada?.id === conv.id}
-                onClick={() => setSeleccionada(conv)}
+                onClick={() => { setSeleccionada(conv); setMostrarChat(true) }}
               />
             ))
           )}
@@ -243,10 +244,13 @@ export default function InboxPage() {
 
       {/* ── Right: chat panel ── */}
       {seleccionada ? (
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className={`${!mostrarChat ? 'hidden md:flex' : 'flex'} flex-1 flex-col min-w-0`}>
           {/* Chat header */}
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-white">
             <div className="flex items-center gap-3">
+              <button onClick={() => setMostrarChat(false)} className="md:hidden mr-2 p-1.5 rounded-lg hover:bg-gray-100">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
               <div className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white text-sm font-semibold`}>
                 {inicial}
               </div>
