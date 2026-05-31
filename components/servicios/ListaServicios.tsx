@@ -18,6 +18,7 @@ type Props = {
   filtro: FiltroServicios
   busqueda: string
   loading?: boolean
+  soloLectura?: boolean
   onBusquedaChange: (value: string) => void
   onFiltroChange: (value: FiltroServicios) => void
   onPageChange: (value: number) => void
@@ -105,6 +106,7 @@ export function ListaServicios({
   filtro,
   busqueda,
   loading = false,
+  soloLectura = false,
   onBusquedaChange,
   onFiltroChange,
   onPageChange,
@@ -149,13 +151,15 @@ export function ListaServicios({
             </button>
           ))}
         </div>
-        <Button
-          onClick={onNuevoServicio}
-          className="h-8 text-[13px] font-medium text-white border-0"
-          style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
-        >
-          + Nuevo servicio
-        </Button>
+        {!soloLectura && (
+          <Button
+            onClick={onNuevoServicio}
+            className="h-8 text-[13px] font-medium text-white border-0"
+            style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
+          >
+            + Nuevo servicio
+          </Button>
+        )}
       </div>
 
       <table className="w-full">
@@ -231,16 +235,18 @@ export function ListaServicios({
                       {estado === 'activo' ? 'Activo' : estado === 'nuevo' ? 'Nuevo' : 'Inactivo'}
                     </span>
                   </td>
-                  <td className="px-3 py-3.5">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <AccionesMenu
-                        servicio={servicio}
-                        onEditar={() => onEditar(servicio)}
-                        onToggleActivo={() => onToggleActivo(servicio)}
-                        onEliminar={() => onEliminar(servicio)}
-                      />
-                    </div>
-                  </td>
+                  {!soloLectura && (
+                    <td className="px-3 py-3.5">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <AccionesMenu
+                          servicio={servicio}
+                          onEditar={() => onEditar(servicio)}
+                          onToggleActivo={() => onToggleActivo(servicio)}
+                          onEliminar={() => onEliminar(servicio)}
+                        />
+                      </div>
+                    </td>
+                  )}
                 </tr>
               )
             })

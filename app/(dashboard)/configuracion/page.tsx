@@ -9,6 +9,7 @@ import {
   ChevronDown, Clock, Link2, ExternalLink, Copy,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
+import { useAcceso } from "@/components/auth/RolGuard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1082,6 +1083,13 @@ function BtnCerrarSesion() {
 
 export default function ConfiguracionPage() {
   const [activa, setActiva] = useState<SeccionId>("clinica")
+  const { puede, cargando: cargandoRol } = useAcceso("configuracion")
+
+  if (cargandoRol) return null
+  if (!puede) {
+    if (typeof window !== 'undefined') window.location.replace('/dashboard')
+    return null
+  }
 
   const SECCIONES: Record<SeccionId, React.ReactNode> = {
     clinica:       <SeccionClinica />,

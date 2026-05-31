@@ -4,6 +4,8 @@ import { SelectorMes } from '@/components/reportes/SelectorMes'
 import { ExportButtons } from '@/components/reportes/ExportButtons'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 
 type SearchParams = Promise<{ year?: string; month?: string }>
 
@@ -16,6 +18,10 @@ const estadoConfig: Record<string, { label: string; className: string }> = {
 }
 
 export default async function ReportesPage({ searchParams }: { searchParams: SearchParams }) {
+  const supabase = await createClient()
+  const { data: rol } = await supabase.rpc('auth_rol_usuario')
+  if (rol !== 'admin') redirect('/dashboard')
+
   const params = await searchParams
   const now = new Date()
   const year = params.year ? parseInt(params.year) : now.getFullYear()
