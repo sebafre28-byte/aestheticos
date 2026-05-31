@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import Image from "next/image"
 import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
@@ -1022,8 +1023,12 @@ function ClinicaHeaderCard() {
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 shrink-0">
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #2563EB 0%, #10B981 100%)" }}>
-        <span className="text-white text-base font-bold">{nombre[0]?.toUpperCase() ?? "C"}</span>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: "linear-gradient(135deg, #2563EB 0%, #10B981 100%)" }}>
+        {clinica?.logo_url ? (
+          <Image src={clinica.logo_url} width={40} height={40} className="w-10 h-10 rounded-xl object-cover" alt="logo" />
+        ) : (
+          <span className="text-white text-base font-bold">{nombre[0]?.toUpperCase() ?? "C"}</span>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[14px] font-semibold text-gray-900 leading-tight">{nombre}</p>
