@@ -112,7 +112,7 @@ export default function ServiciosPage() {
   const ingresoPotencial = precioPromedio * serviciosActivos
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-[18px] font-semibold text-gray-900">Servicios</h1>
         <p className="text-[13px] text-gray-400 mt-0.5">{total} servicios registrados</p>

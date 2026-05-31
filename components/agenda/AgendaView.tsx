@@ -41,6 +41,13 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
   // ─── Estado general ───────────────────────────────────────────────────────
   const [vista, setVista] = useState<Vista>('dia')
+
+  // Force día view on mobile
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setVista('dia')
+    }
+  }, [])
   const [fechaActual, setFechaActual] = useState(new Date())
   const [citas, setCitas] = useState<CitaConRelaciones[]>([])
   const [profesionales, setProfesionales] = useState<ProfesionalRow[]>([])
@@ -344,7 +351,7 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
     : profesionales
 
   return (
-    <div className="p-5 h-full flex flex-col gap-4">
+    <div className="p-3 sm:p-5 h-full flex flex-col gap-3 sm:gap-4">
       {/* ── Header ── */}
       {/* ── Header ── */}
       <div className="flex items-center justify-between shrink-0 flex-wrap gap-2">
@@ -370,7 +377,7 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Búsqueda de paciente */}
-          <div className="relative">
+          <div className="relative hidden sm:block">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 pointer-events-none" />
             <input
               type="text"
@@ -385,11 +392,11 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
           {/* Selector de vista */}
           <div className="flex items-center bg-white border border-gray-100 rounded-lg p-0.5 gap-0.5">
             {([
-              { id: 'dia',    icon: Clock,        label: 'Día',    feature: null },
-              { id: 'semana', icon: CalendarDays,  label: 'Semana', feature: 'agenda_semana' },
-              { id: 'lista',  icon: AlignLeft,     label: 'Lista',  feature: null },
-              { id: 'mes',    icon: Grid3X3,       label: 'Mes',    feature: 'agenda_mes' },
-            ] as const).map(({ id, icon: Icon, label, feature }) => {
+              { id: 'dia',    icon: Clock,        label: 'Día',    feature: null,           mobileHidden: false },
+              { id: 'semana', icon: CalendarDays,  label: 'Semana', feature: 'agenda_semana', mobileHidden: true },
+              { id: 'lista',  icon: AlignLeft,     label: 'Lista',  feature: null,           mobileHidden: false },
+              { id: 'mes',    icon: Grid3X3,       label: 'Mes',    feature: 'agenda_mes',   mobileHidden: true },
+            ] as const).map(({ id, icon: Icon, label, feature, mobileHidden }) => {
               const bloqueado = feature !== null && !puedeUsar(feature)
               return (
                 <button
@@ -402,7 +409,7 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
                     setVista(id)
                   }}
                   title={bloqueado ? 'Requiere plan Pro — Ver planes' : undefined}
-                  className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium transition-colors ${mobileHidden ? 'hidden md:flex' : 'flex'} ${
                     vista === id
                       ? 'bg-[#2563EB] text-white'
                       : bloqueado
@@ -415,6 +422,7 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
                 </button>
               )
             })}
+
           </div>
 
           {/* Navegación de fecha */}
@@ -443,7 +451,7 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
             </button>
           </div>
 
-          <div className="flex items-center bg-white border border-gray-100 rounded-lg px-2 gap-2 h-8">
+          <div className="hidden md:flex items-center bg-white border border-gray-100 rounded-lg px-2 gap-2 h-8">
             <input
               type="date"
               value={fechaJump}
@@ -459,7 +467,7 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
 
           <button
             onClick={() => setMostrarAyudaTeclado((v) => !v)}
-            className="h-8 px-2.5 rounded-lg text-[12px] border border-gray-100 bg-white text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
+            className="hidden md:flex h-8 px-2.5 rounded-lg text-[12px] border border-gray-100 bg-white text-gray-600 hover:bg-gray-50 items-center gap-1.5"
             aria-label="Mostrar atajos de teclado"
           >
             <Keyboard className="size-3.5" />
@@ -478,6 +486,32 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
             </Button>
           )}
         </div>
+      </div>
+
+      {/* ── Mobile date strip ── */}
+      <div className="md:hidden flex gap-1.5 overflow-x-auto pb-1 shrink-0 scrollbar-none">
+        {Array.from({ length: 7 }).map((_, i) => {
+          const d = addDays(new Date(), i - 1)
+          const isSelected = isSameDay(d, fechaActual)
+          return (
+            <button
+              key={i}
+              onClick={() => setFechaActual(d)}
+              className={`flex flex-col items-center justify-center shrink-0 w-12 h-14 rounded-xl text-center transition-colors ${
+                isSelected
+                  ? 'bg-[#2563EB] text-white'
+                  : isSameDay(d, new Date())
+                  ? 'bg-blue-50 text-[#2563EB] border border-blue-200'
+                  : 'bg-white border border-gray-100 text-gray-600'
+              }`}
+            >
+              <span className="text-[10px] font-medium capitalize">
+                {format(d, 'EEE', { locale: es })}
+              </span>
+              <span className="text-[15px] font-bold leading-tight">{format(d, 'd')}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* ── Chips de filtro de profesionales (vista día y semana) ── */}
