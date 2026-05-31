@@ -1,8 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { Clock, CheckCircle, CheckCircle2, XCircle, UserX } from 'lucide-react'
 import { citaWallClockTime } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
+import { TooltipCita } from './TooltipCita'
 
 export const PIXEL_POR_MIN = 1.5
 export const HORA_GRILLA_INICIO = 8
@@ -45,6 +47,7 @@ const ESTADO_BORDE: Record<EstadoCita, { color: string; style: 'solid' | 'dashed
 type Props = {
   cita: CitaConRelaciones
   onClick: (cita: CitaConRelaciones) => void
+  onDragStart?: (cita: CitaConRelaciones) => void
   onResize?: (cita: CitaConRelaciones, deltaMinutos: number) => void
   topPx: number
   heightPx: number
@@ -55,12 +58,14 @@ type Props = {
 export function BloqueCita({
   cita,
   onClick,
+  onDragStart,
   onResize,
   topPx,
   heightPx,
   leftPercent = 0,
   widthPercent = 100,
 }: Props) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null)
   const color = cita.profesionales?.color ?? '#2563EB'
   const horaInicio = citaWallClockTime(cita.inicio)
   const horaFin = citaWallClockTime(cita.fin)
@@ -102,9 +107,6 @@ export function BloqueCita({
     borderLeftColor: borde.color,
   }
 
-  const tituloTooltip = alturaReal < 40
-    ? `${nombrePaciente}${nombreServicio ? ' · ' + nombreServicio : ''} · ${horaInicio}–${horaFin}`
-    : undefined
 
   function iniciarResize(event: React.MouseEvent<HTMLButtonElement>) {
     if (onResize == null) return
@@ -132,7 +134,14 @@ export function BloqueCita({
       tabIndex={0}
       onClick={() => onClick(cita)}
       onKeyDown={(e) => e.key === 'Enter' && onClick(cita)}
-      title={tituloTooltip}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/cita-id', cita.id)
+        onDragStart?.(cita)
+      }}
+      onMouseEnter={(e) => setTooltip({ x: e.clientX, y: e.clientY })}
+      onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY })}
+      onMouseLeave={() => setTooltip(null)}
       className="absolute rounded-md cursor-pointer transition-all hover:brightness-95 select-none overflow-hidden"
       style={estiloBloque}
     >
@@ -190,6 +199,9 @@ export function BloqueCita({
           className="absolute bottom-0 right-0 left-0 h-2 cursor-ns-resize bg-transparent hover:bg-black/10"
         />
       )}
+      {tooltip && typeof document !== 'undefined' && (
+        <TooltipCita cita={cita} x={tooltip.x} y={tooltip.y} />
+      )}
     </div>
   )
 }
@@ -202,6 +214,7 @@ type BloqueCompactoProps = {
 }
 
 export function BloqueCompacto({ cita, onClick }: BloqueCompactoProps) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null)
   const color = cita.profesionales?.color ?? '#2563EB'
   const borde = ESTADO_BORDE[cita.estado]
   const IconoEstado = ESTADO_ICONO[cita.estado]
