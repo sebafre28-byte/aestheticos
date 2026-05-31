@@ -129,8 +129,8 @@ export function ListaPacientes({
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="px-4 py-3 border-b border-gray-50 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="relative flex-1 sm:max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
           <Input
             value={busqueda}
@@ -157,17 +157,68 @@ export function ListaPacientes({
               {item.label}
             </button>
           ))}
+          <Button
+            onClick={onNuevoPaciente}
+            className="h-8 text-[13px] font-medium text-white border-0 ml-auto sm:ml-0"
+            style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
+          >
+            + Nuevo
+          </Button>
         </div>
-        <Button
-          onClick={onNuevoPaciente}
-          className="h-8 text-[13px] font-medium text-white border-0"
-          style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
-        >
-          + Nuevo paciente
-        </Button>
       </div>
 
-      <table className="w-full">
+      {/* Mobile card list */}
+      <div className="md:hidden divide-y divide-gray-50">
+        {loading ? (
+          <div className="px-5 py-8 text-center text-[13px] text-gray-400">Cargando pacientes...</div>
+        ) : pacientes.length === 0 ? (
+          <div className="px-5 py-8 text-center text-[13px] text-gray-400">No hay pacientes para este filtro.</div>
+        ) : (
+          pacientes.map((paciente) => {
+            const estado = estadoPaciente(paciente)
+            return (
+              <div
+                key={paciente.id}
+                onClick={() => onSelectPaciente(paciente)}
+                className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50/50 transition-colors cursor-pointer"
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${paciente.activo ? 'bg-[#2563EB]/10' : 'bg-gray-100'}`}>
+                  <span className={`text-[12px] font-semibold ${paciente.activo ? 'text-[#2563EB]' : 'text-gray-400'}`}>
+                    {inicialesNombre(paciente.nombre)}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-[13px] font-medium truncate ${paciente.activo ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {paciente.nombre}
+                  </p>
+                  <p className="text-[11px] text-gray-400 truncate">
+                    {paciente.telefono || paciente.email || 'Sin contacto'}
+                  </p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {paciente.ultimaCita
+                      ? `Última: ${format(parseISO(paciente.ultimaCita), 'd MMM yyyy', { locale: es })}`
+                      : 'Sin citas'}
+                  </p>
+                </div>
+                <span
+                  className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
+                    estado === 'activo'
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : estado === 'nuevo'
+                      ? 'bg-cyan-50 text-cyan-700'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {estado === 'activo' ? 'Activo' : estado === 'nuevo' ? 'Nuevo' : 'Inactivo'}
+                </span>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <table className="hidden md:table w-full">
         <thead>
           <tr className="border-b border-gray-50">
             <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Paciente</th>
