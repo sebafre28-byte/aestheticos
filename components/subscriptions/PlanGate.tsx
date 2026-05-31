@@ -90,7 +90,13 @@ export function PlanGate({
 }) {
   const { puedeUsar, cargando } = useSubscripcion()
 
-  if (cargando) return null
+  if (cargando) return (
+    <div className="p-6">
+      <div className="h-8 w-48 bg-gray-100 rounded-lg animate-pulse mb-4" />
+      <div className="h-4 w-full bg-gray-100 rounded animate-pulse mb-2" />
+      <div className="h-4 w-3/4 bg-gray-100 rounded animate-pulse" />
+    </div>
+  )
 
   if (puedeUsar(feature)) return <>{children}</>
 
