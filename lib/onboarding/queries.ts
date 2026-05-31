@@ -9,7 +9,12 @@ export type ClinicaBasica = {
   telefono: string | null
   direccion: string | null
   plan: string
+  sitio_web: string | null
+  logo_url: string | null
 }
+
+export type HorarioDia = { activo: boolean; desde: string; hasta: string }
+export type HorariosConfig = Record<string, HorarioDia>
 
 export type PlantillaWsp = {
   id: string
@@ -26,6 +31,7 @@ export type RecordatorioConfig = {
 export type ClinicaConfiguracion = {
   plantillas?: PlantillaWsp[]
   recordatorios?: RecordatorioConfig[]
+  horarios?: HorariosConfig
 }
 
 const PLANTILLAS_DEFAULT: PlantillaWsp[] = [
@@ -63,7 +69,7 @@ export async function getClinicaBasica(): Promise<ClinicaBasica | null> {
 
   const { data, error } = await supabase
     .from('clinicas')
-    .select('id, nombre, email, telefono, direccion, plan')
+    .select('id, nombre, email, telefono, direccion, plan, sitio_web, logo_url')
     .eq('owner_id', user.id)
     .single()
 
@@ -79,6 +85,8 @@ export async function actualizarClinicaBasica(input: {
   email?: string
   telefono: string
   direccion: string
+  sitio_web?: string
+  logo_url?: string
 }): Promise<ClinicaBasica | null> {
   const clinicaId = await getClinicaId()
   if (!clinicaId) return null
@@ -91,9 +99,11 @@ export async function actualizarClinicaBasica(input: {
       email: input.email?.trim() || null,
       telefono: input.telefono.trim() || null,
       direccion: input.direccion.trim() || null,
+      sitio_web: input.sitio_web?.trim() || null,
+      logo_url: input.logo_url?.trim() || null,
     })
     .eq('id', clinicaId)
-    .select('id, nombre, email, telefono, direccion, plan')
+    .select('id, nombre, email, telefono, direccion, plan, sitio_web, logo_url')
     .single()
 
   if (error) {

@@ -5,7 +5,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown,
+  ChevronDown, Clock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,7 @@ import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
   crearProfesional, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT,
   type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig,
+  type HorarioDia, type HorariosConfig,
 } from "@/lib/onboarding/queries"
 import {
   getUsuariosClinica, invitarUsuario, actualizarRolUsuario, toggleActivoUsuario, eliminarUsuario,
@@ -24,11 +25,12 @@ import type { ProfesionalRow } from "@/lib/agenda/queries"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "plan" | "seguridad"
+type SeccionId = "clinica" | "equipo" | "horarios" | "usuarios" | "whatsapp" | "recordatorios" | "plan" | "seguridad"
 
 const NAV: { id: SeccionId; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[] = [
   { id: "clinica",       label: "Datos de la clínica",   icon: Building2 },
   { id: "equipo",        label: "Equipo",                icon: Users },
+  { id: "horarios",      label: "Horarios de atención",  icon: Clock },
   { id: "usuarios",      label: "Usuarios y roles",      icon: UserCog },
   { id: "whatsapp",      label: "WhatsApp Business",     icon: MessageCircle },
   { id: "recordatorios", label: "Recordatorios",         icon: Bell },
@@ -91,17 +93,64 @@ function Feedback({ f }: { f: { tipo: "ok" | "error"; msg: string } | null }) {
 // ─── Sección Clínica ─────────────────────────────────────────────────────────
 
 function SeccionClinica() {
-  const [form, setForm] = useState({ nombre: "", email: "", telefono: "", direccion: "" })
+  const [form, setForm] = useState({ nombre: "", email: "", telefono: "", direccion: "", sitio_web: "", logo_url: "" })
+  const [clinicaId, setClinicaId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [subiendoLogo, setSubiendoLogo] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     getClinicaBasica().then((c) => {
-      if (c) setForm({ nombre: c.nombre ?? "", email: c.email ?? "", telefono: c.telefono ?? "", direccion: c.direccion ?? "" })
+      if (c) {
+        setForm({
+          nombre: c.nombre ?? "",
+          email: c.email ?? "",
+          telefono: c.telefono ?? "",
+          direccion: c.direccion ?? "",
+          sitio_web: c.sitio_web ?? "",
+          logo_url: c.logo_url ?? "",
+        })
+        setClinicaId(c.id)
+      }
       setCargando(false)
     })
   }, [])
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !clinicaId) return
+    if (file.size > 2 * 1024 * 1024) {
+      setFeedback({ tipo: "error", msg: "La imagen no debe superar 2 MB." })
+      return
+    }
+    setSubiendoLogo(true)
+    setFeedback(null)
+    const supabase = createClient()
+    const path = `${clinicaId}/logo.jpg`
+    const { error: uploadError } = await supabase.storage
+      .from("logos")
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (uploadError) {
+      setSubiendoLogo(false)
+      if (uploadError.message?.toLowerCase().includes("bucket")) {
+        setFeedback({ tipo: "error", msg: "Configura el bucket 'logos' en Supabase Storage." })
+      } else {
+        setFeedback({ tipo: "error", msg: `No se pudo subir el logo: ${uploadError.message}` })
+      }
+      return
+    }
+    const { data: { publicUrl } } = supabase.storage.from("logos").getPublicUrl(path)
+    // Append cache-busting timestamp
+    const urlConTimestamp = `${publicUrl}?t=${Date.now()}`
+    setForm(p => ({ ...p, logo_url: urlConTimestamp }))
+    // Persist immediately
+    await supabase.from("clinicas").update({ logo_url: urlConTimestamp }).eq("id", clinicaId)
+    setSubiendoLogo(false)
+    setFeedback({ tipo: "ok", msg: "Logo actualizado correctamente." })
+    setTimeout(() => setFeedback(null), 3000)
+  }
 
   async function guardar(e: { preventDefault: () => void }) {
     e.preventDefault()
@@ -126,12 +175,29 @@ function SeccionClinica() {
       <div className="mb-6">
         <label className="block text-[12px] font-medium text-gray-700 mb-1.5">Logo</label>
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #2563EB 0%, #10B981 100%)" }}>
-            <span className="text-white text-2xl font-bold">{form.nombre ? form.nombre[0].toUpperCase() : "C"}</span>
+          <div className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: "linear-gradient(135deg, #2563EB 0%, #10B981 100%)" }}>
+            {form.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.logo_url} alt="Logo" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-white text-2xl font-bold">{form.nombre ? form.nombre[0].toUpperCase() : "C"}</span>
+            )}
           </div>
           <div>
-            <button type="button" className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-              Cambiar imagen
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleLogoChange}
+            />
+            <button
+              type="button"
+              disabled={subiendoLogo}
+              onClick={() => fileInputRef.current?.click()}
+              className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60 flex items-center gap-1.5"
+            >
+              {subiendoLogo ? <><Loader2 className="size-3 animate-spin" />Subiendo…</> : "Cambiar imagen"}
             </button>
             <p className="text-[11px] text-gray-400 mt-1">PNG o JPG · Máx 2 MB</p>
           </div>
@@ -141,6 +207,7 @@ function SeccionClinica() {
         <FormField label="Nombre de la clínica" value={form.nombre} onChange={(v) => setForm(p => ({ ...p, nombre: v }))} required placeholder="Ej: Clínica Bella" />
         <FormField label="Email de contacto" value={form.email} onChange={(v) => setForm(p => ({ ...p, email: v }))} type="email" placeholder="admin@tuclinica.cl" />
         <FormField label="Teléfono" value={form.telefono} onChange={(v) => setForm(p => ({ ...p, telefono: v }))} placeholder="+56 9 1234 5678" />
+        <FormField label="Sitio web" value={form.sitio_web} onChange={(v) => setForm(p => ({ ...p, sitio_web: v }))} placeholder="https://tuclinica.cl" />
       </div>
       <div className="mb-6">
         <FormField label="Dirección" value={form.direccion} onChange={(v) => setForm(p => ({ ...p, direccion: v }))} placeholder="Av. Ejemplo 1234, Santiago" />
@@ -148,7 +215,9 @@ function SeccionClinica() {
       <Feedback f={feedback} />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" className="h-8 text-[13px] border-gray-200 text-gray-600"
-          onClick={() => getClinicaBasica().then((c) => { if (c) setForm({ nombre: c.nombre ?? "", email: c.email ?? "", telefono: c.telefono ?? "", direccion: c.direccion ?? "" }) })}>
+          onClick={() => getClinicaBasica().then((c) => {
+            if (c) setForm({ nombre: c.nombre ?? "", email: c.email ?? "", telefono: c.telefono ?? "", direccion: c.direccion ?? "", sitio_web: c.sitio_web ?? "", logo_url: c.logo_url ?? "" })
+          })}>
           Descartar
         </Button>
         <Button type="submit" disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
@@ -847,6 +916,100 @@ function SeccionUsuarios() {
   )
 }
 
+// ─── Sección Horarios ────────────────────────────────────────────────────────
+
+const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
+
+const HORARIOS_DEFAULT: HorariosConfig = {
+  lunes:     { activo: true,  desde: '09:00', hasta: '18:00' },
+  martes:    { activo: true,  desde: '09:00', hasta: '18:00' },
+  miércoles: { activo: true,  desde: '09:00', hasta: '18:00' },
+  jueves:    { activo: true,  desde: '09:00', hasta: '18:00' },
+  viernes:   { activo: true,  desde: '09:00', hasta: '18:00' },
+  sábado:    { activo: true,  desde: '09:00', hasta: '14:00' },
+  domingo:   { activo: false, desde: '09:00', hasta: '18:00' },
+}
+
+function SeccionHorarios() {
+  const [horarios, setHorarios] = useState<HorariosConfig>(HORARIOS_DEFAULT)
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+
+  useEffect(() => {
+    getClinicaConfig().then((cfg) => {
+      if (cfg.horarios && Object.keys(cfg.horarios).length > 0) setHorarios(cfg.horarios)
+      setCargando(false)
+    })
+  }, [])
+
+  function toggleDia(dia: string) {
+    setHorarios((prev) => ({ ...prev, [dia]: { ...prev[dia], activo: !prev[dia].activo } }))
+  }
+
+  function setHora(dia: string, campo: 'desde' | 'hasta', valor: string) {
+    setHorarios((prev) => ({ ...prev, [dia]: { ...prev[dia], [campo]: valor } }))
+  }
+
+  async function guardar() {
+    setGuardando(true)
+    setFeedback(null)
+    const cfg = await getClinicaConfig()
+    const ok = await actualizarClinicaConfig({ ...cfg, horarios })
+    setGuardando(false)
+    if (ok) {
+      setFeedback({ tipo: "ok", msg: "Horarios guardados correctamente." })
+      setTimeout(() => setFeedback(null), 3000)
+    } else {
+      setFeedback({ tipo: "error", msg: "No se pudo guardar. Intenta nuevamente." })
+    }
+  }
+
+  if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
+
+  return (
+    <div>
+      <SectionHeader title="Horarios de atención" subtitle="Define los días y horarios en que atiendes pacientes" />
+      <div className="space-y-2 mb-6">
+        {DIAS.map((dia) => {
+          const h = horarios[dia] ?? { activo: false, desde: '09:00', hasta: '18:00' }
+          return (
+            <div key={dia} className={`bg-gray-50 rounded-xl border border-gray-100 p-3 flex items-center gap-4 transition-opacity ${!h.activo ? "opacity-60" : ""}`}>
+              <Toggle activo={h.activo} onChange={() => toggleDia(dia)} />
+              <span className="w-24 text-[13px] font-medium text-gray-800 capitalize shrink-0">{dia}</span>
+              {h.activo ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="time"
+                    value={h.desde}
+                    onChange={(e) => setHora(dia, 'desde', e.target.value)}
+                    className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+                  />
+                  <span className="text-[12px] text-gray-400">–</span>
+                  <input
+                    type="time"
+                    value={h.hasta}
+                    onChange={(e) => setHora(dia, 'hasta', e.target.value)}
+                    className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+                  />
+                </div>
+              ) : (
+                <span className="text-[12px] text-gray-400 flex-1">Cerrado</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <Feedback f={feedback} />
+      <div className="flex justify-end">
+        <Button onClick={guardar} disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+          {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Guardar horarios"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Header card ─────────────────────────────────────────────────────────────
 
 function ClinicaHeaderCard() {
@@ -898,6 +1061,7 @@ export default function ConfiguracionPage() {
   const SECCIONES: Record<SeccionId, React.ReactNode> = {
     clinica:       <SeccionClinica />,
     equipo:        <SeccionEquipo />,
+    horarios:      <SeccionHorarios />,
     usuarios:      <SeccionUsuarios />,
     whatsapp:      <SeccionWhatsApp />,
     recordatorios: <SeccionRecordatorios />,
