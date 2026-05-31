@@ -1,11 +1,15 @@
 import Link from 'next/link'
-import { CalendarDays, Clock3, DollarSign, UserPlus, Users } from 'lucide-react'
+import {
+  CalendarDays, Clock3, DollarSign, TrendingUp, TrendingDown,
+  UserPlus, CheckCircle2, XCircle,
+} from 'lucide-react'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { ProximasCitas } from '@/components/dashboard/ProximasCitas'
 import { TopServicios } from '@/components/dashboard/TopServicios'
+import { GraficoVentas } from '@/components/dashboard/GraficoVentas'
 import { getDashboardData } from '@/lib/dashboard/queries'
 
-function formatCurrency(value: number) {
+function formatCLP(value: number) {
   return new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
@@ -13,23 +17,34 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+function variacionPct(actual: number, anterior: number): { pct: number; subio: boolean } {
+  if (anterior === 0) return { pct: actual > 0 ? 100 : 0, subio: actual >= 0 }
+  const pct = Math.round(((actual - anterior) / anterior) * 100)
+  return { pct: Math.abs(pct), subio: pct >= 0 }
+}
+
 export default async function DashboardPage() {
   const data = await getDashboardData()
 
-  const variacionPacientes = data.pacientesNuevos.mesActual - data.pacientesNuevos.mesAnterior
-  const pacientesComparativo =
-    variacionPacientes >= 0
-      ? `+${variacionPacientes} vs mes anterior`
-      : `${variacionPacientes} vs mes anterior`
+  const varPacientes = data.pacientesNuevos.mesActual - data.pacientesNuevos.mesAnterior
+  const varIngresos = variacionPct(data.ingresosMes, data.ingresosMesAnterior)
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-xl font-bold text-[#0B132B] sm:text-2xl">Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-500">Métricas operativas en tiempo real de SimpliClinic</p>
+    <div className="mx-auto max-w-[1200px] space-y-5 p-4 sm:p-6">
+
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-[18px] font-bold text-[#0B132B]">Dashboard</h1>
+          <p className="text-[12px] text-slate-400 mt-0.5">
+            {new Date().toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
+        <Link href="/agenda" className="h-8 px-3 rounded-lg bg-[#2563EB] text-white text-[12px] font-medium flex items-center hover:bg-blue-700 transition-colors">
+          + Nueva cita
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <MetricCard
           title="Citas hoy"
           value={String(data.citasHoy.total)}
@@ -39,10 +54,10 @@ export default async function DashboardPage() {
           accent="primary"
         />
         <MetricCard
-          title="Ingresos del día"
-          value={formatCurrency(data.ingresosHoy)}
-          detail="Pagos registrados hoy (pagado y parcial)"
-          subtitle="CLP"
+          title="Ingresos hoy"
+          value={formatCLP(data.ingresosHoy)}
+          detail="Cobros registrados hoy"
+          subtitle="CLP cobrado"
           icon={DollarSign}
           accent="teal"
         />
@@ -50,40 +65,73 @@ export default async function DashboardPage() {
           title="Ocupación semanal"
           value={`${data.ocupacionSemanal.tasa}%`}
           detail={`${data.ocupacionSemanal.realizadas}/${data.ocupacionSemanal.slotsDisponibles} slots`}
-          subtitle="Realizadas vs capacidad"
+          subtitle="Completadas vs capacidad"
           icon={Clock3}
           accent="navy"
         />
         <MetricCard
           title="Pacientes nuevos"
           value={String(data.pacientesNuevos.mesActual)}
-          detail={pacientesComparativo}
-          subtitle="Mes actual vs anterior"
+          detail={varPacientes >= 0 ? `+${varPacientes} vs mes anterior` : `${varPacientes} vs mes anterior`}
+          subtitle="Este mes"
           icon={UserPlus}
           accent="primary"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.7fr_1fr]">
-        <div className="space-y-4">
-          <ProximasCitas citas={data.proximasCitas} />
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-[#2563EB]" />
-                <p className="text-sm font-semibold text-[#0B132B]">Resumen de actividad</p>
-              </div>
-              <Link href="/agenda" className="text-xs font-semibold text-[#2563EB] hover:underline">
-                Ver agenda completa
-              </Link>
-            </div>
-            <p className="mt-2 text-sm text-slate-600">
-              Hoy tienes {data.citasHoy.total} citas y una ocupación semanal del {data.ocupacionSemanal.tasa}%.
-            </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="sm:col-span-1 rounded-xl border border-slate-200 bg-white p-5">
+          <p className="text-[12px] text-slate-400 font-medium mb-1">Ingresos del mes</p>
+          <p className="text-[26px] font-bold text-[#0B132B] leading-tight">{formatCLP(data.ingresosMes)}</p>
+          <div className={`flex items-center gap-1 mt-1 text-[12px] font-medium ${varIngresos.subio ? 'text-emerald-600' : 'text-red-500'}`}>
+            {varIngresos.subio ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
+            {varIngresos.pct}% vs mes anterior ({formatCLP(data.ingresosMesAnterior)})
           </div>
         </div>
+
+        <div className="sm:col-span-1 rounded-xl border border-slate-200 bg-white p-5">
+          <p className="text-[12px] text-slate-400 font-medium mb-1">Citas del mes</p>
+          <p className="text-[26px] font-bold text-[#0B132B] leading-tight">{data.citasMes.total}</p>
+          <div className="flex items-center gap-3 mt-2">
+            <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
+              <CheckCircle2 className="size-3.5" />{data.citasMes.completadas} completadas
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-red-400 font-medium">
+              <XCircle className="size-3.5" />{data.citasMes.canceladas} canceladas
+            </div>
+          </div>
+          <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+            {data.citasMes.total > 0 && (
+              <div className="h-full bg-emerald-500 rounded-full"
+                style={{ width: `${Math.round((data.citasMes.completadas / data.citasMes.total) * 100)}%` }} />
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">
+            {data.citasMes.total > 0 ? Math.round((data.citasMes.completadas / data.citasMes.total) * 100) : 0}% tasa de completitud
+          </p>
+        </div>
+
+        <div className="sm:col-span-1 rounded-xl border border-slate-200 bg-white p-5">
+          <p className="text-[12px] text-slate-400 font-medium mb-1">Ticket promedio</p>
+          <p className="text-[26px] font-bold text-[#0B132B] leading-tight">
+            {data.citasMes.completadas > 0
+              ? formatCLP(Math.round(data.ingresosMes / data.citasMes.completadas))
+              : formatCLP(0)}
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">Por cita completada este mes</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.8fr_1fr]">
+        <GraficoVentas
+          data={data.ventasUltimos6Meses}
+          mesActual={data.ingresosMes}
+          mesAnterior={data.ingresosMesAnterior}
+        />
         <TopServicios servicios={data.topServicios} />
       </div>
+
+      <ProximasCitas citas={data.proximasCitas} />
     </div>
   )
 }
