@@ -566,66 +566,137 @@ function Testimonios() {
 }
 
 function Precios() {
+  const [anual, setAnual] = useState(false)
+
+  const planes = [
+    {
+      id: 'starter',
+      nombre: 'Starter',
+      descripcion: 'Para clínicas que están comenzando',
+      precio: 0,
+      precioAnual: 0,
+      destacado: false,
+      features: ['1 profesional', 'Agenda completa', 'Fichas de pacientes', 'Booking público', 'Soporte por email'],
+      cta: 'Comenzar gratis',
+      ctaHref: '/register',
+    },
+    {
+      id: 'pro',
+      nombre: 'Pro',
+      descripcion: 'Para clínicas en crecimiento',
+      precio: 79900,
+      precioAnual: 767000,
+      destacado: true,
+      features: ['Hasta 5 profesionales', 'Todo lo de Starter', 'Agente IA por WhatsApp', 'Recordatorios automáticos', 'Reportes avanzados', 'Roles de usuario', 'Soporte prioritario'],
+      cta: 'Comenzar 14 días gratis',
+      ctaHref: '/register',
+    },
+    {
+      id: 'clinica',
+      nombre: 'Clínica',
+      descripcion: 'Para clínicas con múltiples sedes o grandes equipos',
+      precio: 129900,
+      precioAnual: 1247000,
+      destacado: false,
+      features: ['Profesionales ilimitados', 'Todo lo de Pro', 'Citas ilimitadas', 'API avanzada', 'Onboarding dedicado', 'SLA prioritario'],
+      cta: 'Comenzar 14 días gratis',
+      ctaHref: '/register',
+    },
+  ]
+
   return (
     <section id="precios" className="py-24 px-5" style={{ backgroundColor: '#F8FAFF' }}>
-      <div className="max-w-4xl mx-auto text-center">
+      <div className="max-w-5xl mx-auto text-center">
         <p className="text-[13px] font-semibold text-[#2563EB] uppercase tracking-widest mb-3">Precios</p>
         <h2 className="text-[32px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: '#0B132B' }}>
           Simple y transparente
         </h2>
-        <p className="text-[16px] text-gray-500 mb-12">Sin costos ocultos. Cancela cuando quieras.</p>
+        <p className="text-[16px] text-gray-500 mb-8">Sin costos ocultos. Cancela cuando quieras.</p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-left">
-            <p className="text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Starter</p>
-            <div className="flex items-end gap-1 mb-1">
-              <span className="text-[38px] sm:text-[42px] font-extrabold text-gray-900">$19.990</span>
-              <span className="text-gray-400 mb-2">/mes</span>
-            </div>
-            <p className="text-[13px] text-gray-500 mb-6">Para clínicas que están comenzando</p>
-            <ul className="space-y-3 mb-8">
-              {['1 profesional', 'Agenda completa', 'Fichas de pacientes', 'Reportes básicos', 'Soporte por email'].map((item) => (
-                <li key={item} className="flex items-center gap-2.5 text-[13px] text-gray-700">
-                  <CheckCircle className="size-4 text-emerald-500 shrink-0" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link href="/register" className="w-full h-11 rounded-xl border border-[#2563EB] text-[#2563EB] text-[14px] font-semibold flex items-center justify-center hover:bg-blue-50 transition-colors">
-              Comenzar gratis
-            </Link>
-          </div>
-
-          <div className="rounded-2xl p-8 text-left relative overflow-hidden text-white"
-            style={{ background: 'linear-gradient(135deg, #0B132B 0%, #1e3a5f 100%)' }}>
-            <div className="absolute top-4 right-4 bg-[#2563EB] text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
-              MÁS POPULAR
-            </div>
-            <p className="text-[13px] font-semibold text-blue-300 uppercase tracking-wide mb-1">Pro</p>
-            <div className="flex items-end gap-1 mb-1">
-              <span className="text-[38px] sm:text-[42px] font-extrabold">$39.990</span>
-              <span className="text-blue-300 mb-2">/mes</span>
-            </div>
-            <p className="text-[13px] text-blue-200 mb-6">Para clínicas en crecimiento</p>
-            <ul className="space-y-3 mb-8">
-              {['Hasta 5 profesionales', 'Todo lo de Starter', 'Agente IA por WhatsApp', 'Recordatorios automáticos', 'Reportes avanzados', 'Roles de usuario', 'Soporte prioritario'].map((item) => (
-                <li key={item} className="flex items-center gap-2.5 text-[13px] text-blue-100">
-                  <CheckCircle className="size-4 text-[#14B8A6] shrink-0" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link href="/register"
-              className="w-full h-11 rounded-xl text-[14px] font-bold flex items-center justify-center gap-2 transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}>
-              Comenzar 14 días gratis <ChevronRight className="size-4" />
-            </Link>
-          </div>
+        {/* Annual toggle */}
+        <div className="inline-flex items-center gap-3 bg-white border border-gray-200 rounded-full px-4 py-2 mb-10">
+          <span className={`text-[13px] font-medium ${!anual ? 'text-gray-900' : 'text-gray-400'}`}>Mensual</span>
+          <button
+            onClick={() => setAnual(!anual)}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${anual ? 'bg-[#2563EB]' : 'bg-gray-200'}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${anual ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+          </button>
+          <span className={`text-[13px] font-medium ${anual ? 'text-gray-900' : 'text-gray-400'}`}>
+            Anual
+          </span>
+          {anual && (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">2 meses gratis</span>
+          )}
         </div>
-        <p className="text-[13px] text-gray-400 mt-6">
-          ¿Más de 5 profesionales?{' '}
-          <a href="mailto:hola@simpliclinic.cl" className="text-[#2563EB] font-medium hover:underline">Escríbenos</a>{' '}
-          para un plan Enterprise.
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {planes.map((plan) => {
+            const precioMes = anual && plan.precio > 0 ? Math.round(plan.precioAnual / 12) : plan.precio
+            return (
+              <div
+                key={plan.id}
+                className={`rounded-2xl p-7 text-left relative overflow-hidden flex flex-col ${
+                  plan.destacado
+                    ? 'text-white shadow-xl'
+                    : 'bg-white border border-gray-200'
+                }`}
+                style={plan.destacado ? { background: 'linear-gradient(135deg, #0B132B 0%, #1e3a5f 100%)' } : {}}
+              >
+                {plan.destacado && (
+                  <div className="absolute top-4 right-4 bg-[#2563EB] text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
+                    MÁS POPULAR
+                  </div>
+                )}
+                <p className={`text-[12px] font-semibold uppercase tracking-wide mb-2 ${plan.destacado ? 'text-blue-300' : 'text-gray-400'}`}>
+                  {plan.nombre}
+                </p>
+                <div className="flex items-end gap-1 mb-1">
+                  {plan.precio === 0 ? (
+                    <span className={`text-[38px] font-extrabold ${plan.destacado ? 'text-white' : 'text-gray-900'}`}>Gratis</span>
+                  ) : (
+                    <>
+                      <span className={`text-[36px] font-extrabold ${plan.destacado ? 'text-white' : 'text-gray-900'}`}>
+                        ${precioMes.toLocaleString('es-CL')}
+                      </span>
+                      <span className={`mb-2 ${plan.destacado ? 'text-blue-300' : 'text-gray-400'}`}>/mes</span>
+                    </>
+                  )}
+                </div>
+                {anual && plan.precio > 0 && (
+                  <p className={`text-[12px] mb-1 ${plan.destacado ? 'text-blue-200' : 'text-gray-400'}`}>
+                    ${plan.precioAnual.toLocaleString('es-CL')} al año
+                  </p>
+                )}
+                <p className={`text-[13px] mb-5 ${plan.destacado ? 'text-blue-200' : 'text-gray-500'}`}>{plan.descripcion}</p>
+                <ul className="space-y-2.5 mb-7 flex-1">
+                  {plan.features.map((item) => (
+                    <li key={item} className={`flex items-center gap-2.5 text-[13px] ${plan.destacado ? 'text-blue-100' : 'text-gray-700'}`}>
+                      <CheckCircle className={`size-4 shrink-0 ${plan.destacado ? 'text-[#14B8A6]' : 'text-emerald-500'}`} />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={plan.ctaHref}
+                  className={`w-full h-11 rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 transition-all hover:opacity-90 ${
+                    plan.destacado
+                      ? 'text-white'
+                      : plan.precio === 0
+                        ? 'border border-[#2563EB] text-[#2563EB] hover:bg-blue-50'
+                        : 'text-white'
+                  }`}
+                  style={plan.precio > 0 ? { background: plan.destacado ? 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' : 'linear-gradient(135deg, #0B132B 0%, #1e3a5f 100%)' } : {}}
+                >
+                  {plan.cta} {plan.precio > 0 && <ChevronRight className="size-4" />}
+                </Link>
+              </div>
+            )
+          })}
+        </div>
+
+        <p className="text-[13px] text-gray-400 mt-8">
+          💡 Una sola hora recuperada por recordatorios automáticos ya paga el plan mensual completo.
         </p>
       </div>
     </section>

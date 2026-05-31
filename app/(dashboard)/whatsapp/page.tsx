@@ -90,9 +90,9 @@ export default function WhatsAppPage() {
 
   return (
     <PlanGate feature="whatsapp">
-    <div className="p-6 space-y-6 max-w-[1100px]">
+    <div className="p-4 sm:p-6 space-y-6 max-w-[1100px]">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-[18px] font-semibold text-gray-900">WhatsApp Business</h1>
           <p className="text-[13px] text-gray-400 mt-0.5">
@@ -140,13 +140,13 @@ export default function WhatsAppPage() {
 
       {/* Estadísticas */}
       {cargando && !stats ? (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-28 rounded-xl bg-slate-200 animate-pulse" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <StatCard
             icon={<Send className="size-4 text-[#25D366]" />}
             iconBg="bg-[#25D366]/10"
@@ -175,7 +175,7 @@ export default function WhatsAppPage() {
       )}
 
       {/* Conversaciones + Recordatorios */}
-      <div className="grid grid-cols-[1fr_340px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
         {/* Lista de conversaciones */}
         <div className="bg-white rounded-xl border border-gray-100">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">

@@ -1103,7 +1103,7 @@ export default function ConfiguracionPage() {
   }
 
   return (
-    <div className="p-6 h-full flex flex-col gap-5 max-w-[1000px]">
+    <div className="p-4 sm:p-6 h-full flex flex-col gap-5 max-w-[1000px]">
       <div className="shrink-0">
         <h1 className="text-[18px] font-semibold text-gray-900">Configuración</h1>
         <p className="text-[13px] text-gray-400 mt-0.5">Administra tu clínica y preferencias del sistema</p>
@@ -1111,8 +1111,8 @@ export default function ConfiguracionPage() {
 
       <ClinicaHeaderCard />
 
-      <div className="flex gap-5 flex-1 min-h-0">
-        <nav className="w-[200px] shrink-0 space-y-0.5">
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 flex-1 min-h-0">
+        <nav className="sm:w-[200px] w-full shrink-0 space-y-0.5">
           {NAV.map((item) => {
             const Icon = item.icon
             const isActive = activa === item.id
