@@ -123,15 +123,21 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.8fr_1fr]">
-        <GraficoVentas
-          data={data.ventasUltimos6Meses}
-          mesActual={data.ingresosMes}
-          mesAnterior={data.ingresosMesAnterior}
-        />
-        <TopServicios servicios={data.topServicios} />
+        <div className="overflow-x-auto">
+          <GraficoVentas
+            data={data.ventasUltimos6Meses}
+            mesActual={data.ingresosMes}
+            mesAnterior={data.ingresosMesAnterior}
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <TopServicios servicios={data.topServicios} />
+        </div>
       </div>
 
-      <ProximasCitas citas={data.proximasCitas} />
+      <div className="overflow-x-auto">
+        <ProximasCitas citas={data.proximasCitas} />
+      </div>
     </div>
   )
 }
