@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale'
 import {
   X, Edit2, MessageCircle, CheckCircle, CheckCircle2, Clock,
   User, Scissors, Calendar, FileText, History, Phone, ClipboardEdit, Loader2,
-  XCircle, UserX,
+  XCircle, UserX, CalendarClock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
@@ -244,12 +244,24 @@ export function PanelDetalleCita({
           <h2 className="text-[15px] font-semibold text-gray-900">
             {isVistaProfe ? 'Mi cita' : 'Detalle de cita'}
           </h2>
-          <button
-            onClick={onCerrar}
-            className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
-          >
-            <X className="size-4 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-1">
+            {!isVistaProfe && (
+              <button
+                onClick={() => onEditar(cita)}
+                title="Reagendar / editar"
+                className="h-8 px-2.5 rounded-lg hover:bg-blue-50 flex items-center gap-1.5 text-[12px] font-medium text-[#2563EB] transition-colors"
+              >
+                <CalendarClock className="size-3.5" />
+                Reagendar
+              </button>
+            )}
+            <button
+              onClick={onCerrar}
+              className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
+            >
+              <X className="size-4 text-gray-500" />
+            </button>
+          </div>
         </div>
 
         {/* Badge de estado prominente */}

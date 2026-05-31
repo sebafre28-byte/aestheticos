@@ -246,6 +246,28 @@ export async function getCitasDeSemana(
   })
 }
 
+export async function getCitasDelMes(
+  fechaInicio: string,  // 'yyyy-MM-dd' first day of month
+  fechaFin: string,     // 'yyyy-MM-dd' last day of month
+): Promise<CitaConRelaciones[]> {
+  return withCache(`citas-mes:${fechaInicio}:${fechaFin}`, 30_000, async () => {
+    const supabase = createClient()
+    const { data, error } = await withRetry<SupabaseListResult<CitaConRelaciones>>(() =>
+      supabase
+        .from('citas')
+        .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+        .gte('inicio', `${fechaInicio}T00:00:00`)
+        .lte('inicio', `${fechaFin}T23:59:59`)
+        .order('inicio', { ascending: true })
+    )
+    if (error) {
+      console.error('Error getCitasDelMes:', error)
+      return []
+    }
+    return (data ?? []) as CitaConRelaciones[]
+  })
+}
+
 // ─── Profesionales activos de la clínica ──────────────────────────────────────
 
 export async function getProfesionales(): Promise<ProfesionalRow[]> {

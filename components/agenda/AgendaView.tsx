@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import {
   format, addDays, subDays, startOfWeek, endOfWeek,
-  addWeeks, subWeeks, isSameDay, addMonths, subMonths
+  addWeeks, subWeeks, isSameDay, addMonths, subMonths,
+  startOfMonth, endOfMonth
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  ChevronLeft, ChevronRight, Plus, CalendarDays, Clock, AlignLeft, Grid3X3, Keyboard
+  ChevronLeft, ChevronRight, Plus, CalendarDays, Clock, AlignLeft, Grid3X3, Keyboard, Search
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type {
@@ -15,7 +16,7 @@ import type {
 } from '@/lib/agenda/queries'
 import type { PagoCitaFields } from '@/lib/cobros/queries'
 import {
-  getCitasDelDia, getCitasDeSemana, getProfesionales, getServiciosAgenda, getClinicaId, editarCita
+  getCitasDelDia, getCitasDeSemana, getCitasDelMes, getProfesionales, getServiciosAgenda, getClinicaId, editarCita
 } from '@/lib/agenda/queries'
 import { CalendarioDia } from './CalendarioDia'
 import { CalendarioSemana } from './CalendarioSemana'
@@ -55,6 +56,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   const [fechaHoraModal, setFechaHoraModal] = useState<Date | undefined>()
 
   const [citaDetalle, setCitaDetalle] = useState<CitaConRelaciones | null>(null)
+  const [busqueda, setBusqueda] = useState('')
 
   // ─── Cargar datos ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -78,7 +80,14 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     try {
       let datos: CitaConRelaciones[]
 
-      if (vista === 'dia' || vista === 'lista' || vista === 'mes') {
+      if (vista === 'mes') {
+        const inicioMes = startOfMonth(fechaActual)
+        const finMes = endOfMonth(fechaActual)
+        datos = await getCitasDelMes(
+          format(inicioMes, 'yyyy-MM-dd'),
+          format(finMes, 'yyyy-MM-dd')
+        )
+      } else if (vista === 'dia' || vista === 'lista') {
         datos = await getCitasDelDia(format(fechaActual, 'yyyy-MM-dd'))
       } else {
         const lunes = startOfWeek(fechaActual, { weekStartsOn: 1 })
@@ -315,9 +324,13 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
   // ─── Vista lista: citas filtradas y ordenadas ─────────────────────────────
   const citasLista = [...citas]
-    .filter((c) =>
-      profsFiltrados.length === 0 || profsFiltrados.includes(c.profesional_id)
-    )
+    .filter((c) => {
+      const matchProf = profsFiltrados.length === 0 || profsFiltrados.includes(c.profesional_id)
+      const matchSearch = !busqueda.trim() ||
+        c.pacientes?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+        c.servicios?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
+      return matchProf && matchSearch
+    })
     .sort((a, b) => a.inicio.localeCompare(b.inicio))
 
   // ─── Profesionales visibles en los chips ─────────────────────────────────
@@ -352,6 +365,17 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Búsqueda de paciente */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar paciente…"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="h-8 pl-8 pr-3 rounded-lg border border-gray-100 bg-white text-[12px] text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 w-[160px] focus:w-[200px] transition-all"
+            />
+          </div>
           {!isVistaProfe && <ListaPendientes onCitaConfirmada={handleCitaConfirmada} />}
 
           {/* Selector de vista */}
@@ -482,6 +506,50 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
           })}
         </div>
       )}
+
+      {/* ── Stats strip (día/lista/semana) ── */}
+      {(vista === 'dia' || vista === 'lista' || vista === 'semana') && citas.length > 0 && (() => {
+        const validas = citas.filter(c => c.estado !== 'cancelada' && c.estado !== 'no_asistio')
+        const confirmadas = citas.filter(c => c.estado === 'confirmada').length
+        const pendientes = citas.filter(c => c.estado === 'pendiente').length
+        const completadas = citas.filter(c => c.estado === 'completada').length
+        const ingresos = citas.reduce((acc, c) => {
+          if (c.pago_estado === 'pagado' || c.pago_estado === 'parcial') return acc + (c.pago_monto ?? 0)
+          return acc
+        }, 0)
+        return (
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <div className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-white border border-gray-100 text-[11px] font-medium text-gray-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+              {validas.length} citas
+            </div>
+            {confirmadas > 0 && (
+              <div className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-teal-50 border border-teal-100 text-[11px] font-medium text-teal-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                {confirmadas} confirmadas
+              </div>
+            )}
+            {pendientes > 0 && (
+              <div className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-amber-50 border border-amber-100 text-[11px] font-medium text-amber-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                {pendientes} pendientes
+              </div>
+            )}
+            {completadas > 0 && (
+              <div className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-blue-50 border border-blue-100 text-[11px] font-medium text-blue-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                {completadas} completadas
+              </div>
+            )}
+            {ingresos > 0 && (
+              <div className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-emerald-50 border border-emerald-100 text-[11px] font-medium text-emerald-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(ingresos)} cobrados
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Cuerpo principal ── */}
       <div className="flex-1 min-h-0 relative">
