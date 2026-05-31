@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle2, ChevronLeft, Loader2, MapPin, Phone, Mail, Clock, DollarSign } from 'lucide-react'
+import { sendEmail } from '@/lib/email/sendEmail'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -429,6 +430,7 @@ function PasoDatos({
   profesional,
   inicio,
   fin,
+  clinica,
   clinicaId,
   profesionalId,
   servicioId,
@@ -439,6 +441,7 @@ function PasoDatos({
   profesional: Profesional | null
   inicio: Date
   fin: Date
+  clinica: ClinicaPublica
   clinicaId: string
   profesionalId: string
   servicioId: string
@@ -480,6 +483,31 @@ function PasoDatos({
       setError(result.error || 'No se pudo crear la reserva.')
       return
     }
+
+    // Send confirmation email if patient provided an email (non-critical)
+    if (form.email.trim()) {
+      const fechaLabel = inicio.toLocaleDateString('es-CL', {
+        timeZone: tz,
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+      })
+      const horaLabel = formatHora(inicio, tz)
+      sendEmail({
+        tipo: 'confirmacion_cita',
+        destinatario: form.email.trim(),
+        datos: {
+          paciente_nombre: form.nombre.trim(),
+          servicio_nombre: servicio.nombre,
+          profesional_nombre: profesional?.nombre ?? 'Por asignar',
+          fecha: fechaLabel,
+          hora: horaLabel,
+          clinica_nombre: clinica.nombre,
+          clinica_telefono: clinica.telefono ?? undefined,
+        },
+      }).catch((err) => console.warn('[booking] sendEmail error (non-critical):', err))
+    }
+
     onExito(result.cita_id ?? '')
   }
 
@@ -801,6 +829,7 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
               profesional={profesional}
               inicio={horaInicio}
               fin={horaFin}
+              clinica={clinica}
               clinicaId={clinica.id}
               profesionalId={profesionalId}
               servicioId={servicioSeleccionado.id}
