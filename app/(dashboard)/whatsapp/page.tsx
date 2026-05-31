@@ -85,8 +85,7 @@ export default function WhatsAppPage() {
   }
 
   const activosCount = Object.values(toggles).filter(Boolean).length
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const twilioFrom = ((process as any).env?.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM as string | undefined) ?? null
+  const twilioFrom = process.env.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM ?? null
 
   return (
     <div className="p-6 space-y-6 max-w-[1100px]">

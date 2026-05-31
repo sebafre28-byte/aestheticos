@@ -266,9 +266,9 @@ export default function RegisterPage() {
 
                 <p className="text-[11px] text-gray-400 text-center leading-relaxed">
                   Al crear una cuenta aceptas nuestros{' '}
-                  <a href="#" className="text-[#2563EB] hover:underline">Términos de servicio</a>
+                  <a href="/terminos" target="_blank" className="text-[#2563EB] hover:underline">Términos de servicio</a>
                   {' '}y{' '}
-                  <a href="#" className="text-[#2563EB] hover:underline">Política de privacidad</a>
+                  <a href="/privacidad" target="_blank" className="text-[#2563EB] hover:underline">Política de privacidad</a>
                 </p>
               </form>
 

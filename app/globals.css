@@ -11,7 +11,11 @@
   --font-mono: var(--font-geist-mono);
   /* Colores de marca SimpliClinic */
   --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-dark: var(--brand-primary-dark);
   --color-brand-teal: var(--brand-teal);
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-light: var(--brand-light);
+  --color-brand-bg: var(--brand-bg);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -85,9 +89,13 @@
   --sidebar-accent-foreground: oklch(0.546 0.230 262);
   --sidebar-border: oklch(0.94 0 0);
   --sidebar-ring: oklch(0.546 0.230 262);
-  /* Tokens de marca */
+  /* Tokens de marca SimpliClinic */
   --brand-primary: #2563EB;
+  --brand-primary-dark: #1D4ED8;
   --brand-teal: #14B8A6;
+  --brand-navy: #0B132B;
+  --brand-light: #60A5FA;
+  --brand-bg: #F1F5F9;
 }
 
 .dark {

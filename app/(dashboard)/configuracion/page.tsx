@@ -457,8 +457,7 @@ function SeccionEquipo() {
 // ─── Sección WhatsApp ─────────────────────────────────────────────────────────
 
 function SeccionWhatsApp() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const twilioFrom = (process as any).env?.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM as string | undefined
+  const twilioFrom = process.env.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM
   const conectado = !!twilioFrom
 
   const [plantillas, setPlantillas] = useState<PlantillaWsp[]>(PLANTILLAS_DEFAULT)

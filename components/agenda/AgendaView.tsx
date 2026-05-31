@@ -62,8 +62,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   useEffect(() => {
     async function init() {
       const clinicaId = await getClinicaId()
-      console.log('clinicaId recibido:', clinicaId)
-      const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda(true)])
+const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda(true)])
       setProfesionales(profs)
       setServicios(servs)
     }

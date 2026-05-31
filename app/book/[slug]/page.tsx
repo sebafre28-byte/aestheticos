@@ -69,11 +69,24 @@ const DIAS_ES: Record<number, string> = {
 
 const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 
-function toSantiagoDate(date: Date): Date {
-  // Get the date in America/Santiago timezone
-  const str = date.toLocaleString('en-CA', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit' })
+const DEFAULT_TZ = 'America/Santiago'
+
+function toLocalDate(date: Date, tz: string = DEFAULT_TZ): Date {
+  const str = date.toLocaleString('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
   const [y, m, d] = str.split('-').map(Number)
   return new Date(y, m - 1, d)
+}
+
+/** Wall-clock ISO string (no offset) matching modalWallClockToIso format used by agenda modal */
+function toWallClockIso(date: Date, tz: string = DEFAULT_TZ): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const get = (t: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === t)?.value ?? '00'
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`
 }
 
 function formatDateISO(date: Date): string {
@@ -88,41 +101,39 @@ function buildSlotsDisponibles(
   duracionMin: number,
   slotsOcupados: SlotOcupado[],
   fecha: Date,
-  profesionalId: string
+  profesionalId: string,
+  tz: string = DEFAULT_TZ,
 ): Date[] {
   const slots: Date[] = []
   const [desdeH, desdeM] = horarioDia.desde.split(':').map(Number)
   const [hastaH, hastaM] = horarioDia.hasta.split(':').map(Number)
-
-  // Build slots in Santiago timezone by constructing timestamp strings
   const fechaStr = formatDateISO(fecha)
-  const tzOffset = getSantiagoOffset(fecha)
 
   let current = desdeH * 60 + desdeM
-  const fin = hastaH * 60 + hastaM
+  const finMin = hastaH * 60 + hastaM
 
-  while (current + duracionMin <= fin) {
+  while (current + duracionMin <= finMin) {
     const h = Math.floor(current / 60)
     const m = current % 60
-    const slotInicioStr = `${fechaStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00${tzOffset}`
+    // Use naive wall-clock ISO (no offset) to match how agenda modal saves citas
+    const slotInicioStr = `${fechaStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
     const slotFinMin = current + duracionMin
     const fh = Math.floor(slotFinMin / 60)
     const fm = slotFinMin % 60
-    const slotFinStr = `${fechaStr}T${String(fh).padStart(2, '0')}:${String(fm).padStart(2, '0')}:00${tzOffset}`
+    const slotFinStr = `${fechaStr}T${String(fh).padStart(2, '0')}:${String(fm).padStart(2, '0')}:00`
 
-    const slotInicio = new Date(slotInicioStr)
-    const slotFin = new Date(slotFinStr)
-
-    // Check if occupied
+    // For overlap comparison, compare as wall-clock strings (lexicographic is safe for same-day)
     const ocupado = slotsOcupados.some((s) => {
       if (s.profesional_id !== profesionalId) return false
-      const oInicio = new Date(s.inicio)
-      const oFin = new Date(s.fin)
-      return slotInicio < oFin && slotFin > oInicio
+      // Normalize occupied slot to wall-clock for comparison
+      const oInicioWall = toWallClockIso(new Date(s.inicio), tz)
+      const oFinWall = toWallClockIso(new Date(s.fin), tz)
+      return slotInicioStr < oFinWall && slotFinStr > oInicioWall
     })
 
     if (!ocupado) {
-      slots.push(slotInicio)
+      // Store wall-clock as Date for display purposes only
+      slots.push(new Date(slotInicioStr))
     }
 
     current += duracionMin
@@ -131,40 +142,9 @@ function buildSlotsDisponibles(
   return slots
 }
 
-function getSantiagoOffset(date: Date): string {
-  // Determine Santiago UTC offset for the given date
-  // Chile uses CLT (UTC-3) in winter and CLST (UTC-4) in summer
-  // We determine this by comparing UTC time to Santiago local time
-  const utcMs = date.getTime()
-  const santiagoStr = date.toLocaleString('en-CA', {
-    timeZone: 'America/Santiago',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-  const utcStr = date.toLocaleString('en-CA', {
-    timeZone: 'UTC',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-  void utcMs
-  // Parse both
-  const [sh, sm] = santiagoStr.split(':').map(Number)
-  const [uh, um] = utcStr.split(':').map(Number)
-  const diff = (sh * 60 + sm) - (uh * 60 + um)
-  // Handle day boundary
-  const adjDiff = diff < -720 ? diff + 1440 : diff > 720 ? diff - 1440 : diff
-  const absMin = Math.abs(adjDiff)
-  const sign = adjDiff >= 0 ? '+' : '-'
-  const offH = String(Math.floor(absMin / 60)).padStart(2, '0')
-  const offM = String(absMin % 60).padStart(2, '0')
-  return `${sign}${offH}:${offM}`
-}
-
-function formatHora(date: Date): string {
+function formatHora(date: Date, tz: string = DEFAULT_TZ): string {
   return date.toLocaleTimeString('es-CL', {
-    timeZone: 'America/Santiago',
+    timeZone: tz,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -248,6 +228,7 @@ function PasoProfesionalFecha({
   fechaSeleccionada,
   onFecha,
   horarios,
+  tz = DEFAULT_TZ,
 }: {
   profesionales: Profesional[]
   profesionalId: string | null
@@ -255,8 +236,9 @@ function PasoProfesionalFecha({
   fechaSeleccionada: Date | null
   onFecha: (d: Date) => void
   horarios: Record<string, HorarioDia> | undefined
+  tz?: string
 }) {
-  const today = toSantiagoDate(new Date())
+  const today = toLocalDate(new Date(), tz)
   const dias: Date[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(today)
     d.setDate(today.getDate() + i)
@@ -354,6 +336,7 @@ function PasoHora({
   profesionalId,
   clinicaId,
   onSelect,
+  tz = DEFAULT_TZ,
 }: {
   fecha: Date
   horarios: Record<string, HorarioDia> | undefined
@@ -361,6 +344,7 @@ function PasoHora({
   profesionalId: string
   clinicaId: string
   onSelect: (inicio: Date, fin: Date) => void
+  tz?: string
 }) {
   const [slots, setSlots] = useState<Date[]>([])
   const [cargando, setCargando] = useState(true)
@@ -384,7 +368,7 @@ function PasoHora({
       return
     }
 
-    const disponibles = buildSlotsDisponibles(horarioDia, servicio.duracion_minutos, ocupados, fecha, profesionalId)
+    const disponibles = buildSlotsDisponibles(horarioDia, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
     setSlots(disponibles)
     setCargando(false)
   }, [fecha, clinicaId, profesionalId, horarios, servicio.duracion_minutos])
@@ -418,14 +402,17 @@ function PasoHora({
       ) : (
         <div className="grid grid-cols-3 gap-2">
           {slots.map((slot) => {
-            const fin = new Date(slot.getTime() + servicio.duracion_minutos * 60 * 1000)
+            const fin = new Date(slot)
+            fin.setMinutes(fin.getMinutes() + servicio.duracion_minutos)
+            // slot is wall-clock Date (no timezone), display hours directly
+            const slotLabel = `${String(slot.getHours()).padStart(2,'0')}:${String(slot.getMinutes()).padStart(2,'0')}`
             return (
               <button
-                key={slot.toISOString()}
+                key={slotLabel}
                 onClick={() => onSelect(slot, fin)}
                 className="py-2.5 px-2 rounded-xl border border-gray-200 text-center text-sm font-medium text-[#0B132B] hover:border-[#2563EB] hover:bg-blue-50/30 hover:text-[#2563EB] transition-all"
               >
-                {formatHora(slot)}
+                {slotLabel}
               </button>
             )
           })}
@@ -446,6 +433,7 @@ function PasoDatos({
   profesionalId,
   servicioId,
   onExito,
+  tz = DEFAULT_TZ,
 }: {
   servicio: Servicio
   profesional: Profesional | null
@@ -455,6 +443,7 @@ function PasoDatos({
   profesionalId: string
   servicioId: string
   onExito: (citaId: string) => void
+  tz?: string
 }) {
   const [form, setForm] = useState<FormData>({ nombre: '', telefono: '', email: '', notas: '' })
   const [enviando, setEnviando] = useState(false)
@@ -472,8 +461,9 @@ function PasoDatos({
       p_clinica_id: clinicaId,
       p_servicio_id: servicioId,
       p_profesional_id: profesionalId,
-      p_inicio: inicio.toISOString(),
-      p_fin: fin.toISOString(),
+      // Save wall-clock ISO (no offset) to match agenda modal format for consistent conflict detection
+      p_inicio: toWallClockIso(inicio, tz),
+      p_fin: toWallClockIso(fin, tz),
       p_paciente_nombre: form.nombre.trim(),
       p_paciente_telefono: form.telefono.trim(),
       p_paciente_email: form.email.trim() || null,
@@ -503,7 +493,7 @@ function PasoDatos({
         <p className="text-sm font-semibold text-[#0B132B]">{servicio.nombre}</p>
         {profesional && <p className="text-xs text-gray-500">Con {profesional.nombre}</p>}
         <p className="text-xs text-gray-500">
-          {inicio.toLocaleDateString('es-CL', { timeZone: 'America/Santiago', weekday: 'long', day: 'numeric', month: 'long' })} a las {formatHora(inicio)}
+          {inicio.toLocaleDateString('es-CL', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long' })} a las {formatHora(inicio, tz)}
         </p>
         <p className="text-xs font-medium text-[#14B8A6]">{formatPrecio(servicio.precio)} · {servicio.duracion_minutos} min</p>
       </div>
@@ -577,12 +567,14 @@ function PantallaExito({
   profesional,
   inicio,
   fin,
+  tz = DEFAULT_TZ,
 }: {
   clinica: ClinicaPublica
   servicio: Servicio
   profesional: Profesional | null
   inicio: Date
   fin: Date
+  tz?: string
 }) {
   return (
     <div className="text-center py-6">
@@ -612,7 +604,7 @@ function PantallaExito({
         <div className="flex items-center gap-2 text-sm text-gray-700">
           <Clock className="w-4 h-4 text-gray-400 shrink-0" />
           <span>
-            {inicio.toLocaleDateString('es-CL', { timeZone: 'America/Santiago', weekday: 'long', day: 'numeric', month: 'long' })} a las {formatHora(inicio)} — {formatHora(fin)}
+            {inicio.toLocaleDateString('es-CL', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long' })} a las {formatHora(inicio, tz)} — {formatHora(fin, tz)}
           </span>
         </div>
         {clinica.direccion && (
@@ -720,6 +712,7 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
     )
   }
 
+  const tz = (clinica.configuracion as { timezone?: string } | null)?.timezone ?? DEFAULT_TZ
   const horarios = clinica.configuracion?.horarios
   const profesional = clinica.profesionales.find(p => p.id === profesionalId) ?? null
 
@@ -784,6 +777,7 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
                 fechaSeleccionada={fechaSeleccionada}
                 onFecha={handleFecha}
                 horarios={horarios}
+                tz={tz}
               />
               {/* Auto-advance only when date is selected; profesional is pre-selected if only one */}
             </>
@@ -797,6 +791,7 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
               profesionalId={profesionalId}
               clinicaId={clinica.id}
               onSelect={handleHora}
+              tz={tz}
             />
           )}
 
@@ -810,6 +805,7 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
               profesionalId={profesionalId}
               servicioId={servicioSeleccionado.id}
               onExito={handleExito}
+              tz={tz}
             />
           )}
 
@@ -820,6 +816,7 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
               profesional={profesional}
               inicio={horaInicio}
               fin={horaFin}
+              tz={tz}
             />
           )}
         </div>
