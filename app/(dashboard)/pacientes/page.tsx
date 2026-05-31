@@ -7,12 +7,19 @@ import { ListaPacientes } from '@/components/pacientes/ListaPacientes'
 import {
   actualizarPaciente,
   crearPaciente,
+  eliminarPaciente,
   getPacientes,
+  toggleActivoPaciente,
   type PacienteListaItem,
   type PacienteRow,
 } from '@/lib/pacientes/queries'
 
 type FiltroPacientes = 'todos' | 'activos' | 'nuevos'
+
+type ModalConfirm = {
+  tipo: 'eliminar' | 'toggle'
+  paciente: PacienteListaItem | PacienteRow
+}
 
 export default function PacientesPage() {
   const [pacientes, setPacientes] = useState<PacienteListaItem[]>([])
@@ -26,6 +33,8 @@ export default function PacientesPage() {
   const [openForm, setOpenForm] = useState(false)
   const [pacienteEditando, setPacienteEditando] = useState<PacienteRow | null>(null)
   const [pacienteSeleccionadoId, setPacienteSeleccionadoId] = useState<string | null>(null)
+  const [modalConfirm, setModalConfirm] = useState<ModalConfirm | null>(null)
+  const [procesando, setProcesando] = useState(false)
 
   useEffect(() => {
     const timeout = setTimeout(() => setBusqueda(busquedaInput), 250)
@@ -41,10 +50,16 @@ export default function PacientesPage() {
       setTotal(res.total)
       setLoading(false)
     })()
-    return () => {
-      active = false
-    }
+    return () => { active = false }
   }, [page, busqueda, filtro])
+
+  async function recargar() {
+    setLoading(true)
+    const res = await getPacientes({ busqueda, filtro, page, pageSize: 20 })
+    setPacientes(res.items)
+    setTotal(res.total)
+    setLoading(false)
+  }
 
   async function handleSubmitPaciente(data: {
     nombre: string
@@ -58,14 +73,26 @@ export default function PacientesPage() {
     } else {
       await crearPaciente(data)
     }
-
     setOpenForm(false)
     setPacienteEditando(null)
-    setLoading(true)
-    const res = await getPacientes({ busqueda, filtro, page, pageSize: 20 })
-    setPacientes(res.items)
-    setTotal(res.total)
-    setLoading(false)
+    await recargar()
+  }
+
+  async function handleConfirmar() {
+    if (!modalConfirm || procesando) return
+    setProcesando(true)
+
+    if (modalConfirm.tipo === 'eliminar') {
+      const ok = await eliminarPaciente(modalConfirm.paciente.id)
+      if (ok) setPacienteSeleccionadoId(null)
+    } else {
+      const activo = modalConfirm.paciente.activo
+      await toggleActivoPaciente(modalConfirm.paciente.id, !activo)
+    }
+
+    setProcesando(false)
+    setModalConfirm(null)
+    await recargar()
   }
 
   return (
@@ -83,25 +110,14 @@ export default function PacientesPage() {
         filtro={filtro}
         busqueda={busquedaInput}
         loading={loading}
-        onBusquedaChange={(value) => {
-          setBusquedaInput(value)
-          setPage(1)
-          setLoading(true)
-        }}
-        onFiltroChange={(value) => {
-          setFiltro(value)
-          setPage(1)
-          setLoading(true)
-        }}
-        onPageChange={(value) => {
-          setPage(value)
-          setLoading(true)
-        }}
-        onNuevoPaciente={() => {
-          setPacienteEditando(null)
-          setOpenForm(true)
-        }}
-        onSelectPaciente={(paciente) => setPacienteSeleccionadoId(paciente.id)}
+        onBusquedaChange={(value) => { setBusquedaInput(value); setPage(1); setLoading(true) }}
+        onFiltroChange={(value) => { setFiltro(value); setPage(1); setLoading(true) }}
+        onPageChange={(value) => { setPage(value); setLoading(true) }}
+        onNuevoPaciente={() => { setPacienteEditando(null); setOpenForm(true) }}
+        onSelectPaciente={(p) => setPacienteSeleccionadoId(p.id)}
+        onEditar={(p) => { setPacienteSeleccionadoId(null); setPacienteEditando(p as PacienteRow); setOpenForm(true) }}
+        onToggleActivo={(p) => setModalConfirm({ tipo: 'toggle', paciente: p })}
+        onEliminar={(p) => setModalConfirm({ tipo: 'eliminar', paciente: p })}
       />
 
       {openForm && (
@@ -109,10 +125,7 @@ export default function PacientesPage() {
           key={pacienteEditando?.id ?? 'nuevo'}
           open={openForm}
           paciente={pacienteEditando}
-          onClose={() => {
-            setOpenForm(false)
-            setPacienteEditando(null)
-          }}
+          onClose={() => { setOpenForm(false); setPacienteEditando(null) }}
           onSubmit={handleSubmitPaciente}
         />
       )}
@@ -122,12 +135,50 @@ export default function PacientesPage() {
           key={pacienteSeleccionadoId}
           pacienteId={pacienteSeleccionadoId}
           onClose={() => setPacienteSeleccionadoId(null)}
-          onEditar={(paciente) => {
-            setPacienteSeleccionadoId(null)
-            setPacienteEditando(paciente)
-            setOpenForm(true)
-          }}
+          onEditar={(p) => { setPacienteSeleccionadoId(null); setPacienteEditando(p); setOpenForm(true) }}
+          onToggleActivo={(p) => setModalConfirm({ tipo: 'toggle', paciente: p })}
+          onEliminar={(p) => setModalConfirm({ tipo: 'eliminar', paciente: p })}
         />
+      )}
+
+      {/* Modal de confirmación */}
+      {modalConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/30 z-50" onClick={() => setModalConfirm(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+              <h3 className="text-[15px] font-semibold text-gray-900 mb-1">
+                {modalConfirm.tipo === 'eliminar' ? 'Eliminar paciente' : modalConfirm.paciente.activo ? 'Desactivar paciente' : 'Activar paciente'}
+              </h3>
+              <p className="text-[13px] text-gray-500 mb-5">
+                {modalConfirm.tipo === 'eliminar'
+                  ? <>¿Eliminar a <strong>{modalConfirm.paciente.nombre}</strong>? Esta acción no se puede deshacer.</>
+                  : modalConfirm.paciente.activo
+                  ? <>¿Desactivar a <strong>{modalConfirm.paciente.nombre}</strong>? Seguirá en el sistema pero no aparecerá en filtros activos.</>
+                  : <>¿Activar nuevamente a <strong>{modalConfirm.paciente.nombre}</strong>?</>}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setModalConfirm(null)}
+                  className="flex-1 h-9 rounded-lg border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmar}
+                  disabled={procesando}
+                  className={`flex-1 h-9 rounded-lg text-[13px] font-medium text-white transition-colors disabled:opacity-60 ${
+                    modalConfirm.tipo === 'eliminar'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-[#2563EB] hover:bg-blue-700'
+                  }`}
+                >
+                  {procesando ? 'Procesando...' : modalConfirm.tipo === 'eliminar' ? 'Eliminar' : modalConfirm.paciente.activo ? 'Desactivar' : 'Activar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

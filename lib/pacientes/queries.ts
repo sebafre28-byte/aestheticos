@@ -235,3 +235,31 @@ export async function actualizarNotasPaciente(pacienteId: string, notas: string)
 
   return true
 }
+
+export async function toggleActivoPaciente(pacienteId: string, activo: boolean): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('pacientes')
+    .update({ activo })
+    .eq('id', pacienteId)
+
+  if (error) {
+    console.error('Error toggleActivoPaciente:', error)
+    return false
+  }
+  return true
+}
+
+export async function eliminarPaciente(pacienteId: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('pacientes')
+    .delete()
+    .eq('id', pacienteId)
+
+  if (error) {
+    console.error('Error eliminarPaciente:', error)
+    return false
+  }
+  return true
+}

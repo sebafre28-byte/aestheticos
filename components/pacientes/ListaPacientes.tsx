@@ -1,8 +1,9 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import { format, isAfter, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Mail, Phone, Search } from 'lucide-react'
+import { Mail, MoreHorizontal, Pencil, Phone, Search, Trash2, UserCheck, UserX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { PacienteListaItem } from '@/lib/pacientes/queries'
@@ -22,6 +23,9 @@ type Props = {
   onPageChange: (value: number) => void
   onNuevoPaciente: () => void
   onSelectPaciente: (paciente: PacienteListaItem) => void
+  onEditar: (paciente: PacienteListaItem) => void
+  onToggleActivo: (paciente: PacienteListaItem) => void
+  onEliminar: (paciente: PacienteListaItem) => void
 }
 
 function inicialesNombre(nombre: string): string {
@@ -39,6 +43,69 @@ function estadoPaciente(p: PacienteListaItem): 'nuevo' | 'activo' | 'inactivo' {
   return 'activo'
 }
 
+function AccionesMenu({
+  paciente,
+  onEditar,
+  onToggleActivo,
+  onEliminar,
+}: {
+  paciente: PacienteListaItem
+  onEditar: () => void
+  onToggleActivo: () => void
+  onEliminar: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+      >
+        <MoreHorizontal className="size-4" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-xl border border-gray-100 shadow-lg py-1 text-[13px]">
+          <button
+            onClick={() => { setOpen(false); onEditar() }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-50"
+          >
+            <Pencil className="size-3.5 text-gray-400" />
+            Editar
+          </button>
+          <button
+            onClick={() => { setOpen(false); onToggleActivo() }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-50"
+          >
+            {paciente.activo
+              ? <UserX className="size-3.5 text-amber-400" />
+              : <UserCheck className="size-3.5 text-emerald-500" />}
+            {paciente.activo ? 'Desactivar' : 'Activar'}
+          </button>
+          <div className="my-1 border-t border-gray-50" />
+          <button
+            onClick={() => { setOpen(false); onEliminar() }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-red-600 hover:bg-red-50"
+          >
+            <Trash2 className="size-3.5" />
+            Eliminar
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ListaPacientes({
   pacientes,
   total,
@@ -52,6 +119,9 @@ export function ListaPacientes({
   onPageChange,
   onNuevoPaciente,
   onSelectPaciente,
+  onEditar,
+  onToggleActivo,
+  onEliminar,
 }: Props) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const inicio = total === 0 ? 0 : (page - 1) * pageSize + 1
@@ -105,18 +175,19 @@ export function ListaPacientes({
             <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Última cita</th>
             <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Total citas</th>
             <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Estado</th>
+            <th className="px-5 py-3 w-10" />
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {loading ? (
             <tr>
-              <td colSpan={5} className="px-5 py-8 text-center text-[13px] text-gray-400">
+              <td colSpan={6} className="px-5 py-8 text-center text-[13px] text-gray-400">
                 Cargando pacientes...
               </td>
             </tr>
           ) : pacientes.length === 0 ? (
             <tr>
-              <td colSpan={5} className="px-5 py-8 text-center text-[13px] text-gray-400">
+              <td colSpan={6} className="px-5 py-8 text-center text-[13px] text-gray-400">
                 No hay pacientes para este filtro.
               </td>
             </tr>
@@ -127,15 +198,19 @@ export function ListaPacientes({
                 <tr
                   key={paciente.id}
                   onClick={() => onSelectPaciente(paciente)}
-                  className="hover:bg-gray-50/40 transition-colors cursor-pointer"
+                  className="hover:bg-gray-50/40 transition-colors cursor-pointer group"
                 >
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-[#2563EB]/10">
-                        <span className="text-[11px] font-semibold text-[#2563EB]">{inicialesNombre(paciente.nombre)}</span>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${paciente.activo ? 'bg-[#2563EB]/10' : 'bg-gray-100'}`}>
+                        <span className={`text-[11px] font-semibold ${paciente.activo ? 'text-[#2563EB]' : 'text-gray-400'}`}>
+                          {inicialesNombre(paciente.nombre)}
+                        </span>
                       </div>
                       <div>
-                        <p className="text-[13px] font-medium text-gray-900">{paciente.nombre}</p>
+                        <p className={`text-[13px] font-medium ${paciente.activo ? 'text-gray-900' : 'text-gray-400'}`}>
+                          {paciente.nombre}
+                        </p>
                         {paciente.rut && <p className="text-[11px] text-gray-400">{paciente.rut}</p>}
                       </div>
                     </div>
@@ -158,7 +233,7 @@ export function ListaPacientes({
                   </td>
                   <td className="px-5 py-3.5 text-[13px] text-gray-600">
                     {paciente.ultimaCita
-                      ? format(parseISO(paciente.ultimaCita), "d MMM, yyyy", { locale: es })
+                      ? format(parseISO(paciente.ultimaCita), 'd MMM, yyyy', { locale: es })
                       : 'Sin citas'}
                   </td>
                   <td className="px-5 py-3.5 text-[13px] font-semibold text-gray-900">{paciente.totalCitas}</td>
@@ -175,6 +250,16 @@ export function ListaPacientes({
                       {estado === 'activo' ? 'Activo' : estado === 'nuevo' ? 'Nuevo' : 'Inactivo'}
                     </span>
                   </td>
+                  <td className="px-3 py-3.5">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <AccionesMenu
+                        paciente={paciente}
+                        onEditar={() => onEditar(paciente)}
+                        onToggleActivo={() => onToggleActivo(paciente)}
+                        onEliminar={() => onEliminar(paciente)}
+                      />
+                    </div>
+                  </td>
                 </tr>
               )
             })
@@ -184,7 +269,7 @@ export function ListaPacientes({
 
       <div className="px-5 py-3 border-t border-gray-50 flex items-center justify-between">
         <span className="text-[12px] text-gray-400">
-          Mostrando {inicio}-{fin} de {total} pacientes
+          Mostrando {inicio}–{fin} de {total} pacientes
         </span>
         <div className="flex items-center gap-1">
           <button

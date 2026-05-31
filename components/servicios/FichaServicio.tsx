@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X } from 'lucide-react'
+import { Trash2, ToggleLeft, ToggleRight, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getServicioDetalle, type HistorialServicio, type ServicioRow } from '@/lib/servicios/queries'
 
@@ -11,9 +11,11 @@ type Props = {
   servicioId: string
   onClose: () => void
   onEditar: (servicio: ServicioRow) => void
+  onToggleActivo?: (servicio: ServicioRow) => void
+  onEliminar?: (servicio: ServicioRow) => void
 }
 
-export function FichaServicio({ servicioId, onClose, onEditar }: Props) {
+export function FichaServicio({ servicioId, onClose, onEditar, onToggleActivo, onEliminar }: Props) {
   const [tab, setTab] = useState<'informacion' | 'historial'>('informacion')
   const [servicio, setServicio] = useState<ServicioRow | null>(null)
   const [historial, setHistorial] = useState<HistorialServicio[]>([])
@@ -135,10 +137,33 @@ export function FichaServicio({ servicioId, onClose, onEditar }: Props) {
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-gray-100 flex gap-2">
-          <Button variant="outline" onClick={() => onEditar(servicio)} className="flex-1">
+        <div className="px-5 py-4 border-t border-gray-100 space-y-2">
+          <Button variant="outline" onClick={() => onEditar(servicio)} className="w-full">
             Editar servicio
           </Button>
+          <div className="flex gap-2">
+            {onToggleActivo && (
+              <Button
+                variant="outline"
+                onClick={() => onToggleActivo(servicio)}
+                className="flex-1 text-[12px]"
+              >
+                {servicio.activo
+                  ? <><ToggleLeft className="size-3.5 mr-1.5 text-amber-400" />Desactivar</>
+                  : <><ToggleRight className="size-3.5 mr-1.5 text-emerald-500" />Activar</>}
+              </Button>
+            )}
+            {onEliminar && (
+              <Button
+                variant="outline"
+                onClick={() => onEliminar(servicio)}
+                className="flex-1 text-[12px] text-red-600 hover:bg-red-50 hover:border-red-200"
+              >
+                <Trash2 className="size-3.5 mr-1.5" />
+                Eliminar
+              </Button>
+            )}
+          </div>
         </div>
       </aside>
     </>
