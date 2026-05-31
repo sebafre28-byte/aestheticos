@@ -14,6 +14,7 @@ type Servicio = {
   duracion_minutos: number
   precio: number
   color: string
+  buffer_minutos: number
 }
 
 type Profesional = {
@@ -47,6 +48,7 @@ type SlotOcupado = {
   inicio: string
   fin: string
   profesional_id: string
+  buffer_minutos?: number
 }
 
 type FormData = {
@@ -128,7 +130,8 @@ function buildSlotsDisponibles(
       if (s.profesional_id !== profesionalId) return false
       // Normalize occupied slot to wall-clock for comparison
       const oInicioWall = toWallClockIso(new Date(s.inicio), tz)
-      const oFinWall = toWallClockIso(new Date(s.fin), tz)
+      const bufferMs = (s.buffer_minutos ?? 0) * 60_000
+      const oFinWall = toWallClockIso(new Date(new Date(s.fin).getTime() + bufferMs), tz)
       return slotInicioStr < oFinWall && slotFinStr > oInicioWall
     })
 

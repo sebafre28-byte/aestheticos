@@ -47,21 +47,25 @@ const ESTADO_BORDE: Record<EstadoCita, { color: string; style: 'solid' | 'dashed
 type Props = {
   cita: CitaConRelaciones
   onClick: (cita: CitaConRelaciones) => void
+  onDragStart?: (cita: CitaConRelaciones) => void
   onResize?: (cita: CitaConRelaciones, deltaMinutos: number) => void
   topPx: number
   heightPx: number
   leftPercent?: number
   widthPercent?: number
+  bufferPx?: number
 }
 
 export function BloqueCita({
   cita,
   onClick,
+  onDragStart,
   onResize,
   topPx,
   heightPx,
   leftPercent = 0,
   widthPercent = 100,
+  bufferPx = 0,
 }: Props) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null)
   const color = cita.profesionales?.color ?? '#2563EB'
@@ -127,11 +131,32 @@ export function BloqueCita({
   }
 
   return (
+    <>
+    {bufferPx > 0 && (
+      <div
+        className="absolute pointer-events-none rounded-b-md"
+        style={{
+          top: topPx + alturaReal,
+          height: bufferPx,
+          left: `${leftPercent}%`,
+          width: `${widthPercent}%`,
+          backgroundColor: 'rgba(251, 146, 60, 0.12)',
+          borderLeft: '3px solid rgba(251, 146, 60, 0.25)',
+          borderRight: '1px solid rgba(251, 146, 60, 0.15)',
+          borderBottom: '1px solid rgba(251, 146, 60, 0.15)',
+        }}
+      />
+    )}
     <div
       role="button"
       tabIndex={0}
       onClick={() => onClick(cita)}
       onKeyDown={(e) => e.key === 'Enter' && onClick(cita)}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/cita-id', cita.id)
+        onDragStart?.(cita)
+      }}
       onMouseEnter={(e) => setTooltip({ x: e.clientX, y: e.clientY })}
       onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY })}
       onMouseLeave={() => setTooltip(null)}
@@ -196,6 +221,7 @@ export function BloqueCita({
         <TooltipCita cita={cita} x={tooltip.x} y={tooltip.y} />
       )}
     </div>
+    </>
   )
 }
 
