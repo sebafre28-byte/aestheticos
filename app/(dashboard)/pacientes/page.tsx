@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { FichaPaciente } from '@/components/pacientes/FichaPaciente'
 import { FormPaciente } from '@/components/pacientes/FormPaciente'
 import { ListaPacientes } from '@/components/pacientes/ListaPacientes'
@@ -22,6 +23,7 @@ type ModalConfirm = {
 }
 
 export default function PacientesPage() {
+  const router = useRouter()
   const [pacientes, setPacientes] = useState<PacienteListaItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -67,6 +69,8 @@ export default function PacientesPage() {
     email: string
     rut: string
     fecha_nacimiento: string
+    genero: string
+    direccion: string
   }) {
     if (pacienteEditando) {
       await actualizarPaciente(pacienteEditando.id, data)
@@ -138,6 +142,7 @@ export default function PacientesPage() {
           onEditar={(p) => { setPacienteSeleccionadoId(null); setPacienteEditando(p); setOpenForm(true) }}
           onToggleActivo={(p) => setModalConfirm({ tipo: 'toggle', paciente: p })}
           onEliminar={(p) => setModalConfirm({ tipo: 'eliminar', paciente: p })}
+          onNuevaCita={() => router.push('/agenda')}
         />
       )}
 

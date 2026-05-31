@@ -14,6 +14,10 @@ export type PacienteRow = {
   notas: string | null
   activo: boolean
   created_at: string
+  genero: 'masculino' | 'femenino' | 'otro' | 'prefiero_no_decir' | null
+  direccion: string | null
+  alergias: string | null
+  condiciones: string | null
 }
 
 export type HistorialCitaPaciente = {
@@ -23,6 +27,8 @@ export type HistorialCitaPaciente = {
   estado: 'pendiente' | 'confirmada' | 'completada' | 'cancelada' | 'no_asistio'
   notas: string | null
   created_at: string
+  pago_monto: number | null
+  pago_estado: string | null
   servicios: {
     nombre: string
     precio: number
@@ -30,6 +36,7 @@ export type HistorialCitaPaciente = {
   profesionales: {
     nombre: string
     especialidad: string | null
+    color: string | null
   } | null
 }
 
@@ -147,7 +154,7 @@ export async function getPacienteDetalle(pacienteId: string): Promise<{
       supabase.from('pacientes').select('*').eq('id', pacienteId).single(),
       supabase
         .from('citas')
-        .select('id, inicio, fin, estado, notas, created_at, servicios(nombre, precio), profesionales(nombre, especialidad)')
+        .select('id, inicio, fin, estado, notas, created_at, pago_monto, pago_estado, servicios(nombre, precio), profesionales(nombre, especialidad, color)')
         .eq('paciente_id', pacienteId)
         .order('inicio', { ascending: false }),
     ])
@@ -171,6 +178,8 @@ export type PacienteInput = {
   email?: string
   rut?: string
   fecha_nacimiento?: string
+  genero?: string
+  direccion?: string
 }
 
 export async function crearPaciente(input: PacienteInput): Promise<PacienteRow | null> {
@@ -185,6 +194,8 @@ export async function crearPaciente(input: PacienteInput): Promise<PacienteRow |
     email: input.email?.trim() || null,
     rut: input.rut?.trim() || null,
     fecha_nacimiento: input.fecha_nacimiento || null,
+    genero: input.genero?.trim() || null,
+    direccion: input.direccion?.trim() || null,
   }
 
   const { data, error } = await supabase.from('pacientes').insert(payload).select('*').single()
@@ -204,6 +215,8 @@ export async function actualizarPaciente(pacienteId: string, input: PacienteInpu
     email: input.email?.trim() || null,
     rut: input.rut?.trim() || null,
     fecha_nacimiento: input.fecha_nacimiento || null,
+    genero: input.genero?.trim() || null,
+    direccion: input.direccion?.trim() || null,
   }
 
   const { data, error } = await supabase
@@ -259,6 +272,28 @@ export async function eliminarPaciente(pacienteId: string): Promise<boolean> {
 
   if (error) {
     console.error('Error eliminarPaciente:', error)
+    return false
+  }
+  return true
+}
+
+export async function actualizarFichaClinica(
+  pacienteId: string,
+  input: {
+    genero?: string | null
+    direccion?: string | null
+    alergias?: string | null
+    condiciones?: string | null
+  }
+): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('pacientes')
+    .update(input)
+    .eq('id', pacienteId)
+
+  if (error) {
+    console.error('Error actualizarFichaClinica:', error)
     return false
   }
   return true
