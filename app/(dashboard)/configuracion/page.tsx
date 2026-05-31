@@ -8,6 +8,7 @@ import {
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
   ChevronDown, Clock, Link2, ExternalLink, Copy,
 } from "lucide-react"
+import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -649,33 +650,10 @@ function SeccionRecordatorios() {
 // ─── Sección Plan ─────────────────────────────────────────────────────────────
 
 function SeccionPlan() {
-  const [clinica, setClinica] = useState<ClinicaBasica | null>(null)
-  const [cargando, setCargando] = useState(true)
-
-  useEffect(() => { getClinicaBasica().then((c) => { setClinica(c); setCargando(false) }) }, [])
-
-  const planLabel = clinica?.plan === "pro" ? "Pro" : clinica?.plan === "enterprise" ? "Enterprise" : "Starter"
-
   return (
     <div>
-      <SectionHeader title="Plan y facturación" subtitle="Gestiona tu suscripción" />
-      {cargando ? (
-        <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
-      ) : (
-        <div className="rounded-xl border-2 border-[#2563EB]/20 bg-gradient-to-br from-blue-50 to-white p-5 mb-6">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-semibold bg-[#2563EB] text-white px-2 py-0.5 rounded-full">Plan {planLabel}</span>
-            <span className="text-[11px] font-medium bg-emerald-50 text-[#10B981] px-2 py-0.5 rounded-full flex items-center gap-1">
-              <Check className="size-2.5" /> Activo
-            </span>
-          </div>
-          <p className="text-[13px] text-gray-500 mt-2">Administra tu plan desde el panel de Vercel o contáctanos.</p>
-        </div>
-      )}
-      <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
-        <p className="text-[13px] font-medium text-amber-700">Facturación disponible próximamente</p>
-        <p className="text-[12px] text-amber-600 mt-0.5">Integración con WebPay y Stripe en camino.</p>
-      </div>
+      <SectionHeader title="Plan y facturación" subtitle="Gestiona tu suscripción de SimpliClinic" />
+      <PlanesCard />
     </div>
   )
 }
