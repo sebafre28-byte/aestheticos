@@ -1,7 +1,8 @@
 "use client"
 
 import Link from 'next/link'
-import { useState } from 'react'
+import Image from 'next/image'
+import { useState, useEffect } from 'react'
 import {
   CalendarDays, Users, MessageCircle, BarChart2, Clock, CheckCircle,
   ArrowRight, Star, Zap, Shield, ChevronRight, Bot, Menu, X,
@@ -10,27 +11,16 @@ import {
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 
-function LogoMark({ size = 32 }: { size?: number }) {
+function Logo() {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="32" height="32" rx="9" fill="#2563EB" />
-      <rect x="13" y="7" width="6" height="18" rx="3" fill="white" />
-      <rect x="7" y="13" width="18" height="6" rx="3" fill="white" />
-    </svg>
-  )
-}
-
-function Logo({ showText = true }: { showText?: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <LogoMark size={32} />
-      {showText && (
-        <div>
-          <p className="text-[15px] font-bold leading-tight tracking-tight text-gray-900">SimpliClinic</p>
-          <p className="text-[10px] leading-tight text-[#2563EB]">Tu clínica, más simple.</p>
-        </div>
-      )}
-    </div>
+    <Image
+      src="/logo-horizontal.jpg"
+      alt="SimpliClinic"
+      width={160}
+      height={40}
+      className="h-9 w-auto object-contain"
+      priority
+    />
   )
 }
 
@@ -64,28 +54,190 @@ const AGENTE_FEATURES = [
   { icon: Sparkles, label: 'Disponible 24/7', desc: 'Atiende consultas fuera de horario, fines de semana y días festivos.' },
 ]
 
-// WhatsApp chat bubbles
-const CHAT = [
-  { tipo: 'in', msg: 'Hola! Quería reservar una sesión de botox para esta semana 🙏' },
-  { tipo: 'out', msg: '¡Hola Camila! 👋 Claro, tenemos disponibilidad el **miércoles 4 a las 15:00** o el **viernes 6 a las 11:00**. ¿Cuál te acomoda mejor?' },
-  { tipo: 'in', msg: 'Mejor el miércoles a las 3!' },
-  { tipo: 'out', msg: '✅ ¡Perfecto! Tu cita está confirmada:\n📅 Miércoles 4 de junio · 15:00 h\n💉 Botox con Dra. Rojas\n\nTe enviaré un recordatorio el día anterior 😊' },
-  { tipo: 'in', msg: 'Gracias! Ah, lo siento debo cancelar 😔' },
-  { tipo: 'out', msg: 'Sin problemas 😊 Tengo disponible el **jueves 5 a las 16:00** o el **viernes 6 a las 11:00**. ¿Te sirve alguno?' },
+const CHAT_MESSAGES = [
+  { tipo: 'in' as const, msg: 'Hola! Quería reservar una sesión de botox para esta semana 🙏', delay: 800 },
+  { tipo: 'out' as const, msg: '¡Hola Camila! 👋 Claro, tenemos disponibilidad el **miércoles 4 a las 15:00** o el **viernes 6 a las 11:00**. ¿Cuál te acomoda mejor?', delay: 2200 },
+  { tipo: 'in' as const, msg: 'Mejor el miércoles a las 3!', delay: 3800 },
+  { tipo: 'out' as const, msg: '✅ ¡Perfecto! Tu cita está confirmada:\n📅 Miércoles 4 · 15:00 h\n💉 Botox con Dra. Rojas\n\nTe enviaré un recordatorio el día anterior 😊', delay: 5200 },
+  { tipo: 'in' as const, msg: 'Gracias! Ah, lo siento debo cancelar 😔', delay: 7000 },
+  { tipo: 'out' as const, msg: 'Sin problemas 😊 Tengo el **jueves 5 a las 16:00** o el **viernes 6 a las 11:00**. ¿Te sirve alguno?', delay: 8400 },
 ]
 
-// ─── Components ───────────────────────────────────────────────────────────────
+const BAR_HEIGHTS = [38, 62, 48, 75, 68, 95]
+
+// ─── Animated bar chart ───────────────────────────────────────────────────────
+
+function AnimatedBars() {
+  const [animated, setAnimated] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setAnimated(true), 400)
+    return () => clearTimeout(t)
+  }, [])
+  return (
+    <div className="flex items-end gap-1 h-16">
+      {BAR_HEIGHTS.map((h, i) => (
+        <div
+          key={i}
+          className="flex-1 rounded-t-sm transition-all ease-out"
+          style={{
+            height: animated ? `${h}%` : '4%',
+            backgroundColor: i === 5 ? '#2563EB' : '#E2E8F0',
+            transitionDuration: `${500 + i * 80}ms`,
+            transitionDelay: animated ? `${i * 60}ms` : '0ms',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ─── Animated WhatsApp chat ───────────────────────────────────────────────────
+
+function ChatBubbleText({ msg }: { msg: string }) {
+  return (
+    <>
+      {msg.split('**').map((part, j) =>
+        j % 2 === 1
+          ? <strong key={j}>{part}</strong>
+          : part.split('\n').map((line, k) => <span key={k}>{k > 0 && <br />}{line}</span>)
+      )}
+    </>
+  )
+}
+
+function TypingDots() {
+  return (
+    <div className="flex items-center gap-1 px-3 py-2.5 bg-white rounded-2xl rounded-tl-sm shadow-sm w-14">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="w-2 h-2 rounded-full bg-gray-400"
+          style={{
+            animation: 'typing-bounce 1.2s ease-in-out infinite',
+            animationDelay: `${i * 0.2}s`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function WhatsAppChat() {
+  const LOOP_DURATION = 11000
+  const [visible, setVisible] = useState(0)
+  const [typing, setTyping] = useState(false)
+
+  useEffect(() => {
+    let timeouts: ReturnType<typeof setTimeout>[] = []
+
+    function runCycle() {
+      setVisible(0)
+      setTyping(false)
+
+      CHAT_MESSAGES.forEach((m, i) => {
+        // show typing indicator 800ms before the bot message appears
+        if (m.tipo === 'out') {
+          const t1 = setTimeout(() => setTyping(true), m.delay - 800)
+          timeouts.push(t1)
+        }
+        const t2 = setTimeout(() => {
+          setTyping(false)
+          setVisible(i + 1)
+        }, m.delay)
+        timeouts.push(t2)
+      })
+
+      // restart loop
+      const restart = setTimeout(() => {
+        timeouts.forEach(clearTimeout)
+        timeouts = []
+        runCycle()
+      }, LOOP_DURATION)
+      timeouts.push(restart)
+    }
+
+    runCycle()
+    return () => timeouts.forEach(clearTimeout)
+  }, [])
+
+  const shown = CHAT_MESSAGES.slice(0, visible)
+  // show typing indicator only if last shown was 'in' or visible===0
+  const showTyping = typing && (visible === 0 || CHAT_MESSAGES[visible - 1]?.tipo === 'in')
+
+  return (
+    <>
+      <style>{`
+        @keyframes typing-bounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: .4; }
+          30% { transform: translateY(-4px); opacity: 1; }
+        }
+        @keyframes bubble-in {
+          from { opacity: 0; transform: translateY(6px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .bubble-anim { animation: bubble-in 0.25s ease-out forwards; }
+      `}</style>
+
+      <div className="w-full max-w-[360px] rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+        {/* WA header */}
+        <div className="flex items-center gap-3 px-4 py-3" style={{ backgroundColor: '#075E54' }}>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-[13px]"
+            style={{ background: 'linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)' }}>
+            SC
+          </div>
+          <div>
+            <p className="text-white text-[13px] font-semibold">SimpliClinic · Asistente</p>
+            <p className="text-green-300 text-[11px] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+              En línea
+            </p>
+          </div>
+        </div>
+
+        {/* Chat area */}
+        <div
+          className="px-3 py-4 space-y-2 min-h-[360px] overflow-hidden"
+          style={{ backgroundColor: '#E5DDD5' }}
+        >
+          {shown.map((bubble, i) => (
+            <div key={i} className={`flex bubble-anim ${bubble.tipo === 'out' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`max-w-[85%] px-3 py-2 rounded-2xl text-[12.5px] leading-relaxed shadow-sm ${bubble.tipo === 'out' ? 'rounded-tr-sm' : 'rounded-tl-sm bg-white text-gray-800'}`}
+                style={bubble.tipo === 'out' ? { backgroundColor: '#DCF8C6', color: '#1a1a1a' } : {}}
+              >
+                <ChatBubbleText msg={bubble.msg} />
+              </div>
+            </div>
+          ))}
+          {showTyping && (
+            <div className="flex justify-start bubble-anim">
+              <TypingDots />
+            </div>
+          )}
+        </div>
+
+        {/* Input bar */}
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-100 border-t border-gray-200">
+          <div className="flex-1 bg-white rounded-full px-4 py-2 text-[12px] text-gray-400 border border-gray-200">
+            Escribe un mensaje…
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─── Sections ─────────────────────────────────────────────────────────────────
 
 function NavBar() {
   const [open, setOpen] = useState(false)
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
       <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center">
           <Logo />
         </Link>
 
-        {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-6">
           <a href="#agente" className="text-[14px] text-gray-500 hover:text-gray-900 transition-colors">Agente IA</a>
           <a href="#features" className="text-[14px] text-gray-500 hover:text-gray-900 transition-colors">Funciones</a>
@@ -106,13 +258,11 @@ function NavBar() {
           </Link>
         </div>
 
-        {/* Mobile hamburger */}
         <button className="md:hidden p-2 rounded-lg text-gray-600" onClick={() => setOpen(!open)}>
           {open ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
       </div>
 
-      {/* Mobile menu */}
       {open && (
         <div className="md:hidden border-t border-gray-100 bg-white px-5 py-4 flex flex-col gap-4">
           <a href="#agente" className="text-[14px] text-gray-600" onClick={() => setOpen(false)}>Agente IA</a>
@@ -168,7 +318,7 @@ function Hero() {
         <p className="text-[12px] text-gray-400 mt-4">Sin tarjeta de crédito · Configuración en 5 minutos · Cancela cuando quieras</p>
       </div>
 
-      {/* App preview mockup — hidden on small screens */}
+      {/* App preview mockup */}
       <div className="hidden sm:block max-w-5xl mx-auto mt-16 relative">
         <div className="rounded-2xl border border-gray-200 shadow-2xl shadow-gray-200/80 overflow-hidden bg-white">
           <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center gap-2">
@@ -182,21 +332,27 @@ function Hero() {
             </div>
           </div>
           <div className="p-6 bg-slate-50 min-h-[300px] flex gap-4">
+            {/* Sidebar mini */}
             <div className="w-[150px] shrink-0 rounded-xl p-3 space-y-1" style={{ backgroundColor: '#0B132B' }}>
               <div className="flex items-center gap-2 px-2 py-2 mb-3">
                 <div className="w-6 h-6 rounded flex items-center justify-center" style={{ backgroundColor: '#2563EB' }}>
-                  <svg width="12" height="12" viewBox="0 0 32 32" fill="none"><rect x="13" y="7" width="6" height="18" rx="3" fill="white"/><rect x="7" y="13" width="18" height="6" rx="3" fill="white"/></svg>
+                  <svg width="12" height="12" viewBox="0 0 32 32" fill="none">
+                    <rect x="13" y="7" width="6" height="18" rx="3" fill="white"/>
+                    <rect x="7" y="13" width="18" height="6" rx="3" fill="white"/>
+                  </svg>
                 </div>
                 <div className="text-white text-[11px] font-bold">SimpliClinic</div>
               </div>
               {['Dashboard', 'Agenda', 'Pacientes', 'Servicios', 'Reportes'].map((item, i) => (
-                <div key={item} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-medium ${i === 1 ? 'text-white' : 'text-white/50'}`}
+                <div key={item}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-medium ${i === 1 ? 'text-white' : 'text-white/50'}`}
                   style={i === 1 ? { backgroundColor: '#2563EB' } : {}}>
                   <div className="w-3 h-3 rounded-sm bg-current opacity-60" />
                   {item}
                 </div>
               ))}
             </div>
+            {/* Main content */}
             <div className="flex-1 space-y-4">
               <div className="grid grid-cols-4 gap-3">
                 {[
@@ -214,11 +370,7 @@ function Hero() {
               <div className="grid grid-cols-[1fr_auto] gap-3">
                 <div className="bg-white rounded-xl border border-gray-100 p-3">
                   <p className="text-[11px] font-semibold text-gray-700 mb-2">Ingresos por mes</p>
-                  <div className="flex items-end gap-1 h-16">
-                    {[40, 65, 50, 80, 70, 95].map((h, i) => (
-                      <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${h}%`, backgroundColor: i === 5 ? '#2563EB' : '#E2E8F0' }} />
-                    ))}
-                  </div>
+                  <AnimatedBars />
                 </div>
                 <div className="bg-white rounded-xl border border-gray-100 p-3 w-[140px]">
                   <p className="text-[11px] font-semibold text-gray-700 mb-2">Top servicios</p>
@@ -252,15 +404,16 @@ function AgenteIA() {
     <section id="agente" className="py-24 px-5" style={{ background: 'linear-gradient(135deg, #0B132B 0%, #0f2040 100%)' }}>
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-
-          {/* Left: copy */}
+          {/* Left */}
           <div>
             <div className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 rounded-full px-4 py-1.5 mb-5">
               <Bot className="size-3.5 text-[#60A5FA]" />
               <span className="text-[13px] font-medium text-[#60A5FA]">Asistente con IA integrada</span>
             </div>
-            <h2 className="text-[34px] sm:text-[40px] font-extrabold text-white leading-[1.15] tracking-tight mb-5">
-              Tu asistente que <span style={{ color: '#14B8A6' }}>nunca duerme</span> y nunca pierde una cita
+            <h2 className="text-[32px] sm:text-[40px] font-extrabold text-white leading-[1.15] tracking-tight mb-5">
+              Tu asistente que{' '}
+              <span style={{ color: '#14B8A6' }}>nunca duerme</span>{' '}
+              y nunca pierde una cita
             </h2>
             <p className="text-[16px] text-blue-200 leading-relaxed mb-8">
               Olvídate de responder mensajes manualmente. El agente de SimpliClinic gestiona tu agenda por WhatsApp en tiempo real: agenda, reagenda, confirma y recuerda, 24/7.
@@ -293,46 +446,9 @@ function AgenteIA() {
             </div>
           </div>
 
-          {/* Right: WhatsApp mockup */}
+          {/* Right: animated WhatsApp */}
           <div className="flex justify-center lg:justify-end">
-            <div className="w-full max-w-[360px] rounded-3xl overflow-hidden shadow-2xl border border-white/10">
-              {/* WA header */}
-              <div className="flex items-center gap-3 px-4 py-3" style={{ backgroundColor: '#075E54' }}>
-                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-[14px]"
-                  style={{ background: 'linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)' }}>
-                  SC
-                </div>
-                <div>
-                  <p className="text-white text-[13px] font-semibold">SimpliClinic · Asistente</p>
-                  <p className="text-green-300 text-[11px]">● En línea</p>
-                </div>
-              </div>
-
-              {/* Chat */}
-              <div className="px-3 py-4 space-y-2 min-h-[360px]" style={{ background: '#ECE5DD url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M20 20.5V18H0v5h5v5H0v5h20v-9.5zm-2 4.5h-1v-1h1v1zm-1-7h1v1h-1v-1zm2-1h1v1h-1v-1zm-3 5h-1v-1h1v1zm2 2h-1v-1h1v1z\' fill=\'%23d4c5aa\' fill-opacity=\'0.2\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")' }}>
-                {CHAT.map((bubble, i) => (
-                  <div key={i} className={`flex ${bubble.tipo === 'out' ? 'justify-end' : 'justify-start'}`}>
-                    <div
-                      className={`max-w-[85%] px-3 py-2 rounded-2xl text-[12.5px] leading-relaxed shadow-sm ${bubble.tipo === 'out' ? 'rounded-tr-sm' : 'rounded-tl-sm bg-white text-gray-800'}`}
-                      style={bubble.tipo === 'out' ? { backgroundColor: '#DCF8C6', color: '#1a1a1a' } : {}}
-                    >
-                      {bubble.msg.split('**').map((part, j) =>
-                        j % 2 === 1
-                          ? <strong key={j}>{part}</strong>
-                          : part.split('\n').map((line, k) => <span key={k}>{k > 0 && <br />}{line}</span>)
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Input bar */}
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-100 border-t border-gray-200">
-                <div className="flex-1 bg-white rounded-full px-4 py-2 text-[12px] text-gray-400 border border-gray-200">
-                  Escribe un mensaje…
-                </div>
-              </div>
-            </div>
+            <WhatsAppChat />
           </div>
         </div>
       </div>
@@ -378,19 +494,30 @@ function ComoFunciona() {
     <section id="como-funciona" className="py-24 px-5" style={{ backgroundColor: '#F8FAFF' }}>
       <div className="max-w-4xl mx-auto text-center">
         <p className="text-[13px] font-semibold text-[#2563EB] uppercase tracking-widest mb-3">Proceso</p>
-        <h2 className="text-[32px] sm:text-[36px] font-extrabold tracking-tight mb-14" style={{ color: '#0B132B' }}>
+        <h2 className="text-[32px] sm:text-[36px] font-extrabold tracking-tight mb-16" style={{ color: '#0B132B' }}>
           Listo en menos de una hora
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-          <div className="hidden md:block absolute top-8 left-[25%] right-[25%] h-px bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200" />
-          {PASOS.map((paso) => (
-            <div key={paso.numero}>
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-[22px] font-extrabold text-white"
-                style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}>
+
+        <div className="relative grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-6">
+          {/* Connecting line — only desktop */}
+          <div className="hidden md:block absolute top-8 left-0 right-0 px-[calc(16.66%+2rem)]">
+            <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, #BFDBFE, #2563EB, #BFDBFE)' }} />
+          </div>
+
+          {PASOS.map((paso, i) => (
+            <div key={paso.numero} className="relative flex flex-col items-center">
+              {/* Mobile connector */}
+              {i < PASOS.length - 1 && (
+                <div className="md:hidden w-px h-8 mt-2 mb-0" style={{ background: 'linear-gradient(180deg, #BFDBFE, #2563EB)' }} />
+              )}
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-[22px] font-extrabold text-white shadow-lg shadow-blue-200 relative z-10"
+                style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
+              >
                 {paso.numero}
               </div>
-              <h3 className="text-[16px] font-bold text-gray-900 mb-2">{paso.titulo}</h3>
-              <p className="text-[13px] text-gray-500">{paso.descripcion}</p>
+              <h3 className="text-[16px] font-bold text-gray-900 mt-4 mb-2">{paso.titulo}</h3>
+              <p className="text-[13px] text-gray-500 max-w-[220px]">{paso.descripcion}</p>
             </div>
           ))}
         </div>
@@ -441,7 +568,6 @@ function Precios() {
         <p className="text-[16px] text-gray-500 mb-12">Sin costos ocultos. Cancela cuando quieras.</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-          {/* Starter */}
           <div className="rounded-2xl border border-gray-200 bg-white p-8 text-left">
             <p className="text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Starter</p>
             <div className="flex items-end gap-1 mb-1">
@@ -462,7 +588,6 @@ function Precios() {
             </Link>
           </div>
 
-          {/* Pro */}
           <div className="rounded-2xl p-8 text-left relative overflow-hidden text-white"
             style={{ background: 'linear-gradient(135deg, #0B132B 0%, #1e3a5f 100%)' }}>
             <div className="absolute top-4 right-4 bg-[#2563EB] text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
@@ -489,7 +614,11 @@ function Precios() {
             </Link>
           </div>
         </div>
-        <p className="text-[13px] text-gray-400 mt-6">¿Más de 5 profesionales? <a href="mailto:hola@simpliclinic.cl" className="text-[#2563EB] font-medium hover:underline">Escríbenos</a> para un plan Enterprise.</p>
+        <p className="text-[13px] text-gray-400 mt-6">
+          ¿Más de 5 profesionales?{' '}
+          <a href="mailto:hola@simpliclinic.cl" className="text-[#2563EB] font-medium hover:underline">Escríbenos</a>{' '}
+          para un plan Enterprise.
+        </p>
       </div>
     </section>
   )
@@ -527,7 +656,6 @@ function Footer() {
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-3">
           <Logo />
-          <span className="hidden sm:block text-[12px] text-gray-400 ml-1">Software inteligente y simple para clínicas que quieren crecer.</span>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-[13px] text-gray-400">
           <a href="mailto:hola@simpliclinic.cl" className="hover:text-gray-700 transition-colors">hola@simpliclinic.cl</a>
