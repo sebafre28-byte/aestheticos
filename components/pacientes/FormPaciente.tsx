@@ -103,7 +103,7 @@ export function FormPaciente({ open, paciente, onClose, onSubmit }: Props) {
           </button>
         </div>
 
-        <div className="p-6 grid grid-cols-2 gap-4">
+        <div className="p-5 sm:p-6 grid grid-cols-2 gap-4 overflow-y-auto max-h-[70vh]">
           <div className="col-span-2">
             <Label className="mb-1.5 block text-[12px] font-semibold">Nombre *</Label>
             <Input value={data.nombre} onChange={(e) => setData((v) => ({ ...v, nombre: e.target.value }))} />

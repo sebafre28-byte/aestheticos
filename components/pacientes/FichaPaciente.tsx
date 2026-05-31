@@ -216,7 +216,7 @@ export function FichaPaciente({
     return (
       <>
         <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-        <div className="fixed top-0 right-0 h-full w-[460px] bg-white shadow-2xl z-50 border-l border-gray-100 animate-slide-in-right p-6">
+        <div className="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white shadow-2xl z-50 border-l border-gray-100 animate-slide-in-right p-6">
           <p className="text-sm text-gray-500">Cargando ficha del paciente...</p>
         </div>
       </>
@@ -236,7 +236,7 @@ export function FichaPaciente({
   return (
     <>
       <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-      <aside className="fixed top-0 right-0 h-full w-[460px] bg-white shadow-2xl z-50 border-l border-gray-100 animate-slide-in-right flex flex-col">
+      <aside className="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white shadow-2xl z-50 border-l border-gray-100 animate-slide-in-right flex flex-col">
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-100">
           <div className="flex items-start justify-between mb-3">

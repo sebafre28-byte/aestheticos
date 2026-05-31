@@ -1,30 +1,22 @@
-function ClinicIcon({ size = 28 }: { size?: number }) {
+function ClinicIcon() {
   return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
-      <rect x="1.5" y="1.5" width="33" height="33" rx="9" stroke="#2563EB" strokeWidth="2.8" />
-      <path d="M10.5 20.5 Q18 27 25.5 20.5" stroke="#2563EB" strokeWidth="2.8" strokeLinecap="round" fill="none" />
-      <circle cx="24" cy="12" r="2.2" fill="#2563EB" />
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="32" height="32" rx="9" fill="white" />
+      <rect x="13" y="7" width="6" height="18" rx="3" fill="#2563EB" />
+      <rect x="7" y="13" width="18" height="6" rx="3" fill="#2563EB" />
     </svg>
   )
 }
 
-function Logo() {
-  return (
-    <div className="flex items-center gap-2 select-none">
-      <span className="text-[20px] font-extrabold leading-none tracking-tight">
-        <span style={{ color: '#0B132B' }}>Simpli</span>
-        <span style={{ color: '#2563EB' }}>Clinic</span>
-      </span>
-      <ClinicIcon size={28} />
-    </div>
-  )
-}
 
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen" style={{ background: '#F1F5F9' }}>
       <header className="flex justify-center pt-8 pb-2">
-        <Logo />
+        <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl" style={{ backgroundColor: '#0B132B' }}>
+          <ClinicIcon />
+          <span className="text-[16px] font-bold text-white tracking-tight">SimpliClinic</span>
+        </div>
       </header>
       <main>{children}</main>
     </div>
