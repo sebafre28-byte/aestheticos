@@ -1,7 +1,6 @@
 "use client"
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import {
   CalendarDays, Users, MessageCircle, BarChart2, Clock, CheckCircle,
@@ -11,30 +10,25 @@ import {
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 
-function Logo({ dark = false }: { dark?: boolean }) {
-  if (dark) {
-    // On dark backgrounds: white pill wrapper so the jpg white bg blends cleanly
-    return (
-      <span className="inline-flex items-center bg-white rounded-xl px-3 py-1.5 shadow-sm">
-        <Image
-          src="/logo-horizontal.jpg"
-          alt="SimpliClinic"
-          width={160}
-          height={40}
-          className="h-8 w-auto object-contain"
-        />
-      </span>
-    )
-  }
+function ClinicIcon({ size = 36 }: { size?: number }) {
   return (
-    <Image
-      src="/logo-horizontal.jpg"
-      alt="SimpliClinic"
-      width={160}
-      height={40}
-      className="h-12 w-auto object-contain"
-      priority
-    />
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.5" y="1.5" width="33" height="33" rx="9" stroke="#2563EB" strokeWidth="2.8"/>
+      <path d="M10.5 20.5 Q18 27 25.5 20.5" stroke="#2563EB" strokeWidth="2.8" strokeLinecap="round" fill="none"/>
+      <circle cx="24" cy="12" r="2.2" fill="#2563EB"/>
+    </svg>
+  )
+}
+
+function Logo() {
+  return (
+    <div className="flex items-center gap-2 select-none">
+      <span className="text-[22px] font-extrabold leading-none tracking-tight">
+        <span style={{ color: '#0B132B' }}>Simpli</span>
+        <span style={{ color: '#2563EB' }}>Clinic</span>
+      </span>
+      <ClinicIcon size={34} />
+    </div>
   )
 }
 
