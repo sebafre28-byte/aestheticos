@@ -42,7 +42,12 @@ function LogoIcon() {
   )
 }
 
-export function Sidebar() {
+type SidebarProps = {
+  open?: boolean
+  onClose?: () => void
+}
+
+export function Sidebar({ open, onClose }: SidebarProps = {}) {
   const pathname = usePathname()
   const router = useRouter()
   const { rol } = useRol()
@@ -79,6 +84,8 @@ export function Sidebar() {
     router.push('/login')
   }
 
+  const isMobileDrawer = onClose !== undefined
+
   return (
     <aside
       className="w-[220px] shrink-0 flex flex-col h-full"
@@ -112,6 +119,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={cn(
                 "flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors group",
                 isActive
