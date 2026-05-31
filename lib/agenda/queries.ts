@@ -744,6 +744,48 @@ export async function getCitasPendientes48h(): Promise<CitaConRelaciones[]> {
   return (data ?? []) as CitaConRelaciones[]
 }
 
+// ─── Bloqueos de horario ──────────────────────────────────────────────────────
+
+export type BloqueoProfesional = {
+  id: string
+  profesional_id: string
+  inicio: string
+  fin: string
+  titulo: string
+}
+
+export async function getBloqueos(fecha: string): Promise<BloqueoProfesional[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('bloqueos')
+    .select('id, profesional_id, inicio, fin, titulo')
+    .gte('inicio', `${fecha}T00:00:00`)
+    .lt('inicio', `${fecha}T23:59:59`)
+  return (data ?? []) as BloqueoProfesional[]
+}
+
+export async function crearBloqueo(input: {
+  profesional_id: string
+  inicio: string
+  fin: string
+  titulo?: string
+}): Promise<boolean> {
+  const supabase = createClient()
+  const { data: clinicaId } = await supabase.rpc('auth_clinica_id')
+  const { error } = await supabase.from('bloqueos').insert({
+    clinica_id: clinicaId,
+    ...input,
+    titulo: input.titulo ?? 'No disponible',
+  })
+  return !error
+}
+
+export async function eliminarBloqueo(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from('bloqueos').delete().eq('id', id)
+  return !error
+}
+
 // ─── Obtener clinica_id del usuario autenticado ───────────────────────────────
 
 export async function getClinicaId(): Promise<string | null> {

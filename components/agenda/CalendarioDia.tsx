@@ -5,6 +5,8 @@ import { format } from 'date-fns'
 import { citaWallClockMinutes } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones, ProfesionalRow } from '@/lib/agenda/queries'
 import { BloqueCita, PIXEL_POR_MIN, HORA_GRILLA_INICIO } from './BloquesCita'
+import { BloqueHorario } from './BloqueHorario'
+import type { BloqueoProfesional } from '@/lib/agenda/queries'
 
 const HORA_FIN_GRILLA = 20
 const HORAS_TOTALES = HORA_FIN_GRILLA - HORA_GRILLA_INICIO  // 12 horas
@@ -57,19 +59,27 @@ function etiquetaDesdeY(y: number): string {
 function ColumnaProfesional({
   profesional,
   citas,
+  bloqueos,
   onClickCita,
   onClickCelda,
   onDropCita,
   onResizeCita,
+  onEliminarBloqueo,
   fecha,
+  horaInicioLaboral,
+  horaFinLaboral,
 }: {
   profesional: ProfesionalRow
   citas: CitaConRelaciones[]
+  bloqueos: BloqueoProfesional[]
   onClickCita: (cita: CitaConRelaciones) => void
-  onClickCelda: (profesionalId: string, hora: Date) => void
+  onClickCelda: (profesionalId: string | undefined, hora: Date) => void
   onDropCita: (cita: CitaConRelaciones, profesionalId: string, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
+  onEliminarBloqueo?: (id: string) => void
   fecha: Date
+  horaInicioLaboral?: number
+  horaFinLaboral?: number
 }) {
   const dispuestas = calcularColumnas(citas)
   const [hoverY, setHoverY] = useState<number | null>(null)
@@ -143,6 +153,41 @@ function ColumnaProfesional({
         </div>
       )}
 
+      {/* Fuera de horario — mañana */}
+      {horaInicioLaboral !== undefined && horaInicioLaboral > HORA_GRILLA_INICIO && (
+        <div
+          className="absolute left-0 right-0 bg-gray-50/70 pointer-events-none z-0"
+          style={{
+            top: 0,
+            height: (horaInicioLaboral - HORA_GRILLA_INICIO) * ALTURA_HORA_PX,
+          }}
+        />
+      )}
+      {/* Fuera de horario — tarde */}
+      {horaFinLaboral !== undefined && horaFinLaboral < HORA_FIN_GRILLA && (
+        <div
+          className="absolute left-0 right-0 bg-gray-50/70 pointer-events-none z-0"
+          style={{
+            top: (horaFinLaboral - HORA_GRILLA_INICIO) * ALTURA_HORA_PX,
+            bottom: 0,
+          }}
+        />
+      )}
+
+      {/* Bloqueos de horario */}
+      {bloqueos.map((bloqueo) => {
+        const { top, height } = calcularPosicion(bloqueo.inicio, bloqueo.fin)
+        return (
+          <BloqueHorario
+            key={bloqueo.id}
+            titulo={bloqueo.titulo}
+            topPx={top}
+            heightPx={height}
+            onEliminar={onEliminarBloqueo ? () => onEliminarBloqueo(bloqueo.id) : undefined}
+          />
+        )
+      })}
+
       {/* Citas posicionadas absolutamente */}
       {dispuestas.map(({ cita, col, totalCols }) => {
         const { top, height } = calcularPosicion(cita.inicio, cita.fin)
@@ -170,22 +215,30 @@ type Props = {
   fecha: Date
   profesionales: ProfesionalRow[]
   citas: CitaConRelaciones[]
+  bloqueos?: BloqueoProfesional[]
   profesionalesFiltrados: string[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
   onDropCita: (cita: CitaConRelaciones, profesionalId: string, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
+  onEliminarBloqueo?: (id: string) => void
+  horaInicioLaboral?: number
+  horaFinLaboral?: number
 }
 
 export function CalendarioDia({
   fecha,
   profesionales,
   citas,
+  bloqueos = [],
   profesionalesFiltrados,
   onClickCita,
   onClickCelda,
   onDropCita,
   onResizeCita,
+  onEliminarBloqueo,
+  horaInicioLaboral,
+  horaFinLaboral,
 }: Props) {
   const [lineaHora, setLineaHora] = useState<number | null>(() => {
     const ahora = new Date()
@@ -328,16 +381,21 @@ export function CalendarioDia({
             {/* Columnas de profesionales */}
             {profsVisibles.map((prof) => {
               const citasProf = citas.filter((c) => c.profesional_id === prof.id)
+              const bloqueosProf = bloqueos.filter((b) => b.profesional_id === prof.id)
               return (
                 <div key={prof.id} className="flex-1 min-w-[120px]">
                   <ColumnaProfesional
                     profesional={prof}
                     citas={citasProf}
+                    bloqueos={bloqueosProf}
                     onClickCita={onClickCita}
                     onClickCelda={onClickCelda}
-                  onDropCita={onDropCita}
-                  onResizeCita={onResizeCita}
+                    onDropCita={onDropCita}
+                    onResizeCita={onResizeCita}
+                    onEliminarBloqueo={onEliminarBloqueo}
                     fecha={fecha}
+                    horaInicioLaboral={horaInicioLaboral}
+                    horaFinLaboral={horaFinLaboral}
                   />
                 </div>
               )
