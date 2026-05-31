@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/server'
 
 export type RolUsuario = 'admin' | 'profesional' | 'recepcionista'
 
@@ -26,7 +26,7 @@ export function rolLabel(rol: RolUsuario): string {
 }
 
 export async function getUsuariosClinica(): Promise<UsuarioClinica[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from('usuarios_clinica')
     .select('*')
@@ -35,7 +35,7 @@ export async function getUsuariosClinica(): Promise<UsuarioClinica[]> {
 }
 
 export async function getRolActual(): Promise<RolActual> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase.rpc('auth_rol_usuario')
   return (data as RolActual) ?? null
 }
@@ -45,7 +45,7 @@ export async function invitarUsuario(input: {
   email: string
   rol: RolUsuario
 }): Promise<{ ok: boolean; error?: string }> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: clinicaId } = await supabase.rpc('auth_clinica_id')
   if (!clinicaId) return { ok: false, error: 'No se pudo obtener la clínica' }
@@ -63,7 +63,7 @@ export async function invitarUsuario(input: {
 }
 
 export async function actualizarRolUsuario(id: string, rol: RolUsuario): Promise<boolean> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { error } = await supabase
     .from('usuarios_clinica')
     .update({ rol })
@@ -72,7 +72,7 @@ export async function actualizarRolUsuario(id: string, rol: RolUsuario): Promise
 }
 
 export async function toggleActivoUsuario(id: string, activo: boolean): Promise<boolean> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { error } = await supabase
     .from('usuarios_clinica')
     .update({ activo })
@@ -81,7 +81,7 @@ export async function toggleActivoUsuario(id: string, activo: boolean): Promise<
 }
 
 export async function eliminarUsuario(id: string): Promise<boolean> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { error } = await supabase
     .from('usuarios_clinica')
     .delete()
