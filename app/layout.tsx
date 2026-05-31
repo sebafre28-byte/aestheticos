@@ -1,6 +1,9 @@
 import type { Metadata } from "next"
 import { Plus_Jakarta_Sans } from "next/font/google"
 import "./globals.css"
+import { validateEnv } from "@/lib/env"
+
+validateEnv()
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],

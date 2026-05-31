@@ -4,6 +4,18 @@ import { createClient } from '@/lib/supabase/client'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { addDays } from 'date-fns'
 
+async function triggerCitaJobs(citaId: string, action: 'schedule' | 'cancel' | 'reschedule'): Promise<void> {
+  try {
+    await fetch('/api/citas/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ citaId, action }),
+    })
+  } catch (e) {
+    console.warn('[agenda] triggerCitaJobs falló (no crítico):', e)
+  }
+}
+
 /** Resultado típico de `.select()` en listas; evita que `withRetry` infiera `unknown`. */
 type SupabaseListResult<T> = { data: T[] | null; error: PostgrestError | null }
 
@@ -430,6 +442,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
     return null
   }
   invalidateAgendaCache()
+  await triggerCitaJobs(citaCompleta.id, 'schedule')
   return citaCompleta as CitaConRelaciones
 }
 
@@ -465,6 +478,24 @@ export async function editarCita(
   if (errorRpc && errorRpc.code !== '42883') {
     console.error('Error editarCita RPC:', errorRpc)
     return null
+  }
+
+  // Si cambia la hora o se cancela/marca no-asistió, cancelar los jobs viejos
+  const cancelarJobs =
+    data.inicio !== undefined && data.inicio !== previa.inicio ||
+    data.fin !== undefined && data.fin !== previa.fin ||
+    data.estado === 'cancelada' ||
+    data.estado === 'no_asistio'
+
+  if (cancelarJobs) {
+    const nuevoEstado = data.estado ?? previa.estado
+    const debeReprogramar =
+      nuevoEstado !== 'cancelada' &&
+      nuevoEstado !== 'no_asistio' &&
+      nuevoEstado !== 'completada' &&
+      (data.inicio !== undefined || data.fin !== undefined)
+
+    await triggerCitaJobs(citaId, debeReprogramar ? 'reschedule' : 'cancel')
   }
 
   if (!actualizadaRpc) {

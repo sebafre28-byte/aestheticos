@@ -158,6 +158,7 @@ export function PanelDetalleCita({
   const [textoNota, setTextoNota] = useState(cita.notas ?? '')
   const [guardandoNota, setGuardandoNota] = useState(false)
   const [notaGuardada, setNotaGuardada] = useState(false)
+  const [confirmarCambio, setConfirmarCambio] = useState<AccionEstado | null>(null)
 
   const paciente = cita.pacientes
   const profesional = cita.profesionales
@@ -185,6 +186,7 @@ export function PanelDetalleCita({
   }, [cita.id])
 
   async function cambiarEstado(nuevoEstado: EstadoCita) {
+    setConfirmarCambio(null)
     setActualizando(nuevoEstado)
     setEstadoActual(nuevoEstado)
     onEstadoActualizado(cita.id, nuevoEstado)
@@ -194,6 +196,14 @@ export function PanelDetalleCita({
       onEstadoActualizado(cita.id, cita.estado)
     }
     setActualizando(null)
+  }
+
+  function handleAccion(accion: AccionEstado) {
+    if (accion.estado === 'cancelada' || accion.estado === 'no_asistio') {
+      setConfirmarCambio(accion)
+    } else {
+      cambiarEstado(accion.estado)
+    }
   }
 
   async function guardarNota() {
@@ -335,7 +345,7 @@ export function PanelDetalleCita({
                   return (
                     <button
                       key={accion.estado}
-                      onClick={() => cambiarEstado(accion.estado)}
+                      onClick={() => handleAccion(accion)}
                       disabled={!!actualizando}
                       className={`h-9 rounded-lg text-[12px] font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-60 ${accion.className}`}
                     >
@@ -495,6 +505,43 @@ export function PanelDetalleCita({
           )}
         </div>
       </div>
+      {/* Modal de confirmación para acciones destructivas */}
+      {confirmarCambio && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmarCambio(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <XCircle className="size-5 text-red-500" />
+              </div>
+              <div>
+                <p className="text-[15px] font-semibold text-gray-900">
+                  {confirmarCambio.estado === 'cancelada' ? 'Cancelar cita' : 'Marcar como no asistió'}
+                </p>
+                <p className="text-[13px] text-gray-500 mt-0.5">
+                  {confirmarCambio.estado === 'cancelada'
+                    ? '¿Seguro que quieres cancelar esta cita? No se puede deshacer fácilmente.'
+                    : `¿${paciente?.nombre ?? 'El paciente'} no asistió a esta cita?`}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirmarCambio(null)}
+                className="px-4 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                Volver
+              </button>
+              <button
+                onClick={() => cambiarEstado(confirmarCambio.estado)}
+                className="px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors"
+              >
+                {confirmarCambio.label}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
