@@ -6,6 +6,7 @@ import { es } from 'date-fns/locale'
 import {
   CalendarDays,
   Clock3,
+  FileText,
   Mail,
   MessageCircle,
   Phone,
@@ -20,8 +21,12 @@ import { Button } from '@/components/ui/button'
 import {
   actualizarFichaClinica,
   actualizarNotasPaciente,
+  crearNotaClinica,
+  eliminarNotaClinica,
+  getNotasClinicas,
   getPacienteDetalle,
   type HistorialCitaPaciente,
+  type NotaClinica,
   type PacienteRow,
 } from '@/lib/pacientes/queries'
 
@@ -142,6 +147,9 @@ export function FichaPaciente({
   const [loading, setLoading] = useState(true)
   const [notas, setNotas] = useState('')
   const [guardandoNotas, setGuardandoNotas] = useState(false)
+  const [notasClinicas, setNotasClinicas] = useState<NotaClinica[]>([])
+  const [nuevaNota, setNuevaNota] = useState('')
+  const [guardandoNota, setGuardandoNota] = useState(false)
   const [alergias, setAlergias] = useState('')
   const [condiciones, setCondiciones] = useState('')
   const [guardandoSalud, setGuardandoSalud] = useState(false)
@@ -149,13 +157,17 @@ export function FichaPaciente({
 
   useEffect(() => {
     let active = true
-    getPacienteDetalle(pacienteId).then((data) => {
+    Promise.all([
+      getPacienteDetalle(pacienteId),
+      getNotasClinicas(pacienteId),
+    ]).then(([data, notas]) => {
       if (!active) return
       setPaciente(data.paciente)
       setHistorial(data.historial)
       setNotas(data.paciente?.notas ?? '')
       setAlergias(data.paciente?.alergias ?? '')
       setCondiciones(data.paciente?.condiciones ?? '')
+      setNotasClinicas(notas)
       setLoading(false)
     })
     return () => { active = false }
@@ -204,6 +216,23 @@ export function FichaPaciente({
       setSaludGuardada(true)
       setTimeout(() => setSaludGuardada(false), 2000)
     }
+  }
+
+  async function agregarNota() {
+    if (!nuevaNota.trim()) return
+    setGuardandoNota(true)
+    const ok = await crearNotaClinica({ paciente_id: pacienteId, contenido: nuevaNota.trim() })
+    if (ok) {
+      const updated = await getNotasClinicas(pacienteId)
+      setNotasClinicas(updated)
+      setNuevaNota('')
+    }
+    setGuardandoNota(false)
+  }
+
+  async function borrarNota(id: string) {
+    const ok = await eliminarNotaClinica(id)
+    if (ok) setNotasClinicas((prev) => prev.filter((n) => n.id !== id))
   }
 
   function abrirWhatsApp() {
@@ -460,44 +489,60 @@ export function FichaPaciente({
             </div>
           )}
 
-          {/* ---- NOTAS ---- */}
+          {/* ---- NOTAS CLÍNICAS ---- */}
           {tab === 'notas' && (
             <div className="space-y-3">
               <textarea
-                value={notas}
-                onChange={(e) => setNotas(e.target.value)}
-                rows={8}
-                placeholder="Escribe notas clínicas del paciente..."
+                value={nuevaNota}
+                onChange={(e) => setNuevaNota(e.target.value)}
+                rows={3}
+                placeholder="Escribe una nota clínica..."
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30"
               />
               <Button
-                onClick={guardarNotas}
-                disabled={guardandoNotas}
+                onClick={agregarNota}
+                disabled={guardandoNota || !nuevaNota.trim()}
                 className="text-white"
                 style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
               >
-                {guardandoNotas ? 'Guardando...' : 'Guardar notas'}
+                {guardandoNota ? 'Guardando...' : 'Agregar nota'}
               </Button>
-              <div className="pt-2">
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Notas por cita</p>
-                {historial.filter((h) => h.notas).length === 0 ? (
-                  <p className="text-[12px] text-gray-400">No hay notas clínicas históricas.</p>
+
+              <div className="pt-1">
+                {notasClinicas.length === 0 ? (
+                  <div className="flex flex-col items-center py-10 text-gray-300">
+                    <FileText className="size-9 mb-3" />
+                    <p className="text-[13px] text-gray-400">Sin notas clínicas</p>
+                  </div>
                 ) : (
-                  historial
-                    .filter((h) => h.notas)
-                    .map((h) => (
-                      <div key={h.id} className="mb-2 p-2 rounded-lg border border-gray-100 bg-gray-50">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <p className="text-[11px] text-gray-400">
-                            {format(parseISO(h.inicio), "d MMM yyyy", { locale: es })}
-                          </p>
-                          {h.profesionales?.nombre && (
-                            <p className="text-[11px] text-gray-400">{h.profesionales.nombre}</p>
-                          )}
+                  notasClinicas.map((nota) => {
+                    const dotColor = nota.profesionales?.color ?? '#9CA3AF'
+                    return (
+                      <article key={nota.id} className="border border-gray-100 rounded-xl p-4 mb-2 group">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            {nota.profesionales && (
+                              <span
+                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: dotColor }}
+                              />
+                            )}
+                            <span className="text-[11px] text-gray-400">
+                              {nota.profesionales?.nombre && `${nota.profesionales.nombre} · `}
+                              {format(parseISO(nota.created_at), "d 'de' MMMM, yyyy · HH:mm", { locale: es })}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => borrarNota(nota.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50"
+                          >
+                            <Trash2 className="size-3.5 text-red-400" />
+                          </button>
                         </div>
-                        <p className="text-[12px] text-gray-700 whitespace-pre-wrap">{h.notas}</p>
-                      </div>
-                    ))
+                        <p className="text-[13px] text-gray-700 whitespace-pre-wrap mt-2">{nota.contenido}</p>
+                      </article>
+                    )
+                  })
                 )}
               </div>
             </div>
