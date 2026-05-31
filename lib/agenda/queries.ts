@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import type { PostgrestError } from '@supabase/supabase-js'
-import { addDays } from 'date-fns'
+import { addDays, addWeeks, addMonths, parseISO, format } from 'date-fns'
 
 async function triggerCitaJobs(citaId: string, action: 'schedule' | 'cancel' | 'reschedule'): Promise<void> {
   try {
@@ -466,6 +466,64 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
   invalidateAgendaCache()
   await triggerCitaJobs(citaCompleta.id, 'schedule')
   return citaCompleta as CitaConRelaciones
+}
+
+// ─── Crear citas recurrentes ──────────────────────────────────────────────────
+
+export async function crearCitasRecurrentes(
+  data: NuevaCitaData,
+  recurrenceKind: 'daily' | 'weekly' | 'monthly'
+): Promise<CitaConRelaciones | null> {
+  const citaPadre = await crearCita(data)
+  if (!citaPadre) return null
+
+  const counts = { daily: 29, weekly: 11, monthly: 5 }
+  const n = counts[recurrenceKind]
+
+  const ocurrencias = Array.from({ length: n }, (_, i) => {
+    const idx = i + 1
+    const inicioDate =
+      recurrenceKind === 'daily'
+        ? addDays(parseISO(data.inicio), idx)
+        : recurrenceKind === 'weekly'
+        ? addWeeks(parseISO(data.inicio), idx)
+        : addMonths(parseISO(data.inicio), idx)
+
+    const finDate =
+      recurrenceKind === 'daily'
+        ? addDays(parseISO(data.fin), idx)
+        : recurrenceKind === 'weekly'
+        ? addWeeks(parseISO(data.fin), idx)
+        : addMonths(parseISO(data.fin), idx)
+
+    const inicioStr = format(inicioDate, "yyyy-MM-dd'T'HH:mm:ss")
+    const finStr = format(finDate, "yyyy-MM-dd'T'HH:mm:ss")
+    const instanceDate = format(inicioDate, 'yyyy-MM-dd')
+
+    return {
+      clinica_id: data.clinica_id,
+      paciente_id: data.paciente_id,
+      profesional_id: data.profesional_id,
+      servicio_id: data.servicio_id,
+      inicio: inicioStr,
+      fin: finStr,
+      notas: data.notas ?? null,
+      estado: 'pendiente' as const,
+      recurrence_kind: recurrenceKind,
+      recurrence_rule: data.recurrence_rule ?? null,
+      recurrence_parent_id: citaPadre.id,
+      recurrence_instance_date: instanceDate,
+    }
+  })
+
+  const supabase = createClient()
+  const { error } = await supabase.from('citas').insert(ocurrencias)
+  if (error) {
+    console.warn('[agenda] crearCitasRecurrentes: batch insert parcial falló (no crítico):', error)
+  }
+
+  invalidateAgendaCache()
+  return citaPadre
 }
 
 // ─── Editar cita existente ────────────────────────────────────────────────────
