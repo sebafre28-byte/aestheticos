@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -41,6 +42,24 @@ function LogoIcon() {
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [nombreUsuario, setNombreUsuario] = useState('')
+  const [inicialesUsuario, setInicialesUsuario] = useState('')
+  const [rolUsuario, setRolUsuario] = useState('')
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      const nombre = user.user_metadata?.nombre as string | undefined
+      const email = user.email ?? ''
+      const display = nombre || email.split('@')[0] || 'Usuario'
+      setNombreUsuario(display)
+      setInicialesUsuario(
+        display.split(' ').filter(Boolean).slice(0, 2).map((n: string) => n[0]?.toUpperCase() ?? '').join('')
+      )
+      setRolUsuario(user.user_metadata?.rol ?? 'Administrador')
+    })
+  }, [])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -109,14 +128,14 @@ export function Sidebar() {
             className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold"
             style={{ background: 'linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)' }}
           >
-            MG
+            {inicialesUsuario || '…'}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[12px] font-semibold text-white truncate leading-tight">
-              María González
+              {nombreUsuario || '…'}
             </p>
             <p className="text-[10px] truncate leading-tight" style={{ color: 'rgba(255,255,255,0.50)' }}>
-              Administradora
+              {rolUsuario || 'Administrador'}
             </p>
           </div>
         </div>
