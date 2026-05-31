@@ -9,6 +9,7 @@ import {
   Scissors,
   MessageCircle,
   MessageSquare,
+  BarChart2,
   Settings,
   LogOut,
 } from "lucide-react"
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/servicios", label: "Servicios", icon: Scissors },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { href: "/inbox", label: "Inbox", icon: MessageSquare },
+  { href: "/reportes", label: "Reportes", icon: BarChart2 },
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ]
 

@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
-  LogOut, Loader2, AlertCircle, CheckCircle2, X,
+  LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
+  ChevronDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,16 +15,21 @@ import {
   crearProfesional, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT,
   type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig,
 } from "@/lib/onboarding/queries"
+import {
+  getUsuariosClinica, invitarUsuario, actualizarRolUsuario, toggleActivoUsuario, eliminarUsuario,
+  rolLabel, type UsuarioClinica, type RolUsuario,
+} from "@/lib/usuarios/queries"
 import { createClient } from "@/lib/supabase/client"
 import type { ProfesionalRow } from "@/lib/agenda/queries"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "equipo" | "whatsapp" | "recordatorios" | "plan" | "seguridad"
+type SeccionId = "clinica" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "plan" | "seguridad"
 
 const NAV: { id: SeccionId; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[] = [
   { id: "clinica",       label: "Datos de la clínica",   icon: Building2 },
   { id: "equipo",        label: "Equipo",                icon: Users },
+  { id: "usuarios",      label: "Usuarios y roles",      icon: UserCog },
   { id: "whatsapp",      label: "WhatsApp Business",     icon: MessageCircle },
   { id: "recordatorios", label: "Recordatorios",         icon: Bell },
   { id: "plan",          label: "Plan y facturación",    icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
@@ -626,6 +632,221 @@ function SeccionSeguridad() {
   )
 }
 
+// ─── Sección Usuarios y Roles ─────────────────────────────────────────────────
+
+const ROL_COLORS: Record<RolUsuario, string> = {
+  admin: "bg-blue-50 text-[#2563EB]",
+  profesional: "bg-purple-50 text-purple-700",
+  recepcionista: "bg-amber-50 text-amber-700",
+}
+
+function ModalInvitarUsuario({ onClose, onCreado }: { onClose: () => void; onCreado: () => void }) {
+  const [form, setForm] = useState({ nombre: "", email: "", rol: "recepcionista" as RolUsuario })
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { inputRef.current?.focus() }, [])
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.nombre.trim()) { setError("El nombre es requerido."); return }
+    if (!form.email.trim()) { setError("El email es requerido."); return }
+    setGuardando(true)
+    setError(null)
+    const result = await invitarUsuario(form)
+    setGuardando(false)
+    if (result.ok) { onCreado(); onClose() }
+    else setError(result.error ?? "No se pudo agregar el usuario.")
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-50" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-[15px] font-semibold text-gray-900">Agregar usuario</h3>
+            <button onClick={onClose} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center">
+              <X className="size-4 text-gray-400" />
+            </button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Nombre <span className="text-red-400">*</span></Label>
+              <Input ref={inputRef} value={form.nombre} onChange={(e) => setForm(p => ({ ...p, nombre: e.target.value }))}
+                placeholder="Ej: Ana García" className="h-9 text-[13px]" />
+            </div>
+            <div>
+              <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Email <span className="text-red-400">*</span></Label>
+              <Input type="email" value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
+                placeholder="usuario@tuclinica.cl" className="h-9 text-[13px]" />
+            </div>
+            <div>
+              <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Rol</Label>
+              <div className="relative">
+                <select value={form.rol} onChange={(e) => setForm(p => ({ ...p, rol: e.target.value as RolUsuario }))}
+                  className="w-full h-9 rounded-md border border-gray-200 bg-white px-3 pr-8 text-[13px] text-gray-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]">
+                  <option value="admin">Administrador — acceso total</option>
+                  <option value="profesional">Profesional — agenda y pacientes</option>
+                  <option value="recepcionista">Recepcionista — agenda y cobros</option>
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-[12px]">
+                <AlertCircle className="size-3.5 shrink-0" />{error}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={onClose} className="h-8 text-[13px] border-gray-200 text-gray-600">Cancelar</Button>
+              <Button type="submit" disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+                {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Agregar usuario"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function SeccionUsuarios() {
+  const [usuarios, setUsuarios] = useState<UsuarioClinica[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [confirmEliminar, setConfirmEliminar] = useState<UsuarioClinica | null>(null)
+  const [procesando, setProcesando] = useState<string | null>(null)
+
+  const cargar = useCallback(() => {
+    setCargando(true)
+    getUsuariosClinica().then((data) => { setUsuarios(data); setCargando(false) })
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  async function handleCambiarRol(u: UsuarioClinica, rol: RolUsuario) {
+    setProcesando(u.id)
+    await actualizarRolUsuario(u.id, rol)
+    await cargar()
+    setProcesando(null)
+  }
+
+  async function handleToggleActivo(u: UsuarioClinica) {
+    setProcesando(u.id)
+    await toggleActivoUsuario(u.id, !u.activo)
+    await cargar()
+    setProcesando(null)
+  }
+
+  async function handleEliminar() {
+    if (!confirmEliminar) return
+    setProcesando(confirmEliminar.id)
+    await eliminarUsuario(confirmEliminar.id)
+    setConfirmEliminar(null)
+    await cargar()
+    setProcesando(null)
+  }
+
+  return (
+    <div>
+      <SectionHeader
+        title="Usuarios y roles"
+        subtitle="Controla quién accede y con qué permisos"
+        action={
+          <button onClick={() => setShowModal(true)}
+            className="h-8 px-3 rounded-lg text-[12px] font-semibold text-white flex items-center gap-1.5 transition-colors"
+            style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+            <Plus className="size-3.5" /> Agregar usuario
+          </button>
+        }
+      />
+
+      {cargando ? (
+        <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
+          <Loader2 className="size-4 animate-spin" /> Cargando…
+        </div>
+      ) : usuarios.length === 0 ? (
+        <p className="text-[13px] text-gray-400 py-6 text-center">No hay usuarios configurados.</p>
+      ) : (
+        <div className="space-y-2">
+          {usuarios.map((u) => (
+            <div key={u.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${u.activo ? "border-gray-100 bg-gray-50" : "border-gray-100 bg-gray-50 opacity-60"}`}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold"
+                style={{ background: u.activo ? "linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)" : "#94A3B8" }}>
+                {u.nombre[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold text-gray-900 leading-tight truncate">{u.nombre}</p>
+                <p className="text-[11px] text-gray-400 truncate">{u.email ?? "Sin email"}</p>
+              </div>
+              <div className="shrink-0">
+                <div className="relative">
+                  <select
+                    value={u.rol}
+                    disabled={procesando === u.id}
+                    onChange={(e) => handleCambiarRol(u, e.target.value as RolUsuario)}
+                    className={`h-7 rounded-full text-[11px] font-medium px-2.5 pr-6 border-0 appearance-none focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 cursor-pointer ${ROL_COLORS[u.rol]}`}>
+                    <option value="admin">Administrador</option>
+                    <option value="profesional">Profesional</option>
+                    <option value="recepcionista">Recepcionista</option>
+                  </select>
+                  <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 size-3 pointer-events-none opacity-60" />
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => handleToggleActivo(u)} disabled={procesando === u.id}
+                  className={`h-7 px-2.5 rounded-lg text-[11px] font-medium transition-colors ${u.activo ? "text-gray-500 hover:bg-gray-200" : "text-emerald-600 hover:bg-emerald-50"}`}>
+                  {u.activo ? "Desactivar" : "Activar"}
+                </button>
+                <button onClick={() => setConfirmEliminar(u)} disabled={procesando === u.id}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+        <p className="text-[12px] font-medium text-blue-700">Sobre los roles</p>
+        <ul className="text-[11px] text-blue-600 mt-1 space-y-0.5">
+          <li>• <strong>Administrador</strong>: acceso total, configuración, reportes</li>
+          <li>• <strong>Profesional</strong>: agenda propia, pacientes, sin configuración</li>
+          <li>• <strong>Recepcionista</strong>: agenda completa, cobros, sin configuración</li>
+        </ul>
+      </div>
+
+      {showModal && <ModalInvitarUsuario onClose={() => setShowModal(false)} onCreado={cargar} />}
+
+      {confirmEliminar && (
+        <>
+          <div className="fixed inset-0 bg-black/30 z-50" onClick={() => setConfirmEliminar(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+              <h3 className="text-[15px] font-semibold text-gray-900 mb-2">¿Eliminar usuario?</h3>
+              <p className="text-[13px] text-gray-500 mb-5">
+                Se eliminará a <strong>{confirmEliminar.nombre}</strong> de la clínica. Esta acción no se puede deshacer.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setConfirmEliminar(null)} className="h-8 text-[13px] border-gray-200">Cancelar</Button>
+                <Button onClick={handleEliminar} className="h-8 text-[13px] border-0 bg-red-500 hover:bg-red-600 text-white">Eliminar</Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ─── Header card ─────────────────────────────────────────────────────────────
 
 function ClinicaHeaderCard() {
@@ -677,6 +898,7 @@ export default function ConfiguracionPage() {
   const SECCIONES: Record<SeccionId, React.ReactNode> = {
     clinica:       <SeccionClinica />,
     equipo:        <SeccionEquipo />,
+    usuarios:      <SeccionUsuarios />,
     whatsapp:      <SeccionWhatsApp />,
     recordatorios: <SeccionRecordatorios />,
     plan:          <SeccionPlan />,
