@@ -322,17 +322,15 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     return esHoy ? `Hoy · ${dia}` : dia
   })()
 
-  // ─── Citas con búsqueda aplicada (todas las vistas) ──────────────────────
-  const citasFiltradas = busqueda.trim()
-    ? citas.filter((c) =>
+  // ─── Vista lista: citas filtradas y ordenadas ─────────────────────────────
+  const citasLista = [...citas]
+    .filter((c) => {
+      const matchProf = profsFiltrados.length === 0 || profsFiltrados.includes(c.profesional_id)
+      const matchSearch = !busqueda.trim() ||
         c.pacientes?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
         c.servicios?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
-      )
-    : citas
-
-  // ─── Vista lista: citas filtradas y ordenadas ─────────────────────────────
-  const citasLista = [...citasFiltradas]
-    .filter((c) => profsFiltrados.length === 0 || profsFiltrados.includes(c.profesional_id))
+      return matchProf && matchSearch
+    })
     .sort((a, b) => a.inicio.localeCompare(b.inicio))
 
   // ─── Profesionales visibles en los chips ─────────────────────────────────
@@ -573,7 +571,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
           <CalendarioDia
             fecha={fechaActual}
             profesionales={profesionales}
-            citas={citasFiltradas}
+            citas={citas}
             profesionalesFiltrados={
               isVistaProfe && profesionalPropio
                 ? [profesionalPropio]
@@ -602,7 +600,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
                 ? [profesionalPropio]
                 : profsFiltrados
             }
-            citas={citasFiltradas}
+            citas={citas}
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
             onDropCita={moverCita}
@@ -622,7 +620,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
         {vista === 'mes' && (
           <CalendarioMes
             fechaBase={fechaActual}
-            citas={citasFiltradas}
+            citas={citas}
             onVerDia={handleVerDia}
             onClickCita={handleClickCita}
           />
