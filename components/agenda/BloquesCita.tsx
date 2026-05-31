@@ -226,6 +226,9 @@ export function BloqueCompacto({ cita, onClick }: BloqueCompactoProps) {
       tabIndex={0}
       onClick={() => onClick(cita)}
       onKeyDown={(e) => e.key === 'Enter' && onClick(cita)}
+      onMouseEnter={(e) => setTooltip({ x: e.clientX, y: e.clientY })}
+      onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY })}
+      onMouseLeave={() => setTooltip(null)}
       className="relative rounded px-1.5 py-1 mb-0.5 cursor-pointer transition-all hover:brightness-95 overflow-hidden"
       style={{
         backgroundColor: hexToRgba(color, 0.1),
@@ -251,6 +254,9 @@ export function BloqueCompacto({ cita, onClick }: BloqueCompactoProps) {
         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
         <p className="text-[10px] text-gray-500 truncate">{cita.servicios?.nombre}</p>
       </div>
+      {tooltip && typeof document !== 'undefined' && (
+        <TooltipCita cita={cita} x={tooltip.x} y={tooltip.y} />
+      )}
     </div>
   )
 }
