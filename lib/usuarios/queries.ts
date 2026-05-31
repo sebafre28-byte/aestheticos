@@ -50,16 +50,19 @@ export async function invitarUsuario(input: {
   const { data: clinicaId } = await supabase.rpc('auth_clinica_id')
   if (!clinicaId) return { ok: false, error: 'No se pudo obtener la clínica' }
 
-  const { error } = await supabase.from('usuarios_clinica').insert({
-    clinica_id: clinicaId,
-    nombre: input.nombre,
-    email: input.email,
-    rol: input.rol,
-    activo: true,
+  const res = await fetch('/api/usuarios/invite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      nombre: input.nombre,
+      email: input.email,
+      rol: input.rol,
+      clinica_id: clinicaId,
+    }),
   })
 
-  if (error) return { ok: false, error: error.message }
-  return { ok: true }
+  const json = await res.json()
+  return json as { ok: boolean; error?: string }
 }
 
 export async function actualizarRolUsuario(id: string, rol: RolUsuario): Promise<boolean> {
