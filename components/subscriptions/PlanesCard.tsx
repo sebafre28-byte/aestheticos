@@ -7,6 +7,7 @@ import {
   PLAN_LIMITS,
   PLAN_LABELS,
   PLAN_PRICES,
+  PLAN_PRICES_ANUAL,
   type Subscription,
   type Plan,
 } from '@/lib/subscriptions/queries'
@@ -17,24 +18,27 @@ import { getClinicaId } from '@/lib/onboarding/queries'
 const PLAN_FEATURES: Record<Plan, string[]> = {
   free: [
     '1 profesional',
-    '50 citas por mes',
-    'Agenda básica',
-    'Ficha de pacientes',
+    '30 citas por mes',
+    'Agenda vista día',
+    'Ficha de pacientes (hasta 20)',
   ],
   pro: [
-    '5 profesionales',
-    '500 citas por mes',
-    'Recordatorios WhatsApp',
+    'Hasta 5 profesionales',
+    'Citas ilimitadas',
+    'Agenda semana y mes',
+    'Recordatorios WhatsApp (200/mes)',
+    'Booking público online',
     'Reportes de ingresos',
+    'Inbox de mensajes',
     'Soporte por email',
   ],
   clinica: [
     'Profesionales ilimitados',
-    'Citas ilimitadas',
     'Todo lo de Pro',
-    'Soporte prioritario 24/7',
-    'Personalización de marca',
+    'WhatsApp ilimitado',
+    'Soporte prioritario',
     'API access',
+    'Próximo: multi-sucursal',
   ],
 }
 
@@ -58,6 +62,7 @@ function PlanCard({
   onUpgrade,
   onPortal,
   loading,
+  anual,
 }: {
   plan: Plan
   subscription: Subscription | null
@@ -65,12 +70,15 @@ function PlanCard({
   onUpgrade: (plan: Plan) => void
   onPortal: () => void
   loading: string | null
+  anual: boolean
 }) {
   const isCurrent = subscription?.plan === plan
   const isPaid    = plan !== 'free'
   const hasStripe = !!subscription?.stripe_customer_id
   const Icon      = PLAN_ICONS[plan]
-  const price     = PLAN_PRICES[plan]
+  const priceMes  = PLAN_PRICES[plan]
+  const priceAnual = PLAN_PRICES_ANUAL[plan]
+  const price     = anual && isPaid ? Math.round(priceAnual / 12) : priceMes
   const limits    = PLAN_LIMITS[plan]
   const features  = PLAN_FEATURES[plan]
 
@@ -94,7 +102,7 @@ function PlanCard({
       )}
       {isHighlighted && !isCurrent && (
         <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[11px] font-semibold bg-[#0B132B] text-white px-3 py-0.5 rounded-full whitespace-nowrap">
-          Recomendado
+          Más popular
         </span>
       )}
 
@@ -108,18 +116,22 @@ function PlanCard({
         <div>
           <p className="text-[14px] font-semibold text-gray-900">{PLAN_LABELS[plan]}</p>
           <p className="text-[11px] text-gray-400">
-            {limits.profesionales === -1 ? 'Ilimitado' : `${limits.profesionales} profesional${limits.profesionales !== 1 ? 'es' : ''}`}
-            {' · '}
-            {limits.citas_mes === -1 ? 'Citas ilimitadas' : `${limits.citas_mes} citas/mes`}
+            {limits.profesionales === -1 ? 'Profesionales ilimitados' : `${limits.profesionales} profesional${limits.profesionales !== 1 ? 'es' : ''}`}
           </p>
         </div>
       </div>
 
       {/* Price */}
-      <div className="mb-5">
-        <span className="text-[26px] font-bold text-gray-900 leading-tight">{formatCLP(price)}</span>
+      <div className="mb-1">
+        <span className="text-[28px] font-extrabold text-gray-900 leading-tight">{formatCLP(price)}</span>
         {price > 0 && <span className="text-[12px] text-gray-400 ml-1">CLP/mes</span>}
       </div>
+      {anual && isPaid && (
+        <p className="text-[11px] text-emerald-600 font-medium mb-4">
+          {formatCLP(priceAnual)}/año — 2 meses gratis
+        </p>
+      )}
+      {!anual && isPaid && <div className="mb-4" />}
 
       {/* Features */}
       <ul className="space-y-2 mb-6 flex-1">
@@ -174,6 +186,7 @@ export default function PlanesCard() {
   const [cargando, setCargando]         = useState(true)
   const [loading, setLoading]           = useState<string | null>(null)
   const [error, setError]               = useState<string | null>(null)
+  const [anual, setAnual]               = useState(false)
 
   useEffect(() => {
     Promise.all([getSubscription(), getClinicaId()]).then(([sub, id]) => {
@@ -269,8 +282,23 @@ export default function PlanesCard() {
         </div>
       )}
 
+      {/* Toggle mensual / anual */}
+      <div className="flex items-center justify-center gap-3 mb-6">
+        <span className={`text-[13px] font-medium ${!anual ? 'text-gray-900' : 'text-gray-400'}`}>Mensual</span>
+        <button
+          onClick={() => setAnual(v => !v)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${anual ? 'bg-[#2563EB]' : 'bg-gray-200'}`}
+        >
+          <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${anual ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+        <span className={`text-[13px] font-medium ${anual ? 'text-gray-900' : 'text-gray-400'}`}>
+          Anual
+          <span className="ml-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">−20%</span>
+        </span>
+      </div>
+
       {/* Plan cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {plans.map((plan) => (
           <PlanCard
             key={plan}
@@ -280,13 +308,20 @@ export default function PlanesCard() {
             onUpgrade={handleUpgrade}
             onPortal={handlePortal}
             loading={loading}
+            anual={anual}
           />
         ))}
       </div>
 
-      <p className="mt-4 text-[11px] text-gray-400 text-center">
-        Los precios están en pesos chilenos (CLP) e incluyen IVA.
-        Puedes cancelar en cualquier momento.
+      {/* ROI pitch */}
+      <div className="mt-5 p-4 bg-blue-50/60 rounded-xl border border-blue-100 text-center">
+        <p className="text-[12px] text-[#2563EB] font-medium">
+          💡 Una sola hora recuperada por recordatorios automáticos ya paga el plan mensual completo.
+        </p>
+      </div>
+
+      <p className="mt-3 text-[11px] text-gray-400 text-center">
+        Precios en pesos chilenos (CLP). Puedes cancelar en cualquier momento.
       </p>
     </div>
   )
