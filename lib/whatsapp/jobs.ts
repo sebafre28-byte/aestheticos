@@ -1,3 +1,4 @@
+import 'server-only'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'

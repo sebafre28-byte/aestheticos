@@ -73,7 +73,8 @@ export async function getConversaciones(): Promise<ConversacionResumen[]> {
 
   // Agrupar por teléfono, quedarse con el último mensaje de cada uno
   const porTelefono = new Map<string, ConversacionResumen>()
-  for (const log of (data ?? []) as (WhatsappLogRow & { citas?: { pacientes?: { nombre?: string } | { nombre?: string }[] } | null })[]) {
+  type LogConJoin = { paciente_telefono: string; tipo_mensaje: string; estado: string; created_at: string; cita_id: string | null; citas?: { pacientes?: { nombre?: string } | { nombre?: string }[] } | null }
+  for (const log of (data ?? []) as unknown as LogConJoin[]) {
     if (!porTelefono.has(log.paciente_telefono)) {
       const pacientesRaw = (log.citas as { pacientes?: { nombre?: string } | { nombre?: string }[] } | null)?.pacientes
       const nombre = Array.isArray(pacientesRaw)
