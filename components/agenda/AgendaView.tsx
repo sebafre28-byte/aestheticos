@@ -351,6 +351,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     setModalBloqueoAbierto(true)
   }
 
+
   // ─── Eliminar bloqueo ─────────────────────────────────────────────────────
   async function handleEliminarBloqueo(id: string) {
     await eliminarBloqueo(id)
