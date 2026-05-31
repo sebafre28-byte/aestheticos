@@ -19,7 +19,7 @@ import {
   modalWallClockToIso,
 } from '@/lib/agenda/datetime'
 import {
-  getPacientesBusqueda, crearPacienteRapido, crearCita, editarCita,
+  getPacientesBusqueda, crearPacienteRapido, crearCita, crearCitasRecurrentes, editarCita,
   verificarConflicto, getClinicaId, getCitasDelDia, getDisponibilidadProfesional, getBloqueosRango, crearRecordatorioCita,
 } from '@/lib/agenda/queries'
 import { useDialogA11y } from './useDialogA11y'
@@ -353,7 +353,11 @@ export function ModalCita({
           recurrence_kind: recurrenceKind,
           recurrence_rule: recurrenceKind === 'none' ? null : `FREQ=${recurrenceKind.toUpperCase()}`,
         }
-        resultado = await crearCita(datos)
+        if (recurrenceKind !== 'none') {
+          resultado = await crearCitasRecurrentes(datos, recurrenceKind as 'daily' | 'weekly' | 'monthly')
+        } else {
+          resultado = await crearCita(datos)
+        }
       }
 
       if (!resultado) {
