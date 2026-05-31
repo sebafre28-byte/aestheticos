@@ -1,15 +1,19 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
-  Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff, Smartphone,
-  LogOut, Download, Clock, Loader2, AlertCircle, CheckCircle2,
+  Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
+  LogOut, Loader2, AlertCircle, CheckCircle2, X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { getClinicaBasica, actualizarClinicaBasica, getClinicaId } from "@/lib/onboarding/queries"
+import {
+  getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
+  crearProfesional, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT,
+  type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig,
+} from "@/lib/onboarding/queries"
 import { createClient } from "@/lib/supabase/client"
 import type { ProfesionalRow } from "@/lib/agenda/queries"
 
@@ -18,15 +22,17 @@ import type { ProfesionalRow } from "@/lib/agenda/queries"
 type SeccionId = "clinica" | "equipo" | "whatsapp" | "recordatorios" | "plan" | "seguridad"
 
 const NAV: { id: SeccionId; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[] = [
-  { id: "clinica",       label: "Datos de la clínica",      icon: Building2 },
-  { id: "equipo",        label: "Equipo y profesionales",    icon: Users },
-  { id: "whatsapp",      label: "WhatsApp Business",         icon: MessageCircle },
-  { id: "recordatorios", label: "Recordatorios",             icon: Bell },
-  { id: "plan",          label: "Plan y facturación",        icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
-  { id: "seguridad",     label: "Seguridad",                 icon: Shield },
+  { id: "clinica",       label: "Datos de la clínica",   icon: Building2 },
+  { id: "equipo",        label: "Equipo",                icon: Users },
+  { id: "whatsapp",      label: "WhatsApp Business",     icon: MessageCircle },
+  { id: "recordatorios", label: "Recordatorios",         icon: Bell },
+  { id: "plan",          label: "Plan y facturación",    icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
+  { id: "seguridad",     label: "Seguridad",             icon: Shield },
 ]
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+const COLORES_PROF = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#EF4444", "#0EA5E9", "#14B8A6"]
+
+// ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function Toggle({ activo, onChange }: { activo: boolean; onChange: () => void }) {
   return (
@@ -51,28 +57,27 @@ function SectionHeader({ title, subtitle, action }: { title: string; subtitle: s
   )
 }
 
-function FormField({
-  label, value, onChange, type = "text", placeholder, required,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  type?: string
-  placeholder?: string
-  required?: boolean
+function FormField({ label, value, onChange, type = "text", placeholder, required }: {
+  label: string; value: string; onChange: (v: string) => void
+  type?: string; placeholder?: string; required?: boolean
 }) {
   return (
     <div>
       <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </Label>
-      <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        type={type}
-        placeholder={placeholder}
-        className="h-9 text-[13px]"
-      />
+      <Input value={value} onChange={(e) => onChange(e.target.value)} type={type}
+        placeholder={placeholder} className="h-9 text-[13px]" />
+    </div>
+  )
+}
+
+function Feedback({ f }: { f: { tipo: "ok" | "error"; msg: string } | null }) {
+  if (!f) return null
+  return (
+    <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 text-[13px] ${f.tipo === "ok" ? "bg-emerald-50 border border-emerald-100 text-emerald-700" : "bg-red-50 border border-red-100 text-red-600"}`}>
+      {f.tipo === "ok" ? <CheckCircle2 className="size-4 shrink-0" /> : <AlertCircle className="size-4 shrink-0" />}
+      {f.msg}
     </div>
   )
 }
@@ -80,32 +85,24 @@ function FormField({
 // ─── Sección Clínica ─────────────────────────────────────────────────────────
 
 function SeccionClinica() {
-  const [nombre, setNombre] = useState("")
-  const [telefono, setTelefono] = useState("")
-  const [direccion, setDireccion] = useState("")
-  const [email, setEmail] = useState("")
+  const [form, setForm] = useState({ nombre: "", email: "", telefono: "", direccion: "" })
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
 
   useEffect(() => {
     getClinicaBasica().then((c) => {
-      if (c) {
-        setNombre(c.nombre ?? "")
-        setTelefono(c.telefono ?? "")
-        setDireccion(c.direccion ?? "")
-        setEmail((c as typeof c & { email?: string }).email ?? "")
-      }
+      if (c) setForm({ nombre: c.nombre ?? "", email: c.email ?? "", telefono: c.telefono ?? "", direccion: c.direccion ?? "" })
       setCargando(false)
     })
   }, [])
 
   async function guardar(e: { preventDefault: () => void }) {
     e.preventDefault()
-    if (!nombre.trim()) return
+    if (!form.nombre.trim()) return
     setGuardando(true)
     setFeedback(null)
-    const result = await actualizarClinicaBasica({ nombre, telefono, direccion })
+    const result = await actualizarClinicaBasica(form)
     setGuardando(false)
     if (result) {
       setFeedback({ tipo: "ok", msg: "Cambios guardados correctamente." })
@@ -115,28 +112,16 @@ function SeccionClinica() {
     }
   }
 
-  if (cargando) {
-    return (
-      <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
-        <Loader2 className="size-4 animate-spin" /> Cargando…
-      </div>
-    )
-  }
+  if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
 
   return (
     <form onSubmit={guardar}>
       <SectionHeader title="Datos de la clínica" subtitle="Información que verán tus pacientes" />
-
       <div className="mb-6">
         <label className="block text-[12px] font-medium text-gray-700 mb-1.5">Logo</label>
         <div className="flex items-center gap-4">
-          <div
-            className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: "linear-gradient(135deg, #2563EB 0%, #10B981 100%)" }}
-          >
-            <span className="text-white text-2xl font-bold">
-              {nombre ? nombre[0].toUpperCase() : "C"}
-            </span>
+          <div className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #2563EB 0%, #10B981 100%)" }}>
+            <span className="text-white text-2xl font-bold">{form.nombre ? form.nombre[0].toUpperCase() : "C"}</span>
           </div>
           <div>
             <button type="button" className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] font-medium text-gray-700 hover:bg-gray-50 transition-colors">
@@ -146,32 +131,18 @@ function SeccionClinica() {
           </div>
         </div>
       </div>
-
       <div className="grid grid-cols-2 gap-4 mb-4">
-        <FormField label="Nombre de la clínica" value={nombre} onChange={setNombre} required placeholder="Ej: Clínica Bella" />
-        <FormField label="Email de contacto" value={email} onChange={setEmail} type="email" placeholder="admin@tuclinica.cl" />
-        <FormField label="Teléfono" value={telefono} onChange={setTelefono} placeholder="+56 9 1234 5678" />
+        <FormField label="Nombre de la clínica" value={form.nombre} onChange={(v) => setForm(p => ({ ...p, nombre: v }))} required placeholder="Ej: Clínica Bella" />
+        <FormField label="Email de contacto" value={form.email} onChange={(v) => setForm(p => ({ ...p, email: v }))} type="email" placeholder="admin@tuclinica.cl" />
+        <FormField label="Teléfono" value={form.telefono} onChange={(v) => setForm(p => ({ ...p, telefono: v }))} placeholder="+56 9 1234 5678" />
       </div>
       <div className="mb-6">
-        <FormField label="Dirección" value={direccion} onChange={setDireccion} placeholder="Av. Ejemplo 1234, Santiago" />
+        <FormField label="Dirección" value={form.direccion} onChange={(v) => setForm(p => ({ ...p, direccion: v }))} placeholder="Av. Ejemplo 1234, Santiago" />
       </div>
-
-      {feedback && (
-        <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 text-[13px] ${
-          feedback.tipo === "ok"
-            ? "bg-emerald-50 border border-emerald-100 text-emerald-700"
-            : "bg-red-50 border border-red-100 text-red-600"
-        }`}>
-          {feedback.tipo === "ok"
-            ? <CheckCircle2 className="size-4 shrink-0" />
-            : <AlertCircle className="size-4 shrink-0" />}
-          {feedback.msg}
-        </div>
-      )}
-
+      <Feedback f={feedback} />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" className="h-8 text-[13px] border-gray-200 text-gray-600"
-          onClick={() => { getClinicaBasica().then((c) => { if (c) { setNombre(c.nombre ?? ""); setTelefono(c.telefono ?? ""); setDireccion(c.direccion ?? "") } }) }}>
+          onClick={() => getClinicaBasica().then((c) => { if (c) setForm({ nombre: c.nombre ?? "", email: c.email ?? "", telefono: c.telefono ?? "", direccion: c.direccion ?? "" }) })}>
           Descartar
         </Button>
         <Button type="submit" disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
@@ -182,27 +153,109 @@ function SeccionClinica() {
   )
 }
 
-// ─── Sección Equipo ───────────────────────────────────────────────────────────
+// ─── Modal agregar profesional ────────────────────────────────────────────────
 
-const PROF_COLORS = [
-  "bg-[#2563EB]/10 text-[#2563EB]",
-  "bg-emerald-50 text-[#10B981]",
-  "bg-amber-50 text-amber-600",
-  "bg-purple-50 text-purple-600",
-  "bg-pink-50 text-pink-600",
-]
+function ModalAgregarProfesional({ onClose, onCreado }: { onClose: () => void; onCreado: () => void }) {
+  const [form, setForm] = useState({ nombre: "", especialidad: "", telefono: "", email: "", color: "#2563EB" })
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { inputRef.current?.focus() }, [])
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.nombre.trim()) { setError("El nombre es requerido."); return }
+    setGuardando(true)
+    setError(null)
+    const result = await crearProfesional(form)
+    setGuardando(false)
+    if (result) {
+      onCreado()
+      onClose()
+    } else {
+      setError("No se pudo crear el profesional. Intenta nuevamente.")
+    }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-50" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-[15px] font-semibold text-gray-900">Agregar profesional</h3>
+            <button onClick={onClose} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center">
+              <X className="size-4 text-gray-400" />
+            </button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Nombre <span className="text-red-400">*</span></Label>
+              <Input ref={inputRef} value={form.nombre} onChange={(e) => setForm(p => ({ ...p, nombre: e.target.value }))}
+                placeholder="Ej: Dra. Ana García" className="h-9 text-[13px]" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Especialidad</Label>
+                <Input value={form.especialidad} onChange={(e) => setForm(p => ({ ...p, especialidad: e.target.value }))}
+                  placeholder="Ej: Estética facial" className="h-9 text-[13px]" />
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Teléfono</Label>
+                <Input value={form.telefono} onChange={(e) => setForm(p => ({ ...p, telefono: e.target.value }))}
+                  placeholder="+56 9 1234 5678" className="h-9 text-[13px]" />
+              </div>
+            </div>
+            <div>
+              <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Email</Label>
+              <Input value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
+                type="email" placeholder="ana@tuclinica.cl" className="h-9 text-[13px]" />
+            </div>
+            <div>
+              <Label className="mb-2 block text-[12px] font-medium text-gray-700">Color identificador</Label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {COLORES_PROF.map((c) => (
+                  <button key={c} type="button" onClick={() => setForm(p => ({ ...p, color: c }))}
+                    className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${form.color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""}`}
+                    style={{ backgroundColor: c }} />
+                ))}
+              </div>
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-600">
+                <AlertCircle className="size-3.5 shrink-0" />{error}
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-9 text-[13px]">Cancelar</Button>
+              <Button type="submit" disabled={guardando} className="flex-1 h-9 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+                {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Agregar profesional"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─── Sección Equipo ───────────────────────────────────────────────────────────
 
 function SeccionEquipo() {
   const [profesionales, setProfesionales] = useState<ProfesionalRow[]>([])
   const [cargando, setCargando] = useState(true)
   const [eliminando, setEliminando] = useState<string | null>(null)
+  const [abrirModal, setAbrirModal] = useState(false)
 
   const cargar = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase
-      .from("profesionales")
-      .select("*")
-      .order("nombre", { ascending: true })
+    const { data } = await supabase.from("profesionales").select("*").order("nombre", { ascending: true })
     setProfesionales((data ?? []) as ProfesionalRow[])
     setCargando(false)
   }, [])
@@ -216,7 +269,7 @@ function SeccionEquipo() {
   }
 
   async function eliminar(id: string) {
-    if (!confirm("¿Seguro que quieres eliminar este profesional? Se perderán sus datos.")) return
+    if (!confirm("¿Seguro que quieres eliminar este profesional?")) return
     setEliminando(id)
     const supabase = createClient()
     await supabase.from("profesionales").delete().eq("id", id)
@@ -224,13 +277,7 @@ function SeccionEquipo() {
     setEliminando(null)
   }
 
-  if (cargando) {
-    return (
-      <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
-        <Loader2 className="size-4 animate-spin" /> Cargando…
-      </div>
-    )
-  }
+  if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
 
   return (
     <div>
@@ -238,7 +285,7 @@ function SeccionEquipo() {
         title="Equipo y profesionales"
         subtitle="Administra los profesionales de tu clínica"
         action={
-          <Button className="h-8 text-[13px] gap-1.5 border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+          <Button onClick={() => setAbrirModal(true)} className="h-8 text-[13px] gap-1.5 border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
             <Plus className="size-3.5" /> Agregar
           </Button>
         }
@@ -248,38 +295,32 @@ function SeccionEquipo() {
         <div className="text-center py-12 space-y-2">
           <Users className="size-8 text-gray-300 mx-auto" />
           <p className="text-[14px] font-medium text-gray-600">Sin profesionales registrados</p>
-          <p className="text-[12px] text-gray-400">Agrega el primer miembro del equipo.</p>
+          <button onClick={() => setAbrirModal(true)} className="text-[13px] text-[#2563EB] font-medium hover:underline">
+            Agrega el primer miembro del equipo
+          </button>
         </div>
       ) : (
         <div className="space-y-3">
-          {profesionales.map((p, i) => {
-            const colorClass = PROF_COLORS[i % PROF_COLORS.length]
+          {profesionales.map((p) => {
             const initials = p.nombre.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
             return (
               <div key={p.id} className={`bg-gray-50 rounded-xl border border-gray-100 p-4 flex items-center gap-4 ${!p.activo ? "opacity-60" : ""}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${colorClass}`}>
-                  <span className="text-[12px] font-bold">{initials}</span>
+                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-[12px] font-bold" style={{ backgroundColor: p.color }}>
+                  {initials}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold text-gray-900">{p.nombre}</p>
                   <p className="text-[12px] text-gray-500 mt-0.5">{p.especialidad ?? "Sin especialidad"}</p>
-                  {p.telefono && (
-                    <p className="text-[11px] text-gray-400 mt-0.5">{p.telefono}</p>
-                  )}
+                  {p.telefono && <p className="text-[11px] text-gray-400 mt-0.5">{p.telefono}</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${p.activo ? "bg-emerald-50 text-[#10B981]" : "bg-gray-100 text-gray-500"}`}>
                     {p.activo ? "Activo" : "Inactivo"}
                   </span>
                   <Toggle activo={p.activo} onChange={() => toggleActivo(p)} />
-                  <button
-                    onClick={() => eliminar(p.id)}
-                    disabled={eliminando === p.id}
-                    className="h-7 w-7 rounded-lg hover:bg-red-50 flex items-center justify-center transition-colors group"
-                  >
-                    {eliminando === p.id
-                      ? <Loader2 className="size-3.5 animate-spin text-gray-400" />
-                      : <Trash2 className="size-3.5 text-gray-300 group-hover:text-red-400" />}
+                  <button onClick={() => eliminar(p.id)} disabled={eliminando === p.id}
+                    className="h-7 w-7 rounded-lg hover:bg-red-50 flex items-center justify-center transition-colors group">
+                    {eliminando === p.id ? <Loader2 className="size-3.5 animate-spin text-gray-400" /> : <Trash2 className="size-3.5 text-gray-300 group-hover:text-red-400" />}
                   </button>
                 </div>
               </div>
@@ -287,6 +328,8 @@ function SeccionEquipo() {
           })}
         </div>
       )}
+
+      {abrirModal && <ModalAgregarProfesional onClose={() => setAbrirModal(false)} onCreado={cargar} />}
     </div>
   )
 }
@@ -298,12 +341,48 @@ function SeccionWhatsApp() {
   const twilioFrom = (process as any).env?.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM as string | undefined
   const conectado = !!twilioFrom
 
-  const plantillas = [
-    { id: "t1", nombre: "Recordatorio 24 h", texto: "Hola {nombre}, te recordamos tu cita en {clinica} el {fecha} a las {hora}. Responde SI para confirmar o NO para cancelar." },
-    { id: "t2", nombre: "Recordatorio 2 h",  texto: "Hola {nombre}, tu cita en {clinica} es en 2 horas, a las {hora}. ¡Te esperamos!" },
-    { id: "t3", nombre: "Post-cita",         texto: "Hola {nombre}, gracias por visitarnos en {clinica}. ¿Cómo fue tu experiencia?" },
-  ]
-  const [editandoPlantilla, setEditandoPlantilla] = useState<string | null>(null)
+  const [plantillas, setPlantillas] = useState<PlantillaWsp[]>(PLANTILLAS_DEFAULT)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [textoEdit, setTextoEdit] = useState("")
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+
+  useEffect(() => {
+    getClinicaConfig().then((cfg) => {
+      if (cfg.plantillas?.length) setPlantillas(cfg.plantillas)
+      setCargando(false)
+    })
+  }, [])
+
+  function iniciarEdicion(pl: PlantillaWsp) {
+    setEditandoId(pl.id)
+    setTextoEdit(pl.texto)
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null)
+    setTextoEdit("")
+  }
+
+  async function guardarPlantilla(id: string) {
+    const nuevas = plantillas.map((p) => p.id === id ? { ...p, texto: textoEdit } : p)
+    setGuardando(true)
+    setFeedback(null)
+    const cfg = await getClinicaConfig()
+    const ok = await actualizarClinicaConfig({ ...cfg, plantillas: nuevas })
+    setGuardando(false)
+    if (ok) {
+      setPlantillas(nuevas)
+      setEditandoId(null)
+      setFeedback({ tipo: "ok", msg: "Plantilla guardada." })
+      setTimeout(() => setFeedback(null), 2500)
+    } else {
+      setFeedback({ tipo: "error", msg: "No se pudo guardar." })
+    }
+  }
+
+  if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
 
   return (
     <div>
@@ -315,14 +394,8 @@ function SeccionWhatsApp() {
             {conectado ? <Wifi className="size-5 text-[#25D366]" /> : <WifiOff className="size-5 text-gray-400" />}
           </div>
           <div className="flex-1">
-            <p className="text-[14px] font-semibold text-gray-900">
-              {conectado ? twilioFrom : "Sin número conectado"}
-            </p>
-            <p className="text-[12px] text-gray-500 mt-0.5">
-              {conectado
-                ? "Número configurado vía Twilio Sandbox"
-                : "Configura TWILIO_WHATSAPP_FROM en las variables de entorno"}
-            </p>
+            <p className="text-[14px] font-semibold text-gray-900">{conectado ? twilioFrom : "Sin número conectado"}</p>
+            <p className="text-[12px] text-gray-500 mt-0.5">{conectado ? "Número configurado vía Twilio Sandbox" : "Configura TWILIO_WHATSAPP_FROM en las variables de entorno"}</p>
           </div>
           <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${conectado ? "bg-emerald-50 text-[#10B981]" : "bg-red-50 text-red-400"}`}>
             {conectado ? "Conectado" : "Desconectado"}
@@ -330,40 +403,37 @@ function SeccionWhatsApp() {
         </div>
       </div>
 
-      <div>
-        <p className="text-[13px] font-semibold text-gray-900 mb-3">Plantillas de mensajes</p>
-        <div className="space-y-3">
-          {plantillas.map((pl) => (
-            <div key={pl.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[13px] font-semibold text-gray-900">{pl.nombre}</p>
-                <button
-                  onClick={() => setEditandoPlantilla(editandoPlantilla === pl.id ? null : pl.id)}
-                  className="text-[12px] text-[#2563EB] font-medium hover:underline"
-                >
-                  {editandoPlantilla === pl.id ? "Cancelar" : "Editar"}
-                </button>
-              </div>
-              {editandoPlantilla === pl.id ? (
-                <div>
-                  <textarea
-                    defaultValue={pl.texto}
-                    rows={3}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
-                  />
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-[11px] text-gray-400">Variables: {"{nombre}"} {"{fecha}"} {"{hora}"} {"{clinica}"}</p>
-                    <Button className="h-7 text-[12px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
-                      Guardar
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-[12px] text-gray-500 leading-relaxed">{pl.texto}</p>
-              )}
+      <Feedback f={feedback} />
+
+      <p className="text-[13px] font-semibold text-gray-900 mb-3">Plantillas de mensajes</p>
+      <div className="space-y-3">
+        {plantillas.map((pl) => (
+          <div key={pl.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[13px] font-semibold text-gray-900">{pl.nombre}</p>
+              <button onClick={() => editandoId === pl.id ? cancelarEdicion() : iniciarEdicion(pl)}
+                className="text-[12px] text-[#2563EB] font-medium hover:underline">
+                {editandoId === pl.id ? "Cancelar" : "Editar"}
+              </button>
             </div>
-          ))}
-        </div>
+            {editandoId === pl.id ? (
+              <div>
+                <textarea value={textoEdit} onChange={(e) => setTextoEdit(e.target.value)} rows={3}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none" />
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[11px] text-gray-400">Variables: {"{nombre}"} {"{fecha}"} {"{hora}"} {"{clinica}"}</p>
+                  <Button onClick={() => guardarPlantilla(pl.id)} disabled={guardando}
+                    className="h-7 text-[12px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+                    {guardando ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
+                    Guardar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[12px] text-gray-500 leading-relaxed">{pl.texto}</p>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -371,52 +441,86 @@ function SeccionWhatsApp() {
 
 // ─── Sección Recordatorios ────────────────────────────────────────────────────
 
-const recordatorioConfig = [
-  { id: "r1", label: "Recordatorio 24 h antes",  descripcion: "Se envía el día anterior a la cita",  activo: true,  horasAntes: 24 },
-  { id: "r2", label: "Recordatorio 2 h antes",   descripcion: "Aviso el mismo día, 2 horas antes",   activo: true,  horasAntes: 2 },
-  { id: "r3", label: "Solicitar confirmación",   descripcion: "Pide SI/NO de confirmación",           activo: true,  horasAntes: 48 },
-  { id: "r4", label: "Encuesta post-cita",        descripcion: "Se envía 1 hora después de la cita",  activo: false, horasAntes: -1 },
-]
+const RECORDATORIO_LABELS: Record<string, { label: string; descripcion: string }> = {
+  r1: { label: "Recordatorio 24 h antes", descripcion: "Se envía el día anterior a la cita" },
+  r2: { label: "Recordatorio 2 h antes",  descripcion: "Aviso el mismo día, 2 horas antes" },
+  r3: { label: "Solicitar confirmación",   descripcion: "Pide SI/NO de confirmación" },
+  r4: { label: "Encuesta post-cita",       descripcion: "Se envía 1 hora después de la cita" },
+}
 
 function SeccionRecordatorios() {
-  const [toggles, setToggles] = useState<Record<string, boolean>>(
-    Object.fromEntries(recordatorioConfig.map((r) => [r.id, r.activo]))
-  )
+  const [recordatorios, setRecordatorios] = useState<RecordatorioConfig[]>(RECORDATORIOS_DEFAULT)
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+
+  useEffect(() => {
+    getClinicaConfig().then((cfg) => {
+      if (cfg.recordatorios?.length) setRecordatorios(cfg.recordatorios)
+      setCargando(false)
+    })
+  }, [])
+
+  function toggleRec(id: string) {
+    setRecordatorios((prev) => prev.map((r) => r.id === id ? { ...r, activo: !r.activo } : r))
+  }
+
+  function setHoras(id: string, horasAntes: number) {
+    setRecordatorios((prev) => prev.map((r) => r.id === id ? { ...r, horasAntes } : r))
+  }
+
+  async function guardar() {
+    setGuardando(true)
+    setFeedback(null)
+    const cfg = await getClinicaConfig()
+    const ok = await actualizarClinicaConfig({ ...cfg, recordatorios })
+    setGuardando(false)
+    if (ok) {
+      setFeedback({ tipo: "ok", msg: "Configuración guardada." })
+      setTimeout(() => setFeedback(null), 3000)
+    } else {
+      setFeedback({ tipo: "error", msg: "No se pudo guardar." })
+    }
+  }
+
+  if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
 
   return (
     <div>
       <SectionHeader title="Recordatorios automáticos" subtitle="Configura cuándo se envían los mensajes automáticos" />
       <div className="space-y-3 mb-6">
-        {recordatorioConfig.map((rec) => (
-          <div key={rec.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <p className="text-[13px] font-semibold text-gray-900">{rec.label}</p>
-                <p className="text-[12px] text-gray-500 mt-0.5">{rec.descripcion}</p>
+        {recordatorios.map((rec) => {
+          const meta = RECORDATORIO_LABELS[rec.id]
+          return (
+            <div key={rec.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-[13px] font-semibold text-gray-900">{meta?.label ?? rec.id}</p>
+                  <p className="text-[12px] text-gray-500 mt-0.5">{meta?.descripcion}</p>
+                </div>
+                <Toggle activo={rec.activo} onChange={() => toggleRec(rec.id)} />
               </div>
-              <Toggle activo={toggles[rec.id]} onChange={() => setToggles((p) => ({ ...p, [rec.id]: !p[rec.id] }))} />
+              {rec.activo && rec.horasAntes > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-3">
+                  <label className="text-[12px] text-gray-500">Enviar</label>
+                  <select value={rec.horasAntes} onChange={(e) => setHoras(rec.id, Number(e.target.value))}
+                    className="h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none">
+                    <option value={1}>1 hora</option>
+                    <option value={2}>2 horas</option>
+                    <option value={24}>24 horas</option>
+                    <option value={48}>48 horas</option>
+                  </select>
+                  <label className="text-[12px] text-gray-500">antes de la cita</label>
+                </div>
+              )}
             </div>
-            {toggles[rec.id] && rec.horasAntes > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-3">
-                <label className="text-[12px] text-gray-500">Enviar</label>
-                <select
-                  defaultValue={rec.horasAntes}
-                  className="h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none"
-                >
-                  <option value={1}>1 hora</option>
-                  <option value={2}>2 horas</option>
-                  <option value={24}>24 horas</option>
-                  <option value={48}>48 horas</option>
-                </select>
-                <label className="text-[12px] text-gray-500">antes de la cita</label>
-              </div>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
+      <Feedback f={feedback} />
       <div className="flex justify-end">
-        <Button className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
-          Guardar configuración
+        <Button onClick={guardar} disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+          {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Guardar configuración"}
         </Button>
       </div>
     </div>
@@ -426,45 +530,29 @@ function SeccionRecordatorios() {
 // ─── Sección Plan ─────────────────────────────────────────────────────────────
 
 function SeccionPlan() {
-  const [plan, setPlan] = useState<string>("starter")
+  const [clinica, setClinica] = useState<ClinicaBasica | null>(null)
   const [cargando, setCargando] = useState(true)
 
-  useEffect(() => {
-    getClinicaId().then(async (id) => {
-      if (!id) { setCargando(false); return }
-      const supabase = createClient()
-      const { data } = await supabase.from("clinicas").select("plan").eq("id", id).single()
-      if (data?.plan) setPlan(data.plan as string)
-      setCargando(false)
-    })
-  }, [])
+  useEffect(() => { getClinicaBasica().then((c) => { setClinica(c); setCargando(false) }) }, [])
 
-  const planLabel = plan === "pro" ? "Pro" : plan === "enterprise" ? "Enterprise" : "Starter"
+  const planLabel = clinica?.plan === "pro" ? "Pro" : clinica?.plan === "enterprise" ? "Enterprise" : "Starter"
 
   return (
     <div>
       <SectionHeader title="Plan y facturación" subtitle="Gestiona tu suscripción" />
-
       {cargando ? (
-        <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
-          <Loader2 className="size-4 animate-spin" /> Cargando…
-        </div>
+        <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
       ) : (
         <div className="rounded-xl border-2 border-[#2563EB]/20 bg-gradient-to-br from-blue-50 to-white p-5 mb-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[11px] font-semibold bg-[#2563EB] text-white px-2 py-0.5 rounded-full">Plan {planLabel}</span>
-                <span className="text-[11px] font-medium bg-emerald-50 text-[#10B981] px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Check className="size-2.5" /> Activo
-                </span>
-              </div>
-              <p className="text-[13px] text-gray-500 mt-2">Administra tu plan desde el panel de Vercel o contáctanos.</p>
-            </div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11px] font-semibold bg-[#2563EB] text-white px-2 py-0.5 rounded-full">Plan {planLabel}</span>
+            <span className="text-[11px] font-medium bg-emerald-50 text-[#10B981] px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Check className="size-2.5" /> Activo
+            </span>
           </div>
+          <p className="text-[13px] text-gray-500 mt-2">Administra tu plan desde el panel de Vercel o contáctanos.</p>
         </div>
       )}
-
       <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
         <p className="text-[13px] font-medium text-amber-700">Facturación disponible próximamente</p>
         <p className="text-[12px] text-amber-600 mt-0.5">Integración con WebPay y Stripe en camino.</p>
@@ -479,18 +567,12 @@ function SeccionSeguridad() {
   const [mostrarPassword, setMostrarPassword] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
-  const [passwords, setPasswords] = useState({ actual: "", nueva: "", confirmar: "" })
+  const [passwords, setPasswords] = useState({ nueva: "", confirmar: "" })
 
   async function cambiarPassword(e: React.FormEvent) {
     e.preventDefault()
-    if (passwords.nueva !== passwords.confirmar) {
-      setFeedback({ tipo: "error", msg: "Las contraseñas no coinciden." })
-      return
-    }
-    if (passwords.nueva.length < 8) {
-      setFeedback({ tipo: "error", msg: "La contraseña debe tener al menos 8 caracteres." })
-      return
-    }
+    if (passwords.nueva !== passwords.confirmar) { setFeedback({ tipo: "error", msg: "Las contraseñas no coinciden." }); return }
+    if (passwords.nueva.length < 8) { setFeedback({ tipo: "error", msg: "La contraseña debe tener al menos 8 caracteres." }); return }
     setGuardando(true)
     setFeedback(null)
     const supabase = createClient()
@@ -500,7 +582,7 @@ function SeccionSeguridad() {
       setFeedback({ tipo: "error", msg: error.message })
     } else {
       setFeedback({ tipo: "ok", msg: "Contraseña actualizada correctamente." })
-      setPasswords({ actual: "", nueva: "", confirmar: "" })
+      setPasswords({ nueva: "", confirmar: "" })
       setTimeout(() => setFeedback(null), 3000)
     }
   }
@@ -508,47 +590,27 @@ function SeccionSeguridad() {
   return (
     <div>
       <SectionHeader title="Seguridad" subtitle="Controla el acceso a tu cuenta" />
-
       <div className="mb-6">
         <p className="text-[13px] font-semibold text-gray-900 mb-3">Cambiar contraseña</p>
         <form onSubmit={cambiarPassword} className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-3">
           <div>
             <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Nueva contraseña</Label>
-            <Input
-              type="password"
-              value={passwords.nueva}
-              onChange={(e) => setPasswords((p) => ({ ...p, nueva: e.target.value }))}
-              placeholder="Mínimo 8 caracteres"
-              className="h-9 text-[13px]"
-            />
+            <Input type="password" value={passwords.nueva} onChange={(e) => setPasswords((p) => ({ ...p, nueva: e.target.value }))}
+              placeholder="Mínimo 8 caracteres" className="h-9 text-[13px]" />
           </div>
           <div>
             <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Confirmar contraseña</Label>
             <div className="relative">
-              <Input
-                type={mostrarPassword ? "text" : "password"}
-                value={passwords.confirmar}
+              <Input type={mostrarPassword ? "text" : "password"} value={passwords.confirmar}
                 onChange={(e) => setPasswords((p) => ({ ...p, confirmar: e.target.value }))}
-                placeholder="Repetir contraseña"
-                className="h-9 text-[13px] pr-9"
-              />
-              <button
-                type="button"
-                onClick={() => setMostrarPassword((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
+                placeholder="Repetir contraseña" className="h-9 text-[13px] pr-9" />
+              <button type="button" onClick={() => setMostrarPassword((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                 {mostrarPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
             </div>
           </div>
-          {feedback && (
-            <div className={`flex items-center gap-2 p-2.5 rounded-lg text-[12px] ${
-              feedback.tipo === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
-            }`}>
-              {feedback.tipo === "ok" ? <CheckCircle2 className="size-3.5" /> : <AlertCircle className="size-3.5" />}
-              {feedback.msg}
-            </div>
-          )}
+          <Feedback f={feedback} />
           <div className="flex justify-end pt-1">
             <Button type="submit" disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
               {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Actualizar contraseña"}
@@ -556,7 +618,6 @@ function SeccionSeguridad() {
           </div>
         </form>
       </div>
-
       <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
         <p className="text-[13px] font-medium text-amber-700">2FA y gestión de sesiones — próximamente</p>
         <p className="text-[12px] text-amber-600 mt-0.5">Autenticación de dos factores en desarrollo.</p>
@@ -565,25 +626,20 @@ function SeccionSeguridad() {
   )
 }
 
-// ─── Clínica Header Card ─────────────────────────────────────────────────────
+// ─── Header card ─────────────────────────────────────────────────────────────
 
 function ClinicaHeaderCard() {
-  const [clinica, setClinica] = useState<{ nombre: string; telefono: string | null; email?: string | null } | null>(null)
+  const [clinica, setClinica] = useState<ClinicaBasica | null>(null)
 
-  useEffect(() => {
-    getClinicaBasica().then((c) => setClinica(c))
-  }, [])
+  useEffect(() => { getClinicaBasica().then(setClinica) }, [])
 
   const nombre = clinica?.nombre ?? "Tu clínica"
-  const inicial = nombre[0]?.toUpperCase() ?? "C"
+  const planLabel = clinica?.plan === "pro" ? "Pro" : clinica?.plan === "enterprise" ? "Enterprise" : "Starter"
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 shrink-0">
-      <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-        style={{ background: "linear-gradient(135deg, #2563EB 0%, #10B981 100%)" }}
-      >
-        <span className="text-white text-base font-bold">{inicial}</span>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #2563EB 0%, #10B981 100%)" }}>
+        <span className="text-white text-base font-bold">{nombre[0]?.toUpperCase() ?? "C"}</span>
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[14px] font-semibold text-gray-900 leading-tight">{nombre}</p>
@@ -592,9 +648,24 @@ function ClinicaHeaderCard() {
         </p>
       </div>
       <span className="text-[11px] font-medium bg-blue-50 text-[#2563EB] px-2 py-0.5 rounded-full shrink-0">
-        Plan Starter
+        Plan {planLabel}
       </span>
     </div>
+  )
+}
+
+// ─── Cerrar sesión ────────────────────────────────────────────────────────────
+
+function BtnCerrarSesion() {
+  async function cerrar() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    window.location.href = "/login"
+  }
+  return (
+    <button onClick={cerrar} className="w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+      <LogOut className="size-[15px] shrink-0" /> Cerrar sesión
+    </button>
   )
 }
 
@@ -627,28 +698,18 @@ export default function ConfiguracionPage() {
             const Icon = item.icon
             const isActive = activa === item.id
             return (
-              <button
-                key={item.id}
-                onClick={() => setActiva(item.id)}
-                className={`w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left ${
-                  isActive ? "bg-blue-50 text-[#2563EB]" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                }`}
-              >
+              <button key={item.id} onClick={() => setActiva(item.id)}
+                className={`w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left ${isActive ? "bg-blue-50 text-[#2563EB]" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}>
                 <Icon className={`size-[15px] shrink-0 ${isActive ? "text-[#2563EB]" : "text-gray-400"}`} />
                 <span className="flex-1 truncate">{item.label}</span>
                 {item.badge && (
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${item.badgeColor}`}>
-                    {item.badge}
-                  </span>
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${item.badgeColor}`}>{item.badge}</span>
                 )}
               </button>
             )
           })}
           <div className="pt-3 mt-3 border-t border-gray-100">
-            <button className="w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-              <LogOut className="size-[15px] shrink-0" />
-              Cerrar sesión
-            </button>
+            <BtnCerrarSesion />
           </div>
         </nav>
 
