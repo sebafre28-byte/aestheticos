@@ -122,13 +122,13 @@ export function ListaServicios({
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="px-4 py-3 border-b border-gray-50 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="relative flex-1 sm:max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
           <Input
             value={busqueda}
             onChange={(e) => onBusquedaChange(e.target.value)}
-            placeholder="Buscar servicio por nombre o descripción..."
+            placeholder="Buscar servicio..."
             className="h-8 pl-8 text-[13px] bg-gray-50/70 border-gray-200"
           />
         </div>
@@ -150,19 +150,64 @@ export function ListaServicios({
               {item.label}
             </button>
           ))}
+          {!soloLectura && (
+            <Button
+              onClick={onNuevoServicio}
+              className="h-8 text-[13px] font-medium text-white border-0 ml-auto sm:ml-0"
+              style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
+            >
+              + Nuevo
+            </Button>
+          )}
         </div>
-        {!soloLectura && (
-          <Button
-            onClick={onNuevoServicio}
-            className="h-8 text-[13px] font-medium text-white border-0"
-            style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
-          >
-            + Nuevo servicio
-          </Button>
+      </div>
+
+      {/* Mobile card list */}
+      <div className="md:hidden divide-y divide-gray-50">
+        {loading ? (
+          <div className="px-5 py-8 text-center text-[13px] text-gray-400">Cargando servicios...</div>
+        ) : servicios.length === 0 ? (
+          <div className="px-5 py-8 text-center text-[13px] text-gray-400">No hay servicios para este filtro.</div>
+        ) : (
+          servicios.map((servicio) => {
+            const estado = estadoServicio(servicio)
+            return (
+              <div
+                key={servicio.id}
+                onClick={() => onSelectServicio(servicio)}
+                className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50/50 transition-colors cursor-pointer"
+              >
+                <span
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: servicio.activo ? servicio.color : '#D1D5DB' }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-[13px] font-medium truncate ${servicio.activo ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {servicio.nombre}
+                  </p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {servicio.duracion_minutos} min · ${servicio.precio.toLocaleString('es-CL')}
+                  </p>
+                </div>
+                <span
+                  className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
+                    estado === 'activo'
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : estado === 'nuevo'
+                      ? 'bg-cyan-50 text-cyan-700'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {estado === 'activo' ? 'Activo' : estado === 'nuevo' ? 'Nuevo' : 'Inactivo'}
+                </span>
+              </div>
+            )
+          })
         )}
       </div>
 
-      <table className="w-full">
+      {/* Desktop table */}
+      <table className="hidden md:table w-full">
         <thead>
           <tr className="border-b border-gray-50">
             <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Servicio</th>
