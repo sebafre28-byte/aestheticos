@@ -25,6 +25,7 @@ import { ModalCita } from './ModalCita'
 import { PanelDetalleCita } from './PanelDetalleCita'
 import { ListaPendientes } from './ListaPendientes'
 import { CalendarioMes } from './CalendarioMes'
+import { MiniCalendario } from './MiniCalendario'
 import { citaWallClockTime } from '@/lib/agenda/datetime'
 import { trackAgendaMetric } from '@/lib/agenda/metrics'
 
@@ -602,7 +603,19 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
       })()}
 
       {/* ── Cuerpo principal ── */}
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 flex gap-5">
+        {/* Mini calendario lateral — solo desktop, solo vistas día/semana */}
+        {(vista === 'dia' || vista === 'semana') && (
+          <MiniCalendario
+            fechaSeleccionada={fechaActual}
+            citas={citas}
+            onChange={(fecha) => {
+              setFechaActual(fecha)
+              setVista('dia')
+            }}
+          />
+        )}
+        <div className="flex-1 min-w-0 relative">
         {errorCarga && (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-red-50 border border-red-100">
             <div className="text-center">
@@ -749,6 +762,7 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
             )}
           </div>
         )}
+        </div>{/* fin flex-1 min-w-0 */}
       </div>
 
       {/* ── Modal crear/editar cita ── */}
