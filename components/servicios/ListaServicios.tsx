@@ -195,9 +195,11 @@ export function ListaServicios({
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2.5">
                       <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-white text-[13px] font-semibold"
                         style={{ backgroundColor: servicio.activo ? servicio.color : '#D1D5DB' }}
-                      />
+                      >
+                        {servicio.nombre.charAt(0).toUpperCase()}
+                      </span>
                       <div>
                         <p className={`text-[13px] font-medium ${servicio.activo ? 'text-gray-900' : 'text-gray-400'}`}>
                           {servicio.nombre}
