@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -16,6 +17,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { getClinicaBasica } from "@/lib/onboarding/queries"
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -45,6 +47,8 @@ export function Sidebar() {
   const [nombreUsuario, setNombreUsuario] = useState('')
   const [inicialesUsuario, setInicialesUsuario] = useState('')
   const [rolUsuario, setRolUsuario] = useState('')
+  const [logoClinica, setLogoClinica] = useState('')
+  const [nombreClinica, setNombreClinica] = useState('')
 
   useEffect(() => {
     const supabase = createClient()
@@ -58,6 +62,12 @@ export function Sidebar() {
         display.split(' ').filter(Boolean).slice(0, 2).map((n: string) => n[0]?.toUpperCase() ?? '').join('')
       )
       setRolUsuario(user.user_metadata?.rol ?? 'Administrador')
+    })
+    getClinicaBasica().then((c) => {
+      if (c) {
+        setLogoClinica(c.logo_url ?? '')
+        setNombreClinica(c.nombre ?? '')
+      }
     })
   }, [])
 
@@ -75,10 +85,14 @@ export function Sidebar() {
       {/* Logo SimpliClinic */}
       <div className="px-4 pt-5 pb-4 border-b border-white/10">
         <div className="flex items-center gap-2.5">
-          <LogoIcon />
+          {logoClinica ? (
+            <Image src={logoClinica} width={28} height={28} className="w-7 h-7 rounded-lg object-cover" alt="logo" />
+          ) : (
+            <LogoIcon />
+          )}
           <div>
             <p className="text-[14px] font-bold text-white leading-tight tracking-tight">
-              SimpliClinic
+              {logoClinica && nombreClinica ? nombreClinica : 'SimpliClinic'}
             </p>
             <p className="text-[10px] leading-tight" style={{ color: '#60A5FA' }}>
               Tu clínica, más simple.

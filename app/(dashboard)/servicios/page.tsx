@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Scissors, DollarSign, Star, TrendingUp } from 'lucide-react'
 import { FichaServicio } from '@/components/servicios/FichaServicio'
 import { FormServicio } from '@/components/servicios/FormServicio'
 import { ListaServicios } from '@/components/servicios/ListaServicios'
@@ -95,12 +96,75 @@ export default function ServiciosPage() {
     await recargar()
   }
 
+  const activosList = servicios.filter((s) => s.activo)
+  const serviciosActivos = activosList.length
+  const precioPromedio =
+    serviciosActivos > 0
+      ? Math.round(activosList.reduce((sum, s) => sum + s.precio, 0) / serviciosActivos)
+      : 0
+  const masSolicitado =
+    servicios.length > 0
+      ? servicios.reduce((prev, cur) => (cur.totalCitas > prev.totalCitas ? cur : prev))
+      : null
+  const ingresoPotencial = precioPromedio * serviciosActivos
+
   return (
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-[18px] font-semibold text-gray-900">Servicios</h1>
         <p className="text-[13px] text-gray-400 mt-0.5">{total} servicios registrados</p>
       </div>
+
+      {!loading && servicios.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-start justify-between">
+            <div>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Servicios activos</p>
+              <p className="text-[22px] font-extrabold text-gray-900">{serviciosActivos}</p>
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+              <Scissors className="size-4 text-[#2563EB]" />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-start justify-between">
+            <div>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Precio promedio</p>
+              <p className="text-[22px] font-extrabold text-gray-900">
+                ${precioPromedio.toLocaleString('es-CL')}
+              </p>
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
+              <DollarSign className="size-4 text-[#14B8A6]" />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-start justify-between">
+            <div>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Más solicitado</p>
+              <p className="text-[22px] font-extrabold text-gray-900 leading-tight">
+                {masSolicitado ? masSolicitado.nombre : '—'}
+              </p>
+              {masSolicitado && (
+                <p className="text-[11px] text-gray-400 mt-0.5">{masSolicitado.totalCitas} citas</p>
+              )}
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+              <Star className="size-4 text-[#F59E0B]" />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-start justify-between">
+            <div>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Ingreso potencial</p>
+              <p className="text-[22px] font-extrabold text-gray-900">
+                ${ingresoPotencial.toLocaleString('es-CL')}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-0.5">estimado/mes</p>
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+              <TrendingUp className="size-4 text-[#0B132B]" />
+            </div>
+          </div>
+        </div>
+      )}
 
       <ListaServicios
         servicios={servicios}
