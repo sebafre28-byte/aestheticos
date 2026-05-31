@@ -8,6 +8,7 @@ import {
   Users,
   Scissors,
   MessageCircle,
+  MessageSquare,
   Settings,
   LogOut,
 } from "lucide-react"
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/pacientes", label: "Pacientes", icon: Users },
   { href: "/servicios", label: "Servicios", icon: Scissors },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { href: "/inbox", label: "Inbox", icon: MessageSquare },
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ]
 
