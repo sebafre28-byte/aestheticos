@@ -352,13 +352,17 @@ export async function getPacientesBusqueda(query: string): Promise<PacienteRow[]
 export async function crearPacienteRapido(
   nombre: string,
   telefono: string,
-  clinicaId: string
+  clinicaId: string,
+  email?: string
 ): Promise<PacienteRow | null> {
   const supabase = createClient()
 
+  const insertData: Record<string, string> = { nombre: nombre.trim(), telefono: telefono.trim(), clinica_id: clinicaId }
+  if (email?.trim()) insertData.email = email.trim()
+
   const { data, error } = await supabase
     .from('pacientes')
-    .insert({ nombre: nombre.trim(), telefono: telefono.trim(), clinica_id: clinicaId })
+    .insert(insertData)
     .select()
     .single()
 

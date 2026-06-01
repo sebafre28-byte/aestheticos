@@ -59,16 +59,6 @@ export function ModalCita({
   onGuardada,
   onCerrar,
 }: Props) {
-  function inferirCategoriaServicio(servicio: ServicioRow): string {
-    const texto = `${servicio.nombre} ${servicio.descripcion ?? ''}`.toLowerCase()
-    if (texto.includes('laser')) return 'Láser'
-    if (texto.includes('toxina') || texto.includes('botox') || texto.includes('relleno')) return 'Inyectables'
-    if (texto.includes('facial') || texto.includes('piel') || texto.includes('limpieza')) return 'Facial'
-    if (texto.includes('corporal') || texto.includes('masaje') || texto.includes('drenaje')) return 'Corporal'
-    if (texto.includes('depil')) return 'Depilación'
-    return 'General'
-  }
-
   const esEdicion = !!citaExistente
 
   // ─── Estado del formulario ─────────────────────────────────────────────────
@@ -77,11 +67,8 @@ export function ModalCita({
   const [resultadosBusqueda, setResultadosBusqueda] = useState<PacienteRow[]>([])
   const [buscando, setBuscando] = useState(false)
   const [mostrarCrearPaciente, setMostrarCrearPaciente] = useState(false)
-  const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', telefono: '' })
+  const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', telefono: '', email: '' })
   const [creandoPaciente, setCreandoPaciente] = useState(false)
-  const [servicioBusqueda, setServicioBusqueda] = useState('')
-  const [filtroEstadoServicio, setFiltroEstadoServicio] = useState<'activos' | 'todos'>('activos')
-  const [categoriaServicio, setCategoriaServicio] = useState<string>('todas')
 
   const [profesionalId, setProfesionalId] = useState(
     citaExistente?.profesional_id ?? profesionalIdInicial ?? profesionales[0]?.id ?? ''
@@ -121,17 +108,6 @@ export function ModalCita({
   const [citasDelProfesional, setCitasDelProfesional] = useState<CitaConRelaciones[]>([])
   const pickerRef = useRef<HTMLDivElement>(null)
   const servicioActual = servicios.find((s) => s.id === servicioId)
-  const categoriasServicio = ['todas', ...Array.from(new Set(servicios.map(inferirCategoriaServicio))).sort()]
-  const serviciosFiltrados = servicios.filter((s) => {
-    if (filtroEstadoServicio === 'activos' && !s.activo) return false
-    if (categoriaServicio !== 'todas' && inferirCategoriaServicio(s) !== categoriaServicio) return false
-    if (servicioBusqueda.trim()) {
-      const t = servicioBusqueda.trim().toLowerCase()
-      const target = `${s.nombre} ${s.descripcion ?? ''}`.toLowerCase()
-      if (!target.includes(t)) return false
-    }
-    return true
-  })
 
   const slotSeleccionadoRef = useRef<HTMLButtonElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -286,12 +262,12 @@ export function ModalCita({
     setCreandoPaciente(true)
     const clinicaId = await getClinicaId()
     if (!clinicaId) { setCreandoPaciente(false); return }
-    const paciente = await crearPacienteRapido(nuevoPaciente.nombre, nuevoPaciente.telefono, clinicaId)
+    const paciente = await crearPacienteRapido(nuevoPaciente.nombre, nuevoPaciente.telefono, clinicaId, nuevoPaciente.email || undefined)
     setCreandoPaciente(false)
     if (paciente) {
       seleccionarPaciente(paciente)
       setMostrarCrearPaciente(false)
-      setNuevoPaciente({ nombre: '', telefono: '' })
+      setNuevoPaciente({ nombre: '', telefono: '', email: '' })
     }
   }
 
@@ -400,7 +376,7 @@ export function ModalCita({
         role="dialog"
         aria-modal="true"
         aria-label={esEdicion ? 'Editar cita' : 'Nueva cita'}
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] overflow-y-auto"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
@@ -495,6 +471,13 @@ export function ModalCita({
                   placeholder="Nombre completo"
                   className="text-[12px] bg-white"
                 />
+                <input
+                  type="email"
+                  value={nuevoPaciente.email}
+                  onChange={(e) => setNuevoPaciente((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="Email (opcional)"
+                  className="w-full h-8 px-2.5 text-[12px] rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-400/50"
+                />
                 <Input
                   value={nuevoPaciente.telefono}
                   onChange={(e) => setNuevoPaciente((p) => ({ ...p, telefono: e.target.value }))}
@@ -526,79 +509,35 @@ export function ModalCita({
 
           {/* ── Servicio ── */}
           <div>
-            <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
-              Servicio
-            </Label>
-            <div className="space-y-2">
-              <Input
-                value={servicioBusqueda}
-                onChange={(e) => setServicioBusqueda(e.target.value)}
-                placeholder="Buscar servicio..."
-                className="text-[13px]"
-              />
-              <div className="flex items-center gap-1.5 flex-wrap">
+            <label className="block text-[13px] font-semibold text-gray-700 mb-2">Servicio</label>
+            <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto pr-1">
+              {servicios.filter(s => s.activo).map((s) => (
                 <button
+                  key={s.id}
                   type="button"
-                  onClick={() => setFiltroEstadoServicio('activos')}
-                  className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
-                    filtroEstadoServicio === 'activos'
-                      ? 'bg-[#2563EB] text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  onClick={() => setServicioId(s.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-left transition-all ${
+                    servicioId === s.id
+                      ? 'border-[#2563EB] bg-blue-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  Activos
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color || '#2563EB' }} />
+                    <span className={`text-[13px] font-medium ${servicioId === s.id ? 'text-[#2563EB]' : 'text-gray-800'}`}>{s.nombre}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-gray-400">
+                    <span>{s.duracion_minutos} min</span>
+                    {s.precio > 0 && <span>${s.precio.toLocaleString('es-CL')}</span>}
+                  </div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setFiltroEstadoServicio('todos')}
-                  className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
-                    filtroEstadoServicio === 'todos'
-                      ? 'bg-[#2563EB] text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  Todos
-                </button>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {categoriasServicio.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setCategoriaServicio(cat)}
-                    className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
-                      categoriaServicio === cat
-                        ? 'bg-teal-500 text-white'
-                        : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
-                    }`}
-                  >
-                    {cat === 'todas' ? 'Todas' : cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <select
-              value={servicioId}
-              onChange={(e) => setServicioId(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
-            >
-              <option value="">— Selecciona un servicio —</option>
-              {serviciosFiltrados.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nombre} · {s.duracion_minutos} min · ${s.precio.toLocaleString('es-CL')}
-                  {!s.activo ? ' · Inactivo' : ''}
-                </option>
               ))}
-            </select>
-            {serviciosFiltrados.length === 0 && (
-              <p className="mt-1 text-[11px] text-gray-400">No hay servicios con ese filtro.</p>
-            )}
+            </div>
             {servicioActual && (
-              <div className="mt-1.5 flex items-center gap-2 text-[11px] text-gray-500">
-                <Clock className="size-3 text-gray-400" />
-                <span>{servicioActual.duracion_minutos} min</span>
-                {horaFin && <span className="text-gray-400">· Termina a las {horaFin}</span>}
-              </div>
+              <p className="mt-1.5 text-[11px] text-gray-400 flex items-center gap-1">
+                <Clock className="size-3" />
+                {servicioActual.duracion_minutos} min · Termina a las {horaFin}
+              </p>
             )}
           </div>
 
@@ -627,11 +566,11 @@ export function ModalCita({
               <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
                 Fecha
               </Label>
-              <Input
+              <input
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                className="text-[13px]"
+                className="w-full h-9 px-3 rounded-xl border border-gray-200 text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 bg-white"
               />
             </div>
 
