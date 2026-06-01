@@ -72,6 +72,8 @@ function ColumnaDia({
   onClickCelda,
   onBloquearHorario,
   onResizeCita,
+  onEliminarBloqueo,
+  onEditarBloqueo,
 }: {
   dia: Date
   esHoy: boolean
@@ -82,6 +84,8 @@ function ColumnaDia({
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
   onBloquearHorario: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
+  onEliminarBloqueo?: (id: string) => void
+  onEditarBloqueo?: (bloqueo: BloqueoProfesional) => void
 }) {
   const dispuestas = calcularColumnas(citas)
   const [hoverY, setHoverY] = useState<number | null>(null)
@@ -175,6 +179,8 @@ function ColumnaDia({
             bloqueo={bloqueo}
             topPx={top}
             heightPx={height}
+            onEliminar={onEliminarBloqueo ? () => onEliminarBloqueo(bloqueo.id) : undefined}
+            onEditar={onEditarBloqueo ? () => onEditarBloqueo(bloqueo) : undefined}
           />
         )
       })}
@@ -239,6 +245,8 @@ type Props = {
   onBloquearHorario?: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onVerDia?: (fecha: Date) => void
+  onEliminarBloqueo?: (id: string) => void
+  onEditarBloqueo?: (bloqueo: BloqueoProfesional) => void
 }
 
 export function CalendarioSemana({
@@ -251,6 +259,8 @@ export function CalendarioSemana({
   onBloquearHorario,
   onResizeCita,
   onVerDia,
+  onEliminarBloqueo,
+  onEditarBloqueo,
 }: Props) {
   const hoy = new Date()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -419,6 +429,8 @@ export function CalendarioSemana({
                   onClickCelda={onClickCelda}
                   onBloquearHorario={onBloquearHorario ?? (() => undefined)}
                   onResizeCita={onResizeCita}
+                  onEliminarBloqueo={onEliminarBloqueo}
+                  onEditarBloqueo={onEditarBloqueo}
                 />
               )
             })}

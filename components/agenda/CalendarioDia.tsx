@@ -73,6 +73,7 @@ function ColumnaProfesional({
   onBloquearHorario,
   onResizeCita,
   onEliminarBloqueo,
+  onEditarBloqueo,
   fecha,
   horaInicioLaboral,
   horaFinLaboral,
@@ -85,6 +86,7 @@ function ColumnaProfesional({
   onBloquearHorario: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onEliminarBloqueo?: (id: string) => void
+  onEditarBloqueo?: (bloqueo: BloqueoProfesional) => void
   fecha: Date
   horaInicioLaboral?: number
   horaFinLaboral?: number
@@ -203,6 +205,7 @@ function ColumnaProfesional({
             topPx={top}
             heightPx={height}
             onEliminar={onEliminarBloqueo ? () => onEliminarBloqueo(bloqueo.id) : undefined}
+            onEditar={onEditarBloqueo ? () => onEditarBloqueo(bloqueo) : undefined}
           />
         )
       })}
@@ -243,6 +246,7 @@ type Props = {
   onBloquearHorario?: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onEliminarBloqueo?: (id: string) => void
+  onEditarBloqueo?: (bloqueo: BloqueoProfesional) => void
   horaInicioLaboral?: number
   horaFinLaboral?: number
 }
@@ -258,6 +262,7 @@ export function CalendarioDia({
   onBloquearHorario,
   onResizeCita,
   onEliminarBloqueo,
+  onEditarBloqueo,
   horaInicioLaboral,
   horaFinLaboral,
 }: Props) {
@@ -444,6 +449,7 @@ export function CalendarioDia({
                     onBloquearHorario={onBloquearHorario ?? (() => undefined)}
                     onResizeCita={onResizeCita}
                     onEliminarBloqueo={onEliminarBloqueo}
+                    onEditarBloqueo={onEditarBloqueo}
                     fecha={fecha}
                     horaInicioLaboral={horaInicioLaboral}
                     horaFinLaboral={horaFinLaboral}

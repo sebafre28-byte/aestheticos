@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { format, addDays, addWeeks, addMonths, parseISO } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
-import type { ProfesionalRow } from '@/lib/agenda/queries'
+import type { ProfesionalRow, BloqueoProfesional } from '@/lib/agenda/queries'
 import { getClinicaId, crearBloqueo } from '@/lib/agenda/queries'
 
 // Slots de 15 min de 07:00 a 21:00
@@ -63,37 +63,50 @@ type Props = {
   profesionalId?: string
   horaInicio?: Date
   profesionales: ProfesionalRow[]
+  bloqueoEditar?: BloqueoProfesional
   onGuardado: () => void
   onCerrar: () => void
 }
 
-export function ModalBloqueo({ profesionalId, horaInicio, profesionales, onGuardado, onCerrar }: Props) {
-  const horaInicioDefault = horaInicio
-    ? `${String(horaInicio.getHours()).padStart(2, '0')}:${String(Math.floor(horaInicio.getMinutes() / 15) * 15).padStart(2, '0')}`
-    : '09:00'
+export function ModalBloqueo({ profesionalId, horaInicio, profesionales, bloqueoEditar, onGuardado, onCerrar }: Props) {
+  const modoEdicion = bloqueoEditar != null
 
-  const horaFinDefault = (() => {
-    const base = horaInicio ? new Date(horaInicio) : new Date()
-    base.setHours(base.getHours() + 1)
-    const h = base.getHours()
-    const m = Math.floor(base.getMinutes() / 15) * 15
-    const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-    return TIME_SLOTS.includes(timeStr) ? timeStr : TIME_SLOTS[TIME_SLOTS.length - 1]
-  })()
+  const horaInicioDefault = bloqueoEditar
+    ? bloqueoEditar.inicio.slice(11, 16)
+    : horaInicio
+      ? `${String(horaInicio.getHours()).padStart(2, '0')}:${String(Math.floor(horaInicio.getMinutes() / 15) * 15).padStart(2, '0')}`
+      : '09:00'
 
-  const fechaDefault = horaInicio ? format(horaInicio, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
+  const horaFinDefault = bloqueoEditar
+    ? bloqueoEditar.fin.slice(11, 16)
+    : (() => {
+        const base = horaInicio ? new Date(horaInicio) : new Date()
+        base.setHours(base.getHours() + 1)
+        const h = base.getHours()
+        const m = Math.floor(base.getMinutes() / 15) * 15
+        const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+        return TIME_SLOTS.includes(timeStr) ? timeStr : TIME_SLOTS[TIME_SLOTS.length - 1]
+      })()
 
-  const [titulo, setTitulo] = useState('')
-  const [tipo, setTipo] = useState<TipoBloqueo>('bloqueo')
-  const [profSeleccionado, setProfSeleccionado] = useState<string>(profesionalId ?? '__todos__')
+  const fechaDefault = bloqueoEditar
+    ? bloqueoEditar.inicio.slice(0, 10)
+    : horaInicio ? format(horaInicio, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
+
+  const fechaFinDefault = bloqueoEditar
+    ? bloqueoEditar.fin.slice(0, 10)
+    : fechaDefault
+
+  const [titulo, setTitulo] = useState(bloqueoEditar?.titulo ?? '')
+  const [tipo, setTipo] = useState<TipoBloqueo>((bloqueoEditar?.tipo as TipoBloqueo) ?? 'bloqueo')
+  const [profSeleccionado, setProfSeleccionado] = useState<string>(bloqueoEditar?.profesional_id ?? profesionalId ?? '__todos__')
   const [fechaInicio, setFechaInicio] = useState(fechaDefault)
   const [horaInicioVal, setHoraInicioVal] = useState(horaInicioDefault)
-  const [fechaFin, setFechaFin] = useState(fechaDefault)
+  const [fechaFin, setFechaFin] = useState(fechaFinDefault)
   const [horaFinVal, setHoraFinVal] = useState(horaFinDefault)
   const [repetir, setRepetir] = useState(false)
   const [frecuencia, setFrecuencia] = useState<FrecuenciaRep>('semanal')
   const [hasta, setHasta] = useState('')
-  const [motivo, setMotivo] = useState('')
+  const [motivo, setMotivo] = useState(bloqueoEditar?.motivo ?? '')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -102,15 +115,34 @@ export function ModalBloqueo({ profesionalId, horaInicio, profesionales, onGuard
     setGuardando(true)
     setError(null)
 
+    const profId = profSeleccionado === '__todos__' ? null : profSeleccionado
+
+    if (modoEdicion && bloqueoEditar) {
+      const supabase = createClient()
+      const { error: updErr } = await supabase
+        .from('agenda_bloqueos')
+        .update({
+          titulo: titulo.trim(),
+          tipo,
+          profesional_id: profId,
+          inicio: `${fechaInicio}T${horaInicioVal}:00`,
+          fin: `${fechaFin}T${horaFinVal}:00`,
+          motivo: motivo.trim() || null,
+        })
+        .eq('id', bloqueoEditar.id)
+      if (updErr) { setError('Error al actualizar el bloqueo'); setGuardando(false); return }
+      setGuardando(false)
+      onGuardado()
+      return
+    }
+
     const clinicaId = await getClinicaId()
     if (!clinicaId) { setError('No se pudo obtener la clínica'); setGuardando(false); return }
-
-    const profId = profSeleccionado === '__todos__' ? undefined : profSeleccionado
 
     if (!repetir) {
       const ok = await crearBloqueo({
         clinica_id: clinicaId,
-        profesional_id: profId,
+        profesional_id: profId ?? undefined,
         titulo: titulo.trim(),
         tipo,
         inicio: `${fechaInicio}T${horaInicioVal}:00`,
@@ -167,7 +199,7 @@ export function ModalBloqueo({ profesionalId, horaInicio, profesionales, onGuard
       <div className="relative bg-white rounded-2xl border border-gray-200 shadow-xl w-full max-w-md mx-4 flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-[15px] font-semibold text-gray-900">Bloquear horario</h2>
+          <h2 className="text-[15px] font-semibold text-gray-900">{modoEdicion ? 'Editar bloqueo' : 'Bloquear horario'}</h2>
           <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X className="size-4" />
           </button>
@@ -320,7 +352,7 @@ export function ModalBloqueo({ profesionalId, horaInicio, profesionales, onGuard
             className="h-9 px-4 rounded-lg text-[13px] font-medium text-white transition-colors disabled:opacity-60"
             style={{ backgroundColor: tipoConf.color }}
           >
-            {guardando ? 'Guardando...' : 'Bloquear'}
+            {guardando ? 'Guardando...' : modoEdicion ? 'Guardar cambios' : 'Bloquear'}
           </button>
         </div>
       </div>
