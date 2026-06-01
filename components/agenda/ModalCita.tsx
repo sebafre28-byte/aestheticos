@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, addDays, addWeeks, addMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { X, Search, Plus, AlertTriangle, Loader2, User, Clock, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -678,19 +678,39 @@ export function ModalCita({
               ))}
             </div>
             {recurrenceKind !== 'none' && !esEdicion && (
-              <div className="flex items-center gap-2 pt-1">
-                <span className="text-[12px] text-gray-500">Repetir</span>
-                <input
-                  type="number"
-                  min={2}
-                  max={52}
-                  value={recurrenceCount}
-                  onChange={(e) => setRecurrenceCount(Math.max(2, Math.min(52, parseInt(e.target.value) || 2)))}
-                  className="w-16 h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 text-center focus:outline-none focus:ring-1 focus:ring-blue-400/50"
-                />
-                <span className="text-[12px] text-gray-500">
-                  veces en total ({recurrenceKind === 'daily' ? 'días' : recurrenceKind === 'weekly' ? 'semanas' : 'meses'})
-                </span>
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-gray-500">Repetir</span>
+                  <input
+                    type="number"
+                    min={2}
+                    max={52}
+                    value={recurrenceCount}
+                    onChange={(e) => setRecurrenceCount(Math.max(2, Math.min(52, parseInt(e.target.value) || 2)))}
+                    className="w-16 h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 text-center focus:outline-none focus:ring-1 focus:ring-blue-400/50"
+                  />
+                  <span className="text-[12px] text-gray-500">
+                    {recurrenceKind === 'daily' ? 'días seguidos' : recurrenceKind === 'weekly' ? 'semanas' : 'meses'}
+                  </span>
+                </div>
+                {fecha && hora && (
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-3 py-2.5">
+                    <p className="text-[11px] font-semibold text-blue-600 mb-1.5 uppercase tracking-wide">
+                      Se agendarán {recurrenceCount} sesiones a las {hora}:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {Array.from({ length: recurrenceCount }, (_, i) => {
+                        const base = parseISO(`${fecha}T12:00:00`)
+                        const d = recurrenceKind === 'daily' ? addDays(base, i) : recurrenceKind === 'weekly' ? addWeeks(base, i) : addMonths(base, i)
+                        return (
+                          <span key={i} className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${i === 0 ? 'bg-[#2563EB] text-white' : 'bg-white border border-blue-200 text-blue-700'}`}>
+                            {format(d, "d MMM", { locale: es })}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
