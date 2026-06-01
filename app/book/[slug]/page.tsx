@@ -197,23 +197,25 @@ function PasoServicio({ servicios, onSelect }: { servicios: Servicio[]; onSelect
             <button
               key={s.id}
               onClick={() => onSelect(s)}
-              className="w-full text-left p-4 rounded-xl border border-gray-200 hover:border-[#2563EB] hover:bg-blue-50/30 transition-all group"
+              className="w-full text-left rounded-xl border border-gray-200 hover:border-[#2563EB] hover:bg-blue-50/30 transition-all group overflow-hidden"
             >
-              <div className="flex items-start gap-3">
-                <div className="w-3 h-3 rounded-full mt-1 shrink-0" style={{ backgroundColor: s.color || '#2563EB' }} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[#0B132B] text-[15px] group-hover:text-[#2563EB] transition-colors">{s.nombre}</p>
-                  {s.descripcion && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{s.descripcion}</p>}
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="flex items-center gap-1 text-xs text-gray-500">
-                      <Clock className="w-3 h-3" /> {s.duracion_minutos} min
-                    </span>
-                    <span className="flex items-center gap-1 text-xs font-medium text-[#14B8A6]">
-                      <DollarSign className="w-3 h-3" /> {formatPrecio(s.precio)}
-                    </span>
+              <div className="flex items-stretch">
+                <div className="w-1 shrink-0 rounded-l-xl" style={{ backgroundColor: s.color || '#2563EB' }} />
+                <div className="flex items-start gap-3 p-4 flex-1 min-w-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-[#0B132B] text-[15px] group-hover:text-[#2563EB] transition-colors">{s.nombre}</p>
+                    {s.descripcion && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{s.descripcion}</p>}
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <Clock className="w-3 h-3" /> {s.duracion_minutos} min
+                      </span>
+                      <span className="flex items-center gap-1 text-xs font-medium text-[#14B8A6]">
+                        <DollarSign className="w-3 h-3" /> {formatPrecio(s.precio)}
+                      </span>
+                    </div>
                   </div>
+                  <ChevronLeft className="w-4 h-4 text-gray-300 group-hover:text-[#2563EB] rotate-180 shrink-0 mt-1" />
                 </div>
-                <ChevronLeft className="w-4 h-4 text-gray-300 group-hover:text-[#2563EB] rotate-180 shrink-0 mt-1" />
               </div>
             </button>
           ))}
@@ -243,18 +245,38 @@ function PasoProfesionalFecha({
   tz?: string
 }) {
   const today = toLocalDate(new Date(), tz)
-  const dias: Date[] = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(today)
-    d.setDate(today.getDate() + i)
+
+  // Build 28-day calendar starting from the Monday on or before today
+  const startDow = today.getDay() // 0=sun
+  const daysFromMonday = startDow === 0 ? 6 : startDow - 1
+  const calStart = new Date(today)
+  calStart.setDate(today.getDate() - daysFromMonday)
+
+  const calDays: Date[] = Array.from({ length: 28 }, (_, i) => {
+    const d = new Date(calStart)
+    d.setDate(calStart.getDate() + i)
     return d
   })
 
+  // Group by weeks (rows of 7)
+  const weeks: Date[][] = []
+  for (let i = 0; i < 28; i += 7) {
+    weeks.push(calDays.slice(i, i + 7))
+  }
+
+  // Determine month label shown in header
+  const monthSet = new Set(calDays.map(d => `${MESES_ES[d.getMonth()]} ${d.getFullYear()}`))
+  const monthLabel = Array.from(monthSet).slice(0, 2).join(' / ')
+
   function isDiaActivo(d: Date): boolean {
+    if (d < today) return false
     if (!horarios) return true
     const nombreDia = DIAS_ES[d.getDay()]
     const h = horarios[nombreDia]
     return h?.activo !== false
   }
+
+  const DOW_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
   return (
     <div>
@@ -296,37 +318,50 @@ function PasoProfesionalFecha({
         </div>
       )}
 
-      <p className="text-xs font-medium text-gray-700 mb-2 uppercase tracking-wide">Fecha</p>
-      <div className="grid grid-cols-4 gap-2">
-        {dias.map((d) => {
-          const activo = isDiaActivo(d)
-          const seleccionado = fechaSeleccionada && formatDateISO(d) === formatDateISO(fechaSeleccionada)
-          return (
-            <button
-              key={d.toISOString()}
-              disabled={!activo}
-              onClick={() => onFecha(d)}
-              className={`flex flex-col items-center p-2.5 rounded-xl border text-center transition-all ${
-                !activo
-                  ? 'border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed'
-                  : seleccionado
-                  ? 'border-[#2563EB] bg-[#2563EB] text-white'
-                  : 'border-gray-200 hover:border-[#2563EB] hover:bg-blue-50/30'
-              }`}
-            >
-              <span className={`text-[10px] uppercase font-medium ${seleccionado ? 'text-blue-100' : 'text-gray-400'}`}>
-                {DIAS_ES[d.getDay()].slice(0, 3)}
-              </span>
-              <span className={`text-lg font-bold leading-tight ${seleccionado ? 'text-white' : 'text-[#0B132B]'}`}>
-                {d.getDate()}
-              </span>
-              <span className={`text-[10px] ${seleccionado ? 'text-blue-100' : 'text-gray-400'}`}>
-                {MESES_ES[d.getMonth()].slice(0, 3)}
-              </span>
-            </button>
-          )
-        })}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Fecha</p>
+        <p className="text-xs text-gray-500 capitalize">{monthLabel}</p>
       </div>
+
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {DOW_LABELS.map((label) => (
+          <div key={label} className="text-center text-[10px] font-medium text-gray-400 pb-1">
+            {label}
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar rows */}
+      {weeks.map((week, wi) => (
+        <div key={wi} className="grid grid-cols-7 gap-1 mb-1">
+          {week.map((d) => {
+            const activo = isDiaActivo(d)
+            const esHoy = formatDateISO(d) === formatDateISO(today)
+            const seleccionado = fechaSeleccionada && formatDateISO(d) === formatDateISO(fechaSeleccionada)
+            const esPasado = d < today
+
+            return (
+              <button
+                key={d.toISOString()}
+                disabled={!activo}
+                onClick={() => onFecha(d)}
+                className={`w-full aspect-square flex items-center justify-center rounded-xl text-[13px] font-semibold transition-all ${
+                  esPasado || !activo
+                    ? 'text-gray-200 cursor-not-allowed'
+                    : seleccionado
+                    ? 'bg-[#2563EB] text-white'
+                    : esHoy
+                    ? 'border border-blue-300 text-[#0B132B] hover:bg-blue-50'
+                    : 'bg-white text-gray-700 hover:bg-blue-50 hover:text-[#2563EB] border border-transparent'
+                }`}
+              >
+                {d.getDate()}
+              </button>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }
