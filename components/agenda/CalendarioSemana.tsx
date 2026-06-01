@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
+import { Calendar, Ban } from 'lucide-react'
 import { citaWallClockDate, citaWallClockMinutes } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones } from '@/lib/agenda/queries'
 import { BloqueCita, PIXEL_POR_MIN, HORA_GRILLA_INICIO } from './BloquesCita'
@@ -44,6 +45,13 @@ const MAX_COLS_SEMANA = 3
 
 // ─── Columna de un día en la vista semana ────────────────────────────────────
 
+type MenuContextualSemana = {
+  x: number
+  y: number
+  hora: Date
+  profesionalId: string | undefined
+}
+
 function ColumnaDia({
   dia,
   esHoy,
@@ -51,6 +59,7 @@ function ColumnaDia({
   profesionalesFiltrados,
   onClickCita,
   onClickCelda,
+  onBloquearHorario,
   onResizeCita,
 }: {
   dia: Date
@@ -59,24 +68,31 @@ function ColumnaDia({
   profesionalesFiltrados: string[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
+  onBloquearHorario: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
 }) {
   const dispuestas = calcularColumnas(citas)
   const [hoverY, setHoverY] = useState<number | null>(null)
   const [sobreFondo, setSobreFondo] = useState(false)
+  const [menu, setMenu] = useState<MenuContextualSemana | null>(null)
 
-  function handleClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target !== e.currentTarget) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const y = e.clientY - rect.top
+  function horaDesdeY(y: number): Date {
     const minutos = Math.floor(y / PIXEL_POR_MIN)
     const minutosRedondeados = Math.floor(minutos / 15) * 15
     const hora = new Date(dia)
     hora.setHours(HORA_GRILLA_INICIO + Math.floor(minutosRedondeados / 60))
     hora.setMinutes(minutosRedondeados % 60)
     hora.setSeconds(0)
+    return hora
+  }
+
+  function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target !== e.currentTarget) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const y = e.clientY - rect.top
+    const hora = horaDesdeY(y)
     const profId = profesionalesFiltrados.length === 1 ? profesionalesFiltrados[0] : undefined
-    onClickCelda(profId, hora)
+    setMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, hora, profesionalId: profId })
   }
 
   return (
@@ -91,6 +107,32 @@ function ColumnaDia({
       }}
       onMouseLeave={() => { setHoverY(null); setSobreFondo(false) }}
     >
+      {/* Menú contextual */}
+      {menu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
+          <div
+            className="absolute z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden"
+            style={{ top: menu.y, left: menu.x, maxWidth: 180, minWidth: 160 }}
+          >
+            <button
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors text-left"
+              onClick={() => { setMenu(null); onClickCelda(menu.profesionalId, menu.hora) }}
+            >
+              <Calendar className="size-3.5 text-[#2563EB] shrink-0" />
+              Nueva cita
+            </button>
+            <button
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors text-left"
+              onClick={() => { setMenu(null); onBloquearHorario(menu.profesionalId, menu.hora) }}
+            >
+              <Ban className="size-3.5 text-gray-400 shrink-0" />
+              Bloquear horario
+            </button>
+          </div>
+        </>
+      )}
+
       {/* Highlight de cuarto de hora al hover sobre fondo */}
       {sobreFondo && hoverY !== null && (
         <div
@@ -167,6 +209,7 @@ type Props = {
   citas: CitaConRelaciones[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
+  onBloquearHorario?: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onVerDia?: (fecha: Date) => void
 }
@@ -177,6 +220,7 @@ export function CalendarioSemana({
   citas,
   onClickCita,
   onClickCelda,
+  onBloquearHorario,
   onResizeCita,
   onVerDia,
 }: Props) {
@@ -333,6 +377,7 @@ export function CalendarioSemana({
                   profesionalesFiltrados={profesionalesFiltrados}
                   onClickCita={onClickCita}
                   onClickCelda={onClickCelda}
+                  onBloquearHorario={onBloquearHorario ?? (() => undefined)}
                   onResizeCita={onResizeCita}
                 />
               )

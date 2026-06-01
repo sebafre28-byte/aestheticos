@@ -354,11 +354,19 @@ function PasoHora({
     setCargando(true)
     const supabase = createClient()
     const fechaISO = formatDateISO(fecha)
-    const { data } = await supabase.rpc('get_slots_ocupados', {
-      p_clinica_id: clinicaId,
-      p_fecha: fechaISO,
-      p_profesional_id: profesionalId,
-    })
+    const [{ data }, { data: bloqueosData }] = await Promise.all([
+      supabase.rpc('get_slots_ocupados', {
+        p_clinica_id: clinicaId,
+        p_fecha: fechaISO,
+        p_profesional_id: profesionalId,
+      }),
+      supabase
+        .from('agenda_bloqueos')
+        .select('inicio, fin, profesional_id')
+        .eq('clinica_id', clinicaId)
+        .gte('inicio', `${fechaISO}T00:00:00`)
+        .lte('fin', `${fechaISO}T23:59:59`),
+    ])
     const ocupados: SlotOcupado[] = Array.isArray(data) ? data : []
 
     const nombreDia = DIAS_ES[fecha.getDay()]
@@ -369,7 +377,25 @@ function PasoHora({
       return
     }
 
-    const disponibles = buildSlotsDisponibles(horarioDia, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
+    const bloqueos: Array<{ inicio: string; fin: string; profesional_id: string | null }> = Array.isArray(bloqueosData) ? bloqueosData : []
+
+    let disponibles = buildSlotsDisponibles(horarioDia, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
+
+    // Filtrar slots que se solapan con bloqueos (para todos los profesionales o el específico)
+    if (bloqueos.length > 0) {
+      const duracionMs = servicio.duracion_minutos * 60 * 1000
+      disponibles = disponibles.filter((slot) => {
+        const slotInicioMs = slot.getTime()
+        const slotFinMs = slotInicioMs + duracionMs
+        return !bloqueos.some((b) => {
+          if (b.profesional_id !== null && b.profesional_id !== profesionalId) return false
+          const bInicioMs = new Date(b.inicio).getTime()
+          const bFinMs = new Date(b.fin).getTime()
+          return slotInicioMs < bFinMs && slotFinMs > bInicioMs
+        })
+      })
+    }
+
     setSlots(disponibles)
     setCargando(false)
   }, [fecha, clinicaId, profesionalId, horarios, servicio.duracion_minutos])

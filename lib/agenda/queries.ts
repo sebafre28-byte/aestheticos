@@ -841,32 +841,42 @@ export type BloqueoProfesional = {
 export async function getBloqueos(fecha: string): Promise<BloqueoProfesional[]> {
   const supabase = createClient()
   const { data } = await supabase
-    .from('bloqueos')
+    .from('agenda_bloqueos')
     .select('id, profesional_id, inicio, fin, titulo')
     .gte('inicio', `${fecha}T00:00:00`)
     .lt('inicio', `${fecha}T23:59:59`)
   return (data ?? []) as BloqueoProfesional[]
 }
 
-export async function crearBloqueo(input: {
-  profesional_id: string
-  inicio: string
-  fin: string
-  titulo?: string
+export async function crearBloqueo(data: {
+  clinica_id: string
+  profesional_id?: string
+  titulo: string
+  tipo: 'bloqueo' | 'vacaciones' | 'feriado' | 'almuerzo' | 'capacitacion'
+  inicio: string  // ISO wall-clock
+  fin: string     // ISO wall-clock
+  motivo?: string
 }): Promise<boolean> {
   const supabase = createClient()
-  const { data: clinicaId } = await supabase.rpc('auth_clinica_id')
-  const { error } = await supabase.from('bloqueos').insert({
-    clinica_id: clinicaId,
-    ...input,
-    titulo: input.titulo ?? 'No disponible',
+  const { error } = await supabase.from('agenda_bloqueos').insert({
+    clinica_id: data.clinica_id,
+    profesional_id: data.profesional_id ?? null,
+    titulo: data.titulo,
+    tipo: data.tipo,
+    inicio: data.inicio,
+    fin: data.fin,
+    motivo: data.motivo ?? null,
   })
-  return !error
+  if (error) {
+    console.error('Error crearBloqueo:', error)
+    return false
+  }
+  return true
 }
 
 export async function eliminarBloqueo(id: string): Promise<boolean> {
   const supabase = createClient()
-  const { error } = await supabase.from('bloqueos').delete().eq('id', id)
+  const { error } = await supabase.from('agenda_bloqueos').delete().eq('id', id)
   return !error
 }
 

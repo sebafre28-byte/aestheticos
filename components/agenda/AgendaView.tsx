@@ -26,6 +26,7 @@ import type { HorariosConfig } from '@/lib/onboarding/queries'
 import { CalendarioDia } from './CalendarioDia'
 import { CalendarioSemana } from './CalendarioSemana'
 import { ModalCita } from './ModalCita'
+import { ModalBloqueo } from './ModalBloqueo'
 import { PanelDetalleCita } from './PanelDetalleCita'
 import { ListaPendientes } from './ListaPendientes'
 import { CalendarioMes } from './CalendarioMes'
@@ -75,6 +76,11 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
   const [citaDetalle, setCitaDetalle] = useState<CitaConRelaciones | null>(null)
   const [busqueda, setBusqueda] = useState('')
+
+  // ─── Estado del modal de bloqueo ──────────────────────────────────────────
+  const [modalBloqueoAbierto, setModalBloqueoAbierto] = useState(false)
+  const [bloqueoHoraInicial, setBloqueoHoraInicial] = useState<Date | undefined>()
+  const [bloqueoProfeIdInicial, setBloqueoProfeIdInicial] = useState<string | undefined>()
 
   // ─── Cargar datos ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -335,6 +341,14 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
   function handleCitaConfirmada(citaId: string) {
     handleEstadoActualizado(citaId, 'confirmada')
+  }
+
+  // ─── Abrir modal de bloqueo ───────────────────────────────────────────────
+  function handleBloquearHorario(profesionalId: string | undefined, hora: Date) {
+    if (isVistaProfe) return
+    setBloqueoProfeIdInicial(profesionalId)
+    setBloqueoHoraInicial(hora)
+    setModalBloqueoAbierto(true)
   }
 
   // ─── Eliminar bloqueo ─────────────────────────────────────────────────────
@@ -680,6 +694,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             }
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
+            onBloquearHorario={handleBloquearHorario}
             onResizeCita={redimensionarCita}
             onEliminarBloqueo={handleEliminarBloqueo}
             horaInicioLaboral={horaInicioLaboral}
@@ -706,6 +721,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             citas={citasFiltradas}
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
+            onBloquearHorario={handleBloquearHorario}
             onResizeCita={redimensionarCita}
             onVerDia={handleVerDia}
           />
@@ -816,6 +832,20 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
           servicios={servicios}
           onGuardada={handleCitaGuardada}
           onCerrar={() => { setModalAbierto(false); setCitaParaEditar(null) }}
+        />
+      )}
+
+      {/* ── Modal bloqueo de horario ── */}
+      {modalBloqueoAbierto && (
+        <ModalBloqueo
+          profesionalId={bloqueoProfeIdInicial}
+          horaInicio={bloqueoHoraInicial}
+          profesionales={profesionales}
+          onGuardado={() => {
+            setModalBloqueoAbierto(false)
+            cargarCitas()
+          }}
+          onCerrar={() => setModalBloqueoAbierto(false)}
         />
       )}
 
