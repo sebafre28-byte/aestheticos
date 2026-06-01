@@ -90,10 +90,25 @@ export async function actualizarClinicaBasica(input: {
   logo_url?: string
   horarios?: HorariosConfig
 }): Promise<ClinicaBasica | null> {
-  const clinicaId = await getClinicaId()
-  if (!clinicaId) return null
-
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  let clinicaId = await getClinicaId()
+
+  // Si no existe la clínica (trigger falló), crearla ahora
+  if (!clinicaId) {
+    const { data: nueva, error: insertError } = await supabase
+      .from('clinicas')
+      .insert({ owner_id: user.id, nombre: input.nombre?.trim() ?? 'Mi Clínica', email: user.email })
+      .select('id')
+      .single()
+    if (insertError || !nueva) {
+      console.error('actualizarClinicaBasica create:', insertError)
+      return null
+    }
+    clinicaId = nueva.id
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updates: Record<string, any> = {}
