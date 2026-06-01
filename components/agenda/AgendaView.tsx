@@ -720,6 +720,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
                 : profsFiltrados
             }
             citas={citasFiltradas}
+            bloqueos={bloqueos}
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
             onBloquearHorario={handleBloquearHorario}

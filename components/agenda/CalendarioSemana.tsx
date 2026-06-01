@@ -4,8 +4,9 @@ import React, { useEffect, useRef, useState } from 'react'
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
 import { Calendar, Ban } from 'lucide-react'
 import { citaWallClockDate, citaWallClockMinutes } from '@/lib/agenda/datetime'
-import type { CitaConRelaciones } from '@/lib/agenda/queries'
+import type { CitaConRelaciones, BloqueoProfesional } from '@/lib/agenda/queries'
 import { BloqueCita, PIXEL_POR_MIN, HORA_GRILLA_INICIO } from './BloquesCita'
+import { BloqueHorario } from './BloqueHorario'
 
 const HORA_FIN = 20
 const HORAS_TOTALES = HORA_FIN - HORA_GRILLA_INICIO   // 12 horas
@@ -52,10 +53,20 @@ type MenuContextualSemana = {
   profesionalId: string | undefined
 }
 
+function calcularPosicion(inicio: string, fin: string) {
+  const minI = citaWallClockMinutes(inicio)
+  const minF = citaWallClockMinutes(fin)
+  return {
+    top: Math.max(0, (minI - HORA_GRILLA_INICIO * 60) * PIXEL_POR_MIN),
+    height: Math.max(20, (minF - minI) * PIXEL_POR_MIN),
+  }
+}
+
 function ColumnaDia({
   dia,
   esHoy,
   citas,
+  bloqueos,
   profesionalesFiltrados,
   onClickCita,
   onClickCelda,
@@ -65,6 +76,7 @@ function ColumnaDia({
   dia: Date
   esHoy: boolean
   citas: CitaConRelaciones[]
+  bloqueos: BloqueoProfesional[]
   profesionalesFiltrados: string[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
@@ -154,6 +166,19 @@ function ColumnaDia({
         </div>
       )}
 
+      {/* Bloqueos de horario */}
+      {bloqueos.map((bloqueo) => {
+        const { top, height } = calcularPosicion(bloqueo.inicio, bloqueo.fin)
+        return (
+          <BloqueHorario
+            key={bloqueo.id}
+            titulo={bloqueo.titulo}
+            topPx={top}
+            heightPx={height}
+          />
+        )
+      })}
+
       {/* Citas posicionadas absolutamente — máximo 3 columnas visibles */}
       {dispuestas
         .filter(({ col }) => col < MAX_COLS_SEMANA)
@@ -208,6 +233,7 @@ type Props = {
   fechaBase: Date
   profesionalesFiltrados: string[]
   citas: CitaConRelaciones[]
+  bloqueos?: BloqueoProfesional[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
   onBloquearHorario?: (profesionalId: string | undefined, hora: Date) => void
@@ -219,6 +245,7 @@ export function CalendarioSemana({
   fechaBase,
   profesionalesFiltrados,
   citas,
+  bloqueos = [],
   onClickCita,
   onClickCelda,
   onBloquearHorario,
@@ -379,12 +406,14 @@ export function CalendarioSemana({
             {diasFecha.map((dia, i) => {
               const diaStr = format(dia, 'yyyy-MM-dd')
               const citasDia = citasFiltradas.filter((c) => citaWallClockDate(c.inicio) === diaStr)
+              const bloqueosDia = bloqueos.filter((b) => citaWallClockDate(b.inicio) === diaStr)
               return (
                 <ColumnaDia
                   key={i}
                   dia={dia}
                   esHoy={isSameDay(dia, hoy)}
                   citas={citasDia}
+                  bloqueos={bloqueosDia}
                   profesionalesFiltrados={profesionalesFiltrados}
                   onClickCita={onClickCita}
                   onClickCelda={onClickCelda}
