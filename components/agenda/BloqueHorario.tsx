@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Lock, Pencil, Trash2, X } from 'lucide-react'
 import { citaWallClockTime } from '@/lib/agenda/datetime'
 import type { BloqueoProfesional } from '@/lib/agenda/queries'
@@ -22,6 +23,8 @@ type Props = {
 
 export function BloqueHorario({ bloqueo, topPx, heightPx, onEliminar, onEditar }: Props) {
   const [open, setOpen] = useState(false)
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number; openUp: boolean } | null>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -35,32 +38,33 @@ export function BloqueHorario({ bloqueo, topPx, heightPx, onEliminar, onEditar }
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
+  function handleClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const popoverH = 220
+    const spaceBelow = window.innerHeight - rect.bottom
+    const openUp = spaceBelow < popoverH + 16
+    setPopoverPos({
+      top: openUp ? rect.top - popoverH - 4 : rect.bottom + 4,
+      left: Math.min(rect.left, window.innerWidth - 272),
+      openUp,
+    })
+    setOpen(true)
+  }
+
   const alturaReal = Math.max(heightPx, 20)
   const horaInicio = citaWallClockTime(bloqueo.inicio)
   const horaFin = citaWallClockTime(bloqueo.fin)
   const profesionalNombre = bloqueo.profesionales?.nombre ?? null
   const tipoLabel = TIPO_LABEL[bloqueo.tipo ?? ''] ?? 'Bloqueo'
 
-  return (
-    <div
-      className="absolute left-0 right-0 z-10 cursor-pointer group"
-      style={{
-        top: topPx,
-        height: alturaReal,
-        background: 'repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 4px, #e5e7eb 4px, #e5e7eb 8px)',
-        borderLeft: '3px solid #9ca3af',
-      }}
-      onClick={(e) => { e.stopPropagation(); setOpen(true) }}
-    >
-      <div className="flex items-center gap-1.5 min-w-0 px-2 h-full">
-        <Lock className="size-3 text-gray-400 shrink-0" />
-        <span className="text-[11px] font-medium text-gray-500 truncate">{bloqueo.titulo}</span>
-      </div>
-
-      {open && (
+  const popover = open && popoverPos && typeof document !== 'undefined'
+    ? createPortal(
         <div
           ref={popoverRef}
-          className="absolute left-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-gray-100 w-64"
+          className="fixed z-[9999] bg-white rounded-xl shadow-xl border border-gray-100 w-64"
+          style={{ top: popoverPos.top, left: popoverPos.left }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
@@ -82,18 +86,13 @@ export function BloqueHorario({ bloqueo, topPx, heightPx, onEliminar, onEditar }
               <span className="text-[11px] text-gray-500">Horario</span>
               <span className="text-[12px] font-medium text-gray-700">{horaInicio} – {horaFin}</span>
             </div>
-            {profesionalNombre && (
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-gray-500">Profesional</span>
-                <span className="text-[12px] font-medium text-gray-700">{profesionalNombre}</span>
-              </div>
-            )}
-            {!profesionalNombre && (
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-gray-500">Profesional</span>
-                <span className="text-[12px] text-gray-400 italic">Todos</span>
-              </div>
-            )}
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-gray-500">Profesional</span>
+              {profesionalNombre
+                ? <span className="text-[12px] font-medium text-gray-700">{profesionalNombre}</span>
+                : <span className="text-[12px] text-gray-400 italic">Todos</span>
+              }
+            </div>
             {bloqueo.motivo && (
               <div className="flex flex-col gap-0.5">
                 <span className="text-[11px] text-gray-500">Motivo</span>
@@ -122,8 +121,30 @@ export function BloqueHorario({ bloqueo, topPx, heightPx, onEliminar, onEditar }
               )}
             </div>
           )}
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+    : null
+
+  return (
+    <>
+    <div
+      ref={triggerRef}
+      className="absolute left-0 right-0 z-10 cursor-pointer group"
+      style={{
+        top: topPx,
+        height: alturaReal,
+        background: 'repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 4px, #e5e7eb 4px, #e5e7eb 8px)',
+        borderLeft: '3px solid #9ca3af',
+      }}
+      onClick={handleClick}
+    >
+      <div className="flex items-center gap-1.5 min-w-0 px-2 h-full">
+        <Lock className="size-3 text-gray-400 shrink-0" />
+        <span className="text-[11px] font-medium text-gray-500 truncate">{bloqueo.titulo}</span>
+      </div>
     </div>
+    {popover}
+    </>
   )
 }
