@@ -48,6 +48,8 @@ SET search_path = public
 AS $$
 DECLARE v_slots json;
 BEGIN
+  -- El sistema almacena wall-clock como UTC en columnas timestamptz.
+  -- DATE(inicio AT TIME ZONE 'UTC') recupera la fecha wall-clock original.
   SELECT json_agg(json_build_object(
     'inicio', inicio,
     'fin', fin,
@@ -57,7 +59,7 @@ BEGIN
   INTO v_slots
   FROM citas
   WHERE clinica_id = p_clinica_id
-    AND DATE(inicio AT TIME ZONE 'America/Santiago') = p_fecha
+    AND (inicio AT TIME ZONE 'UTC')::date = p_fecha
     AND estado NOT IN ('cancelada', 'no_asistio')
     AND (p_profesional_id IS NULL OR profesional_id = p_profesional_id);
   RETURN COALESCE(v_slots, '[]'::json);

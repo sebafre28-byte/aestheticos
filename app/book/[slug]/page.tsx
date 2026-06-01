@@ -125,13 +125,13 @@ function buildSlotsDisponibles(
     const fm = slotFinMin % 60
     const slotFinStr = `${fechaStr}T${String(fh).padStart(2, '0')}:${String(fm).padStart(2, '0')}:00`
 
-    // For overlap comparison, compare as wall-clock strings (lexicographic is safe for same-day)
+    // Slots ocupados usan wall-clock almacenado como UTC en timestamptz.
+    // toISOString() recupera el componente UTC que ES el wall-clock original.
     const ocupado = slotsOcupados.some((s) => {
       if (s.profesional_id !== profesionalId) return false
-      // Normalize occupied slot to wall-clock for comparison, extending fin by buffer_minutos
-      const oInicioWall = toWallClockIso(new Date(s.inicio), tz)
+      const oInicioWall = new Date(s.inicio).toISOString().slice(0, 19)
       const bufferMs = (s.buffer_minutos ?? 0) * 60_000
-      const oFinWall = toWallClockIso(new Date(new Date(s.fin).getTime() + bufferMs), tz)
+      const oFinWall = new Date(new Date(s.fin).getTime() + bufferMs).toISOString().slice(0, 19)
       return slotInicioStr < oFinWall && slotFinStr > oInicioWall
     })
 
@@ -810,37 +810,49 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFF' }}>
-      {/* Navbar */}
-      <nav className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)' }}>
-          {clinica.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={clinica.logo_url} alt={clinica.nombre} className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-white text-sm font-bold">{clinica.nombre[0]?.toUpperCase()}</span>
-          )}
+      {/* Hero header */}
+      <header style={{ background: 'linear-gradient(135deg, #0B132B 0%, #1e3a8a 100%)' }}>
+        <div className="max-w-lg mx-auto px-4 py-8 flex flex-col items-center text-center">
+          {/* Logo */}
+          <div className="w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden mb-4 shadow-lg"
+            style={{ background: 'rgba(255,255,255,0.12)', border: '2px solid rgba(255,255,255,0.2)' }}>
+            {clinica.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={clinica.logo_url} alt={clinica.nombre} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-white text-3xl font-bold">{clinica.nombre[0]?.toUpperCase()}</span>
+            )}
+          </div>
+          {/* Nombre */}
+          <h1 className="text-2xl font-bold text-white mb-1">{clinica.nombre}</h1>
+          <p className="text-sm font-medium mb-4" style={{ color: '#93C5FD' }}>Reserva tu hora en línea</p>
+          {/* Datos de contacto */}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {clinica.direccion && (
+              <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                <span>{clinica.direccion}</span>
+              </div>
+            )}
+            {clinica.telefono && (
+              <a href={`tel:${clinica.telefono}`}
+                className="flex items-center gap-1.5 text-xs transition-colors hover:text-white"
+                style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <Phone className="w-3.5 h-3.5 shrink-0" />
+                <span>{clinica.telefono}</span>
+              </a>
+            )}
+            {clinica.email && (
+              <a href={`mailto:${clinica.email}`}
+                className="flex items-center gap-1.5 text-xs transition-colors hover:text-white"
+                style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <Mail className="w-3.5 h-3.5 shrink-0" />
+                <span>{clinica.email}</span>
+              </a>
+            )}
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-[#0B132B] truncate">{clinica.nombre}</p>
-          {clinica.direccion && (
-            <p className="text-xs text-gray-400 flex items-center gap-0.5 truncate">
-              <MapPin className="w-2.5 h-2.5 shrink-0" /> {clinica.direccion}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {clinica.telefono && (
-            <a href={`tel:${clinica.telefono}`} className="text-gray-400 hover:text-[#2563EB] transition-colors">
-              <Phone className="w-4 h-4" />
-            </a>
-          )}
-          {clinica.email && (
-            <a href={`mailto:${clinica.email}`} className="text-gray-400 hover:text-[#2563EB] transition-colors">
-              <Mail className="w-4 h-4" />
-            </a>
-          )}
-        </div>
-      </nav>
+      </header>
 
       {/* Content */}
       <div className="max-w-lg mx-auto px-4 py-6">
