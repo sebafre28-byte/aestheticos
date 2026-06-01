@@ -96,8 +96,8 @@ export async function createCustomerPortalSession(
 function verifyStripeSignature(body: string, signature: string): boolean {
   const secret = process.env.STRIPE_WEBHOOK_SECRET
   if (!secret) {
-    console.warn('[stripe/webhook] STRIPE_WEBHOOK_SECRET no configurado, saltando verificación')
-    return true
+    console.error('[stripe/webhook] STRIPE_WEBHOOK_SECRET no configurado')
+    return false
   }
 
   // Stripe signature format: t=timestamp,v1=hash,...

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, addDays, addWeeks, addMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { X, Search, Plus, AlertTriangle, Loader2, User, Clock, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,9 +19,10 @@ import {
   modalWallClockToIso,
 } from '@/lib/agenda/datetime'
 import {
-  getPacientesBusqueda, crearPacienteRapido, crearCita, editarCita,
+  getPacientesBusqueda, crearPacienteRapido, crearCita, crearCitasRecurrentes, editarCita,
   verificarConflicto, getClinicaId, getCitasDelDia, getDisponibilidadProfesional, getBloqueosRango, crearRecordatorioCita,
 } from '@/lib/agenda/queries'
+import { getClinicaConfig, type HorariosConfig } from '@/lib/onboarding/queries'
 import { useDialogA11y } from './useDialogA11y'
 
 // Slots de 08:00 a 19:45 en intervalos de 15 min
@@ -59,16 +60,6 @@ export function ModalCita({
   onGuardada,
   onCerrar,
 }: Props) {
-  function inferirCategoriaServicio(servicio: ServicioRow): string {
-    const texto = `${servicio.nombre} ${servicio.descripcion ?? ''}`.toLowerCase()
-    if (texto.includes('laser')) return 'Láser'
-    if (texto.includes('toxina') || texto.includes('botox') || texto.includes('relleno')) return 'Inyectables'
-    if (texto.includes('facial') || texto.includes('piel') || texto.includes('limpieza')) return 'Facial'
-    if (texto.includes('corporal') || texto.includes('masaje') || texto.includes('drenaje')) return 'Corporal'
-    if (texto.includes('depil')) return 'Depilación'
-    return 'General'
-  }
-
   const esEdicion = !!citaExistente
 
   // ─── Estado del formulario ─────────────────────────────────────────────────
@@ -77,11 +68,8 @@ export function ModalCita({
   const [resultadosBusqueda, setResultadosBusqueda] = useState<PacienteRow[]>([])
   const [buscando, setBuscando] = useState(false)
   const [mostrarCrearPaciente, setMostrarCrearPaciente] = useState(false)
-  const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', telefono: '' })
+  const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', telefono: '', email: '' })
   const [creandoPaciente, setCreandoPaciente] = useState(false)
-  const [servicioBusqueda, setServicioBusqueda] = useState('')
-  const [filtroEstadoServicio, setFiltroEstadoServicio] = useState<'activos' | 'todos'>('activos')
-  const [categoriaServicio, setCategoriaServicio] = useState<string>('todas')
 
   const [profesionalId, setProfesionalId] = useState(
     citaExistente?.profesional_id ?? profesionalIdInicial ?? profesionales[0]?.id ?? ''
@@ -107,6 +95,10 @@ export function ModalCita({
   const [recurrenceKind, setRecurrenceKind] = useState<'none' | 'daily' | 'weekly' | 'monthly'>(
     (citaExistente?.recurrence_kind as 'none' | 'daily' | 'weekly' | 'monthly' | undefined) ?? 'none'
   )
+  const [recurrenceCount, setRecurrenceCount] = useState(8)
+  const [sessionHoraOverrides, setSessionHoraOverrides] = useState<Record<number, string>>({})
+  const [sessionFechaOverrides, setSessionFechaOverrides] = useState<Record<number, string>>({})
+  const [horariosClinica, setHorariosClinica] = useState<HorariosConfig | null>(null)
   const [serieEditMode, setSerieEditMode] = useState<'single' | 'future' | 'all'>('single')
 
   const [conflicto, setConflicto] = useState<CitaConRelaciones | null>(null)
@@ -121,17 +113,6 @@ export function ModalCita({
   const [citasDelProfesional, setCitasDelProfesional] = useState<CitaConRelaciones[]>([])
   const pickerRef = useRef<HTMLDivElement>(null)
   const servicioActual = servicios.find((s) => s.id === servicioId)
-  const categoriasServicio = ['todas', ...Array.from(new Set(servicios.map(inferirCategoriaServicio))).sort()]
-  const serviciosFiltrados = servicios.filter((s) => {
-    if (filtroEstadoServicio === 'activos' && !s.activo) return false
-    if (categoriaServicio !== 'todas' && inferirCategoriaServicio(s) !== categoriaServicio) return false
-    if (servicioBusqueda.trim()) {
-      const t = servicioBusqueda.trim().toLowerCase()
-      const target = `${s.nombre} ${s.descripcion ?? ''}`.toLowerCase()
-      if (!target.includes(t)) return false
-    }
-    return true
-  })
 
   const slotSeleccionadoRef = useRef<HTMLButtonElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -156,6 +137,13 @@ export function ModalCita({
       setTimeout(() => slotSeleccionadoRef.current?.scrollIntoView({ block: 'center' }), 0)
     }
   }, [abiertoPicker])
+
+  // Cargar horarios de la clínica para filtrar días válidos en recurrencia
+  useEffect(() => {
+    getClinicaConfig().then(cfg => {
+      if (cfg.horarios) setHorariosClinica(cfg.horarios)
+    })
+  }, [])
 
   // Cargar citas del profesional para detectar slots ocupados
   useEffect(() => {
@@ -182,9 +170,8 @@ export function ModalCita({
       const disponibilidad = await getDisponibilidadProfesional(profesionalId)
       const tramosDia = disponibilidad.filter((d) => d.dia_semana === diaSemanaISO)
       if (tramosDia.length === 0) {
-        if (active) {
-          setAlertaSoft('El profesional no tiene disponibilidad declarada para este día.')
-        }
+        // No hay horario específico configurado para este profesional — no bloquear
+        if (active) setAlertaSoft(null)
         return
       }
 
@@ -286,12 +273,12 @@ export function ModalCita({
     setCreandoPaciente(true)
     const clinicaId = await getClinicaId()
     if (!clinicaId) { setCreandoPaciente(false); return }
-    const paciente = await crearPacienteRapido(nuevoPaciente.nombre, nuevoPaciente.telefono, clinicaId)
+    const paciente = await crearPacienteRapido(nuevoPaciente.nombre, nuevoPaciente.telefono, clinicaId, nuevoPaciente.email || undefined)
     setCreandoPaciente(false)
     if (paciente) {
       seleccionarPaciente(paciente)
       setMostrarCrearPaciente(false)
-      setNuevoPaciente({ nombre: '', telefono: '' })
+      setNuevoPaciente({ nombre: '', telefono: '', email: '' })
     }
   }
 
@@ -302,7 +289,7 @@ export function ModalCita({
       try {
         const inicio = modalWallClockToIso(fecha, hora)
         const fin = modalWallClockFinIso(fecha, hora, servicioActual.duracion_minutos)
-        const c = await verificarConflicto(profesionalId, inicio, fin, citaExistente?.id)
+        const c = await verificarConflicto(profesionalId, inicio, fin, citaExistente?.id, servicioActual?.buffer_minutos ?? 0)
         setConflicto(c)
       } catch {
         setConflicto(null)
@@ -338,6 +325,7 @@ export function ModalCita({
           notas: notas || undefined,
           recurrence_kind: recurrenceKind,
           recurrence_rule: recurrenceKind === 'none' ? null : `FREQ=${recurrenceKind.toUpperCase()}`,
+          buffer_minutos: servicioActual?.buffer_minutos ?? 0,
         })
       } else {
         const clinicaId = await getClinicaId()
@@ -352,8 +340,19 @@ export function ModalCita({
           notas: notas || undefined,
           recurrence_kind: recurrenceKind,
           recurrence_rule: recurrenceKind === 'none' ? null : `FREQ=${recurrenceKind.toUpperCase()}`,
+          buffer_minutos: servicioActual?.buffer_minutos ?? 0,
         }
-        resultado = await crearCita(datos)
+        if (recurrenceKind !== 'none') {
+          resultado = await crearCitasRecurrentes(
+            datos,
+            recurrenceKind as 'daily' | 'weekly' | 'monthly',
+            recurrenceCount,
+            sessionHoraOverrides,
+            sessionFechaOverrides
+          )
+        } else {
+          resultado = await crearCita(datos)
+        }
       }
 
       if (!resultado) {
@@ -396,10 +395,10 @@ export function ModalCita({
         role="dialog"
         aria-modal="true"
         aria-label={esEdicion ? 'Editar cita' : 'Nueva cita'}
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
+        {/* Header — fijo, no scrollea */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 rounded-t-2xl flex-shrink-0">
           <h2 className="text-[16px] font-semibold text-gray-900">
             {esEdicion ? 'Editar cita' : 'Nueva cita'}
           </h2>
@@ -411,7 +410,8 @@ export function ModalCita({
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        {/* Body scrollable */}
+        <div className="overflow-y-auto flex-1 p-6 space-y-5">
           {/* ── Búsqueda de paciente ── */}
           <div>
             <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
@@ -491,6 +491,13 @@ export function ModalCita({
                   placeholder="Nombre completo"
                   className="text-[12px] bg-white"
                 />
+                <input
+                  type="email"
+                  value={nuevoPaciente.email}
+                  onChange={(e) => setNuevoPaciente((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="Email (opcional)"
+                  className="w-full h-8 px-2.5 text-[12px] rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-400/50"
+                />
                 <Input
                   value={nuevoPaciente.telefono}
                   onChange={(e) => setNuevoPaciente((p) => ({ ...p, telefono: e.target.value }))}
@@ -522,79 +529,35 @@ export function ModalCita({
 
           {/* ── Servicio ── */}
           <div>
-            <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
-              Servicio
-            </Label>
-            <div className="space-y-2">
-              <Input
-                value={servicioBusqueda}
-                onChange={(e) => setServicioBusqueda(e.target.value)}
-                placeholder="Buscar servicio..."
-                className="text-[13px]"
-              />
-              <div className="flex items-center gap-1.5 flex-wrap">
+            <label className="block text-[13px] font-semibold text-gray-700 mb-2">Servicio</label>
+            <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto pr-1">
+              {servicios.filter(s => s.activo).map((s) => (
                 <button
+                  key={s.id}
                   type="button"
-                  onClick={() => setFiltroEstadoServicio('activos')}
-                  className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
-                    filtroEstadoServicio === 'activos'
-                      ? 'bg-[#2563EB] text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  onClick={() => setServicioId(s.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-left transition-all ${
+                    servicioId === s.id
+                      ? 'border-[#2563EB] bg-blue-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  Activos
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color || '#2563EB' }} />
+                    <span className={`text-[13px] font-medium ${servicioId === s.id ? 'text-[#2563EB]' : 'text-gray-800'}`}>{s.nombre}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-gray-400">
+                    <span>{s.duracion_minutos} min</span>
+                    {s.precio > 0 && <span>${s.precio.toLocaleString('es-CL')}</span>}
+                  </div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setFiltroEstadoServicio('todos')}
-                  className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
-                    filtroEstadoServicio === 'todos'
-                      ? 'bg-[#2563EB] text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  Todos
-                </button>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {categoriasServicio.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setCategoriaServicio(cat)}
-                    className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
-                      categoriaServicio === cat
-                        ? 'bg-teal-500 text-white'
-                        : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
-                    }`}
-                  >
-                    {cat === 'todas' ? 'Todas' : cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <select
-              value={servicioId}
-              onChange={(e) => setServicioId(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
-            >
-              <option value="">— Selecciona un servicio —</option>
-              {serviciosFiltrados.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nombre} · {s.duracion_minutos} min · ${s.precio.toLocaleString('es-CL')}
-                  {!s.activo ? ' · Inactivo' : ''}
-                </option>
               ))}
-            </select>
-            {serviciosFiltrados.length === 0 && (
-              <p className="mt-1 text-[11px] text-gray-400">No hay servicios con ese filtro.</p>
-            )}
+            </div>
             {servicioActual && (
-              <div className="mt-1.5 flex items-center gap-2 text-[11px] text-gray-500">
-                <Clock className="size-3 text-gray-400" />
-                <span>{servicioActual.duracion_minutos} min</span>
-                {horaFin && <span className="text-gray-400">· Termina a las {horaFin}</span>}
-              </div>
+              <p className="mt-1.5 text-[11px] text-gray-400 flex items-center gap-1">
+                <Clock className="size-3" />
+                {servicioActual.duracion_minutos} min · Termina a las {horaFin}
+              </p>
             )}
           </div>
 
@@ -623,11 +586,11 @@ export function ModalCita({
               <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
                 Fecha
               </Label>
-              <Input
+              <input
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                className="text-[13px]"
+                className="w-full h-9 px-3 rounded-xl border border-gray-200 text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 bg-white"
               />
             </div>
 
@@ -716,39 +679,117 @@ export function ModalCita({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
-                Recurrencia
-              </Label>
-              <select
-                value={recurrenceKind}
-                onChange={(e) => setRecurrenceKind(e.target.value as 'none' | 'daily' | 'weekly' | 'monthly')}
-                className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
-              >
-                <option value="none">No repetir</option>
-                <option value="daily">Diaria</option>
-                <option value="weekly">Semanal</option>
-                <option value="monthly">Mensual</option>
-              </select>
-            </div>
-            {esEdicion && recurrenceKind !== 'none' && (
-              <div>
-                <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
-                  Aplicar cambios a
-                </Label>
-                <select
-                  value={serieEditMode}
-                  onChange={(e) => setSerieEditMode(e.target.value as 'single' | 'future' | 'all')}
-                  className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+          <div className="space-y-2">
+            <Label className="text-[12px] font-semibold text-gray-700 mb-1 block">Recurrencia</Label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['none', 'daily', 'weekly', 'monthly'] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setRecurrenceKind(k)}
+                  className={`h-8 rounded-lg text-[12px] font-medium border transition-all ${
+                    recurrenceKind === k
+                      ? 'bg-[#2563EB] border-[#2563EB] text-white'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
                 >
-                  <option value="single">Solo esta cita</option>
-                  <option value="future">Esta y siguientes</option>
-                  <option value="all">Toda la serie</option>
-                </select>
+                  {k === 'none' ? 'Una vez' : k === 'daily' ? 'Diaria' : k === 'weekly' ? 'Semanal' : 'Mensual'}
+                </button>
+              ))}
+            </div>
+            {recurrenceKind !== 'none' && !esEdicion && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-gray-500">Repetir</span>
+                  <input
+                    type="number"
+                    min={2}
+                    max={52}
+                    value={recurrenceCount}
+                    onChange={(e) => setRecurrenceCount(Math.max(2, Math.min(52, parseInt(e.target.value) || 2)))}
+                    className="w-16 h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 text-center focus:outline-none focus:ring-1 focus:ring-blue-400/50"
+                  />
+                  <span className="text-[12px] text-gray-500">
+                    {recurrenceKind === 'daily' ? 'días seguidos' : recurrenceKind === 'weekly' ? 'semanas' : 'meses'}
+                  </span>
+                </div>
+                {fecha && hora && (
+                  <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                    <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide">
+                        {recurrenceCount} sesiones programadas
+                      </span>
+                      <span className="text-[10px] text-slate-400">Edita fecha u hora por sesión</span>
+                    </div>
+                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                      {Array.from({ length: recurrenceCount }, (_, i) => {
+                        const base = parseISO(`${fecha}T12:00:00`)
+                        const dBase = recurrenceKind === 'daily' ? addDays(base, i) : recurrenceKind === 'weekly' ? addWeeks(base, i) : addMonths(base, i)
+                        const fechaStr = sessionFechaOverrides[i] ?? format(dBase, 'yyyy-MM-dd')
+                        const d = parseISO(`${fechaStr}T12:00:00`)
+                        const horaSession = sessionHoraOverrides[i] ?? hora
+                        const diaNombre = format(d, 'EEEE', { locale: es }).toLowerCase()
+                        const diaKey = diaNombre === 'miércoles' ? 'miercoles' : diaNombre
+                        const diaConfig = horariosClinica?.[diaKey]
+                        const diaNoAtiende = horariosClinica && diaConfig && !diaConfig.activo
+                        const tieneConflicto = servicioActual && citasDelProfesional.some(c => {
+                          if (!c.inicio.startsWith(fechaStr)) return false
+                          const cInicio = parseInt(c.inicio.slice(11,13))*60 + parseInt(c.inicio.slice(14,16))
+                          const cFin = parseInt(c.fin.slice(11,13))*60 + parseInt(c.fin.slice(14,16))
+                          const sInicio = parseInt(horaSession.slice(0,2))*60 + parseInt(horaSession.slice(3,5))
+                          const sFin = sInicio + servicioActual.duracion_minutos
+                          return sInicio < cFin && sFin > cInicio
+                        })
+                        const hayProblema = tieneConflicto || diaNoAtiende
+                        return (
+                          <div key={i} className={`flex items-center gap-2 px-3 py-2 ${hayProblema ? 'bg-red-50' : i === 0 ? 'bg-blue-50/40' : ''}`}>
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                              style={{ backgroundColor: i === 0 ? '#2563EB' : '#e2e8f0', color: i === 0 ? 'white' : '#64748b' }}>
+                              {i + 1}
+                            </div>
+                            <input
+                              type="date"
+                              value={fechaStr}
+                              onChange={e => setSessionFechaOverrides(prev => ({ ...prev, [i]: e.target.value }))}
+                              className={`h-7 rounded-lg border px-2 text-[11px] font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400/50 ${hayProblema ? 'border-red-300 text-red-700' : 'border-slate-200 text-slate-700'}`}
+                            />
+                            <select
+                              value={horaSession}
+                              onChange={e => setSessionHoraOverrides(prev => ({ ...prev, [i]: e.target.value }))}
+                              className={`h-7 rounded-lg border px-2 pr-5 text-[11px] font-semibold appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400/50 ${
+                                hayProblema ? 'border-red-300 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-[#2563EB]'
+                              }`}
+                              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%2394a3b8' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
+                            >
+                              {SLOTS_HORA.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            {diaNoAtiende && <span className="text-[10px] text-orange-500 font-medium flex-shrink-0">Día cerrado</span>}
+                            {tieneConflicto && !diaNoAtiende && <span className="text-[10px] text-red-500 font-medium flex-shrink-0">Conflicto</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
+          {esEdicion && recurrenceKind !== 'none' && (
+            <div>
+              <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
+                Aplicar cambios a
+              </Label>
+              <select
+                value={serieEditMode}
+                onChange={(e) => setSerieEditMode(e.target.value as 'single' | 'future' | 'all')}
+                className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+              >
+                <option value="single">Solo esta cita</option>
+                <option value="future">Esta y siguientes</option>
+                <option value="all">Toda la serie</option>
+              </select>
+            </div>
+          )}
 
           {/* ── Advertencia de conflicto mejorada ── */}
           {conflicto && (
@@ -842,7 +883,7 @@ export function ModalCita({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-2xl">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-white rounded-b-2xl flex-shrink-0">
           <Button variant="ghost" size="sm" onClick={onCerrar} className="text-[13px]">
             Cancelar
           </Button>

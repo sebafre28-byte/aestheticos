@@ -44,9 +44,9 @@ export default async function ReportesPage({ searchParams }: { searchParams: Sea
 
   return (
     <ReportesGuard>
-    <div className="flex flex-col gap-6 p-6 min-h-full bg-slate-50">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 min-h-full bg-slate-50">
       {/* Header */}
-      <div className="flex items-center justify-between print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 print:hidden">
         <div>
           <h1 className="text-[22px] font-bold text-[#0B132B] leading-tight">Reportes</h1>
           <p className="text-[13px] text-slate-500 mt-0.5">

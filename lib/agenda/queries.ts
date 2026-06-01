@@ -2,7 +2,8 @@
 
 import { createClient } from '@/lib/supabase/client'
 import type { PostgrestError } from '@supabase/supabase-js'
-import { addDays } from 'date-fns'
+import { addDays, addWeeks, addMonths, parseISO, format } from 'date-fns'
+import { getClinicaConfig } from '@/lib/onboarding/queries'
 
 async function triggerCitaJobs(citaId: string, action: 'schedule' | 'cancel' | 'reschedule'): Promise<void> {
   try {
@@ -101,6 +102,7 @@ export type ServicioRow = {
   precio: number
   color: string
   activo: boolean
+  buffer_minutos: number
   created_at: string
 }
 
@@ -131,6 +133,7 @@ export type CitaConRelaciones = {
   pago_estado?: PagoEstado
   pago_metodo?: PagoMetodo | null
   pago_registrado_at?: string | null
+  buffer_minutos?: number
   created_at: string
   pacientes: PacienteRow
   profesionales: ProfesionalRow
@@ -151,6 +154,7 @@ export type NuevaCitaData = {
   recurrence_rule?: string | null
   recurrence_parent_id?: string | null
   recurrence_instance_date?: string | null
+  buffer_minutos?: number
 }
 
 export type DisponibilidadRow = {
@@ -352,13 +356,17 @@ export async function getPacientesBusqueda(query: string): Promise<PacienteRow[]
 export async function crearPacienteRapido(
   nombre: string,
   telefono: string,
-  clinicaId: string
+  clinicaId: string,
+  email?: string
 ): Promise<PacienteRow | null> {
   const supabase = createClient()
 
+  const insertData: Record<string, string> = { nombre: nombre.trim(), telefono: telefono.trim(), clinica_id: clinicaId }
+  if (email?.trim()) insertData.email = email.trim()
+
   const { data, error } = await supabase
     .from('pacientes')
-    .insert({ nombre: nombre.trim(), telefono: telefono.trim(), clinica_id: clinicaId })
+    .insert(insertData)
     .select()
     .single()
 
@@ -375,18 +383,34 @@ export async function verificarConflicto(
   profesionalId: string,
   inicio: string,
   fin: string,
-  excludeCitaId?: string
+  excludeCitaId?: string,
+  bufferMinutos = 0
 ): Promise<CitaConRelaciones | null> {
   const supabase = createClient()
+
+  // Cuando hay buffer, la zona ocupada de la cita existente se extiende bufferMinutos después de su fin.
+  // Para detectar esto, buscamos citas existentes donde:
+  //   inicio_existente < fin_nueva  (la cita existente comienza antes de que termine la nueva)
+  //   fin_existente + buffer > inicio_nueva  (la cita existente + buffer termina después de que inicia la nueva)
+  //
+  // Equivalentemente, se puede ampliar el fin de búsqueda y el inicio de búsqueda:
+  //   inicio_existente < fin + buffer  (para cubrir citas que comienzan antes del fin+buffer de la nueva)
+  //   fin_existente > inicio - buffer  (para cubrir citas cuyo fin+buffer supera el inicio de la nueva)
+  const finBusqueda = bufferMinutos > 0
+    ? format(new Date(parseISO(fin).getTime() + bufferMinutos * 60_000), "yyyy-MM-dd'T'HH:mm:ss")
+    : fin
+  const inicioBusqueda = bufferMinutos > 0
+    ? format(new Date(parseISO(inicio).getTime() - bufferMinutos * 60_000), "yyyy-MM-dd'T'HH:mm:ss")
+    : inicio
 
   let query = supabase
     .from('citas')
     .select(`*, pacientes(*), profesionales(*), servicios(*)`)
     .eq('profesional_id', profesionalId)
     .not('estado', 'in', '("cancelada","no_asistio")')
-    // Hay conflicto si los rangos se solapan: inicio_existente < fin_nueva AND fin_existente > inicio_nueva
-    .lt('inicio', fin)
-    .gt('fin', inicio)
+    // Hay conflicto si los rangos (con buffer) se solapan
+    .lt('inicio', finBusqueda)
+    .gt('fin', inicioBusqueda)
     .limit(1)
 
   if (excludeCitaId) {
@@ -442,6 +466,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
         recurrence_rule: data.recurrence_rule ?? null,
         recurrence_parent_id: data.recurrence_parent_id ?? null,
         recurrence_instance_date: data.recurrence_instance_date ?? null,
+        buffer_minutos: data.buffer_minutos ?? 0,
       })
       .select(`*, pacientes(*), profesionales(*), servicios(*)`)
       .single()
@@ -466,6 +491,77 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
   invalidateAgendaCache()
   await triggerCitaJobs(citaCompleta.id, 'schedule')
   return citaCompleta as CitaConRelaciones
+}
+
+// ─── Crear citas recurrentes ──────────────────────────────────────────────────
+
+export async function crearCitasRecurrentes(
+  data: NuevaCitaData,
+  recurrenceKind: 'daily' | 'weekly' | 'monthly',
+  totalCitas = 8,
+  horaOverrides: Record<number, string> = {},
+  fechaOverrides: Record<number, string> = {}
+): Promise<CitaConRelaciones | null> {
+  // Apply override for session 0 (the parent) if provided
+  const horaBase = data.inicio.slice(11, 16) // HH:mm
+  const horaParent = horaOverrides[0] ?? horaBase
+  const duracionMs = parseISO(data.fin).getTime() - parseISO(data.inicio).getTime()
+
+  let dataParent = data
+  if (horaOverrides[0] && horaOverrides[0] !== horaBase) {
+    const fechaParent = data.inicio.slice(0, 10)
+    const inicioParent = `${fechaParent}T${horaParent}:00`
+    const finParent = format(new Date(parseISO(inicioParent).getTime() + duracionMs), "yyyy-MM-dd'T'HH:mm:ss")
+    dataParent = { ...data, inicio: inicioParent, fin: finParent }
+  }
+
+  const citaPadre = await crearCita(dataParent)
+  if (!citaPadre) return null
+
+  const n = Math.max(1, totalCitas - 1) // padre ya cuenta como 1
+
+  const ocurrencias = Array.from({ length: n }, (_, i) => {
+    const idx = i + 1
+    const baseDate =
+      recurrenceKind === 'daily'
+        ? addDays(parseISO(data.inicio), idx)
+        : recurrenceKind === 'weekly'
+        ? addWeeks(parseISO(data.inicio), idx)
+        : addMonths(parseISO(data.inicio), idx)
+
+    const fechaStr = fechaOverrides[idx] ?? format(baseDate, 'yyyy-MM-dd')
+    const horaSession = horaOverrides[idx] ?? horaBase
+    const inicioDate = parseISO(`${fechaStr}T${horaSession}:00`)
+    const finDate = new Date(inicioDate.getTime() + duracionMs)
+
+    const inicioStr = format(inicioDate, "yyyy-MM-dd'T'HH:mm:ss")
+    const finStr = format(finDate, "yyyy-MM-dd'T'HH:mm:ss")
+    const instanceDate = fechaStr
+
+    return {
+      clinica_id: data.clinica_id,
+      paciente_id: data.paciente_id,
+      profesional_id: data.profesional_id,
+      servicio_id: data.servicio_id,
+      inicio: inicioStr,
+      fin: finStr,
+      notas: data.notas ?? null,
+      estado: 'pendiente' as const,
+      recurrence_kind: recurrenceKind,
+      recurrence_rule: data.recurrence_rule ?? null,
+      recurrence_parent_id: citaPadre.id,
+      recurrence_instance_date: instanceDate,
+    }
+  })
+
+  const supabase = createClient()
+  const { error } = await supabase.from('citas').insert(ocurrencias)
+  if (error) {
+    console.warn('[agenda] crearCitasRecurrentes: batch insert parcial falló (no crítico):', error)
+  }
+
+  invalidateAgendaCache()
+  return citaPadre
 }
 
 // ─── Editar cita existente ────────────────────────────────────────────────────
@@ -571,6 +667,11 @@ export async function actualizarEstadoCita(
   return true
 }
 
+const DIA_SEMANA_MAP: Record<string, number> = {
+  lunes: 1, martes: 2, 'miércoles': 3, miercoles: 3,
+  jueves: 4, viernes: 5, 'sábado': 6, sabado: 6, domingo: 7,
+}
+
 // ─── Disponibilidad por profesional y fecha ────────────────────────────────────
 export async function getDisponibilidadProfesional(profesionalId: string): Promise<DisponibilidadRow[]> {
   const supabase = createClient()
@@ -578,14 +679,75 @@ export async function getDisponibilidadProfesional(profesionalId: string): Promi
     .from('agenda_disponibilidad')
     .select('*')
     .eq('profesional_id', profesionalId)
-    .eq('activo', true)
     .order('dia_semana', { ascending: true })
 
   if (error) {
     console.error('Error getDisponibilidadProfesional:', error)
     return []
   }
-  return (data ?? []) as DisponibilidadRow[]
+
+  const filas = (data ?? []) as DisponibilidadRow[]
+  if (filas.length > 0) return filas
+
+  const [config, clinicaId] = await Promise.all([getClinicaConfig(), getClinicaId()])
+  const horarios = config.horarios ?? {}
+  const resultado: DisponibilidadRow[] = []
+
+  for (const [dia, diaDato] of Object.entries(horarios)) {
+    const diaSemana = DIA_SEMANA_MAP[dia]
+    if (!diaSemana) continue
+    resultado.push({
+      id: `global-${diaSemana}`,
+      clinica_id: clinicaId ?? '',
+      profesional_id: profesionalId,
+      dia_semana: diaSemana,
+      hora_inicio: diaDato.desde,
+      hora_fin: diaDato.hasta,
+      activo: diaDato.activo,
+    })
+  }
+
+  return resultado.sort((a, b) => a.dia_semana - b.dia_semana)
+}
+
+export async function setDisponibilidadProfesional(
+  profesionalId: string,
+  disponibilidad: DisponibilidadRow[]
+): Promise<boolean> {
+  const supabase = createClient()
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return false
+
+  const { error: deleteError } = await supabase
+    .from('agenda_disponibilidad')
+    .delete()
+    .eq('profesional_id', profesionalId)
+
+  if (deleteError) {
+    console.error('Error setDisponibilidadProfesional delete:', deleteError)
+    return false
+  }
+
+  const filas = disponibilidad.map((d) => ({
+    clinica_id: clinicaId,
+    profesional_id: profesionalId,
+    dia_semana: d.dia_semana,
+    hora_inicio: d.hora_inicio,
+    hora_fin: d.hora_fin,
+    activo: d.activo,
+  }))
+
+  if (filas.length === 0) return true
+
+  const { error: insertError } = await supabase
+    .from('agenda_disponibilidad')
+    .insert(filas)
+
+  if (insertError) {
+    console.error('Error setDisponibilidadProfesional insert:', insertError)
+    return false
+  }
+  return true
 }
 
 export async function getBloqueosRango(
@@ -686,6 +848,58 @@ export async function getCitasPendientes48h(): Promise<CitaConRelaciones[]> {
   return (data ?? []) as CitaConRelaciones[]
 }
 
+// ─── Bloqueos de horario ──────────────────────────────────────────────────────
+
+export type BloqueoProfesional = {
+  id: string
+  profesional_id: string
+  inicio: string
+  fin: string
+  titulo: string
+}
+
+export async function getBloqueos(fecha: string): Promise<BloqueoProfesional[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('agenda_bloqueos')
+    .select('id, profesional_id, inicio, fin, titulo')
+    .gte('inicio', `${fecha}T00:00:00`)
+    .lt('inicio', `${fecha}T23:59:59`)
+  return (data ?? []) as BloqueoProfesional[]
+}
+
+export async function crearBloqueo(data: {
+  clinica_id: string
+  profesional_id?: string
+  titulo: string
+  tipo: 'bloqueo' | 'vacaciones' | 'feriado' | 'almuerzo' | 'capacitacion'
+  inicio: string  // ISO wall-clock
+  fin: string     // ISO wall-clock
+  motivo?: string
+}): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from('agenda_bloqueos').insert({
+    clinica_id: data.clinica_id,
+    profesional_id: data.profesional_id ?? null,
+    titulo: data.titulo,
+    tipo: data.tipo,
+    inicio: data.inicio,
+    fin: data.fin,
+    motivo: data.motivo ?? null,
+  })
+  if (error) {
+    console.error('Error crearBloqueo:', error)
+    return false
+  }
+  return true
+}
+
+export async function eliminarBloqueo(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from('agenda_bloqueos').delete().eq('id', id)
+  return !error
+}
+
 // ─── Obtener clinica_id del usuario autenticado ───────────────────────────────
 
 export async function getClinicaId(): Promise<string | null> {
@@ -702,4 +916,19 @@ export async function getClinicaId(): Promise<string | null> {
 
   if (error) return null
   return data?.id ?? null
+}
+
+export async function getCitasFuturasPaciente(pacienteId: string): Promise<CitaConRelaciones[]> {
+  const supabase = createClient()
+  const ahora = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('citas')
+    .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+    .eq('paciente_id', pacienteId)
+    .gt('inicio', ahora)
+    .not('estado', 'in', '("cancelada","no_asistio")')
+    .order('inicio', { ascending: true })
+    .limit(3)
+  if (error) return []
+  return (data ?? []) as CitaConRelaciones[]
 }

@@ -82,27 +82,42 @@ export async function getClinicaBasica(): Promise<ClinicaBasica | null> {
 }
 
 export async function actualizarClinicaBasica(input: {
-  nombre: string
+  nombre?: string
   email?: string
-  telefono: string
-  direccion: string
+  telefono?: string
+  direccion?: string
   sitio_web?: string
   logo_url?: string
+  horarios?: HorariosConfig
 }): Promise<ClinicaBasica | null> {
   const clinicaId = await getClinicaId()
   if (!clinicaId) return null
 
   const supabase = createClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updates: Record<string, any> = {}
+  if (input.nombre    !== undefined) updates.nombre    = input.nombre.trim()
+  if (input.email     !== undefined) updates.email     = input.email?.trim() || null
+  if (input.telefono  !== undefined) updates.telefono  = input.telefono?.trim() || null
+  if (input.direccion !== undefined) updates.direccion = input.direccion?.trim() || null
+  if (input.sitio_web !== undefined) updates.sitio_web = input.sitio_web?.trim() || null
+  if (input.logo_url  !== undefined) updates.logo_url  = input.logo_url?.trim() || null
+
+  if (input.horarios !== undefined) {
+    // Merge horarios into existing configuracion JSON
+    const { data: existing } = await supabase
+      .from('clinicas')
+      .select('configuracion')
+      .eq('id', clinicaId)
+      .single()
+    const configActual = (existing?.configuracion as ClinicaConfiguracion) ?? {}
+    updates.configuracion = { ...configActual, horarios: input.horarios }
+  }
+
   const { data, error } = await supabase
     .from('clinicas')
-    .update({
-      nombre: input.nombre.trim(),
-      email: input.email?.trim() || null,
-      telefono: input.telefono.trim() || null,
-      direccion: input.direccion.trim() || null,
-      sitio_web: input.sitio_web?.trim() || null,
-      logo_url: input.logo_url?.trim() || null,
-    })
+    .update(updates)
     .eq('id', clinicaId)
     .select('id, nombre, email, telefono, direccion, plan, sitio_web, logo_url, slug')
     .single()
@@ -185,6 +200,7 @@ export async function crearServicioOnboarding(input: {
   nombre: string
   duracion_minutos: number
   precio: number
+  descripcion?: string
 }): Promise<{ id: string; nombre: string } | null> {
   const clinicaId = await getClinicaId()
   if (!clinicaId) return null
@@ -195,6 +211,7 @@ export async function crearServicioOnboarding(input: {
     .insert({
       clinica_id: clinicaId,
       nombre: input.nombre.trim(),
+      descripcion: input.descripcion?.trim() || null,
       duracion_minutos: input.duracion_minutos,
       precio: Math.max(0, Math.round(input.precio)),
       color: '#14B8A6',

@@ -12,6 +12,7 @@ export type ServicioRow = {
   precio: number
   color: string
   activo: boolean
+  buffer_minutos: number
   created_at: string
 }
 
@@ -166,6 +167,7 @@ export type ServicioInput = {
   precio: number
   color?: string
   activo?: boolean
+  buffer_minutos?: number
 }
 
 export async function crearServicio(input: ServicioInput): Promise<ServicioRow | null> {
@@ -181,6 +183,7 @@ export async function crearServicio(input: ServicioInput): Promise<ServicioRow |
     precio: input.precio,
     color: input.color || '#2563EB',
     activo: input.activo ?? true,
+    buffer_minutos: input.buffer_minutos ?? 0,
   }
 
   const { data, error } = await supabase.from('servicios').insert(payload).select('*').single()
@@ -228,6 +231,7 @@ export async function actualizarServicio(servicioId: string, input: ServicioInpu
     precio: input.precio,
     color: input.color || '#2563EB',
     activo: input.activo ?? true,
+    buffer_minutos: input.buffer_minutos ?? 0,
   }
 
   const { data, error } = await supabase

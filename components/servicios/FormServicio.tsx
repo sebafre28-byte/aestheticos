@@ -14,6 +14,7 @@ type FormData = {
   precio: number
   color: string
   activo: boolean
+  buffer_minutos: number
 }
 
 type Props = {
@@ -33,6 +34,7 @@ export function FormServicio({ open, servicio, onClose, onSubmit }: Props) {
     precio: servicio?.precio ?? 0,
     color: servicio?.color ?? '#2563EB',
     activo: servicio?.activo ?? true,
+    buffer_minutos: servicio?.buffer_minutos ?? 0,
   })
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -97,6 +99,19 @@ export function FormServicio({ open, servicio, onClose, onSubmit }: Props) {
               value={data.precio}
               onChange={(e) => setData((v) => ({ ...v, precio: Number(e.target.value) }))}
             />
+          </div>
+          <div className="col-span-2">
+            <Label className="mb-1.5 block text-[12px] font-semibold">Buffer entre citas (min)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={60}
+              step={5}
+              placeholder="0"
+              value={data.buffer_minutos}
+              onChange={(e) => setData((v) => ({ ...v, buffer_minutos: Number(e.target.value) }))}
+            />
+            <p className="mt-1 text-[11px] text-gray-400">Tiempo de limpieza o preparación entre citas consecutivas</p>
           </div>
           <div className="col-span-2">
             <Label className="mb-1.5 block text-[12px] font-semibold">Color</Label>

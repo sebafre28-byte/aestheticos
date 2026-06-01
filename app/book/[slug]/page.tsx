@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle2, ChevronLeft, Loader2, MapPin, Phone, Mail, Clock, DollarSign } from 'lucide-react'
+import { sendEmail } from '@/lib/email/sendEmail'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ type Servicio = {
   duracion_minutos: number
   precio: number
   color: string
+  buffer_minutos: number
 }
 
 type Profesional = {
@@ -46,6 +48,7 @@ type SlotOcupado = {
   inicio: string
   fin: string
   profesional_id: string
+  buffer_minutos?: number
 }
 
 type FormData = {
@@ -125,9 +128,10 @@ function buildSlotsDisponibles(
     // For overlap comparison, compare as wall-clock strings (lexicographic is safe for same-day)
     const ocupado = slotsOcupados.some((s) => {
       if (s.profesional_id !== profesionalId) return false
-      // Normalize occupied slot to wall-clock for comparison
+      // Normalize occupied slot to wall-clock for comparison, extending fin by buffer_minutos
       const oInicioWall = toWallClockIso(new Date(s.inicio), tz)
-      const oFinWall = toWallClockIso(new Date(s.fin), tz)
+      const bufferMs = (s.buffer_minutos ?? 0) * 60_000
+      const oFinWall = toWallClockIso(new Date(new Date(s.fin).getTime() + bufferMs), tz)
       return slotInicioStr < oFinWall && slotFinStr > oInicioWall
     })
 
@@ -353,11 +357,19 @@ function PasoHora({
     setCargando(true)
     const supabase = createClient()
     const fechaISO = formatDateISO(fecha)
-    const { data } = await supabase.rpc('get_slots_ocupados', {
-      p_clinica_id: clinicaId,
-      p_fecha: fechaISO,
-      p_profesional_id: profesionalId,
-    })
+    const [{ data }, { data: bloqueosData }] = await Promise.all([
+      supabase.rpc('get_slots_ocupados', {
+        p_clinica_id: clinicaId,
+        p_fecha: fechaISO,
+        p_profesional_id: profesionalId,
+      }),
+      supabase
+        .from('agenda_bloqueos')
+        .select('inicio, fin, profesional_id')
+        .eq('clinica_id', clinicaId)
+        .gte('inicio', `${fechaISO}T00:00:00`)
+        .lte('fin', `${fechaISO}T23:59:59`),
+    ])
     const ocupados: SlotOcupado[] = Array.isArray(data) ? data : []
 
     const nombreDia = DIAS_ES[fecha.getDay()]
@@ -368,7 +380,25 @@ function PasoHora({
       return
     }
 
-    const disponibles = buildSlotsDisponibles(horarioDia, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
+    const bloqueos: Array<{ inicio: string; fin: string; profesional_id: string | null }> = Array.isArray(bloqueosData) ? bloqueosData : []
+
+    let disponibles = buildSlotsDisponibles(horarioDia, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
+
+    // Filtrar slots que se solapan con bloqueos (para todos los profesionales o el específico)
+    if (bloqueos.length > 0) {
+      const duracionMs = servicio.duracion_minutos * 60 * 1000
+      disponibles = disponibles.filter((slot) => {
+        const slotInicioMs = slot.getTime()
+        const slotFinMs = slotInicioMs + duracionMs
+        return !bloqueos.some((b) => {
+          if (b.profesional_id !== null && b.profesional_id !== profesionalId) return false
+          const bInicioMs = new Date(b.inicio).getTime()
+          const bFinMs = new Date(b.fin).getTime()
+          return slotInicioMs < bFinMs && slotFinMs > bInicioMs
+        })
+      })
+    }
+
     setSlots(disponibles)
     setCargando(false)
   }, [fecha, clinicaId, profesionalId, horarios, servicio.duracion_minutos])
@@ -429,6 +459,7 @@ function PasoDatos({
   profesional,
   inicio,
   fin,
+  clinica,
   clinicaId,
   profesionalId,
   servicioId,
@@ -439,6 +470,7 @@ function PasoDatos({
   profesional: Profesional | null
   inicio: Date
   fin: Date
+  clinica: ClinicaPublica
   clinicaId: string
   profesionalId: string
   servicioId: string
@@ -480,6 +512,31 @@ function PasoDatos({
       setError(result.error || 'No se pudo crear la reserva.')
       return
     }
+
+    // Send confirmation email if patient provided an email (non-critical)
+    if (form.email.trim()) {
+      const fechaLabel = inicio.toLocaleDateString('es-CL', {
+        timeZone: tz,
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+      })
+      const horaLabel = formatHora(inicio, tz)
+      sendEmail({
+        tipo: 'confirmacion_cita',
+        destinatario: form.email.trim(),
+        datos: {
+          paciente_nombre: form.nombre.trim(),
+          servicio_nombre: servicio.nombre,
+          profesional_nombre: profesional?.nombre ?? 'Por asignar',
+          fecha: fechaLabel,
+          hora: horaLabel,
+          clinica_nombre: clinica.nombre,
+          clinica_telefono: clinica.telefono ?? undefined,
+        },
+      }).catch((err) => console.warn('[booking] sendEmail error (non-critical):', err))
+    }
+
     onExito(result.cita_id ?? '')
   }
 
@@ -801,6 +858,7 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
               profesional={profesional}
               inicio={horaInicio}
               fin={horaFin}
+              clinica={clinica}
               clinicaId={clinica.id}
               profesionalId={profesionalId}
               servicioId={servicioSeleccionado.id}

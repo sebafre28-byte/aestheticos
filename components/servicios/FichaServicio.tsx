@@ -54,7 +54,7 @@ export function FichaServicio({ servicioId, onClose, onEditar, onToggleActivo, o
     return (
       <>
         <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-        <div className="fixed top-0 right-0 h-full w-[420px] bg-white shadow-2xl z-50 border-l border-gray-100 animate-slide-in-right p-6">
+        <div className="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-50 border-l border-gray-100 animate-slide-in-right p-6">
           <p className="text-sm text-gray-500">Cargando ficha del servicio...</p>
         </div>
       </>
@@ -66,7 +66,7 @@ export function FichaServicio({ servicioId, onClose, onEditar, onToggleActivo, o
   return (
     <>
       <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-      <aside className="fixed top-0 right-0 h-full w-[420px] bg-white shadow-2xl z-50 border-l border-gray-100 animate-slide-in-right flex flex-col">
+      <aside className="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-50 border-l border-gray-100 animate-slide-in-right flex flex-col">
         <div className="px-5 py-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

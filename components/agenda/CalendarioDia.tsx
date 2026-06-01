@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
+import { Calendar, Ban } from 'lucide-react'
 import { citaWallClockMinutes } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones, ProfesionalRow } from '@/lib/agenda/queries'
 import { BloqueCita, PIXEL_POR_MIN, HORA_GRILLA_INICIO } from './BloquesCita'
+import { BloqueHorario } from './BloqueHorario'
+import type { BloqueoProfesional } from '@/lib/agenda/queries'
 
 const HORA_FIN_GRILLA = 20
 const HORAS_TOTALES = HORA_FIN_GRILLA - HORA_GRILLA_INICIO  // 12 horas
@@ -54,36 +57,58 @@ function etiquetaDesdeY(y: number): string {
 
 // ─── Columna de un profesional ────────────────────────────────────────────────
 
+type MenuContextual = {
+  x: number
+  y: number
+  hora: Date
+  profesionalId: string | undefined
+}
+
 function ColumnaProfesional({
   profesional,
   citas,
+  bloqueos,
   onClickCita,
   onClickCelda,
+  onBloquearHorario,
   onResizeCita,
+  onEliminarBloqueo,
   fecha,
+  horaInicioLaboral,
+  horaFinLaboral,
 }: {
   profesional: ProfesionalRow
   citas: CitaConRelaciones[]
+  bloqueos: BloqueoProfesional[]
   onClickCita: (cita: CitaConRelaciones) => void
-  onClickCelda: (profesionalId: string, hora: Date) => void
+  onClickCelda: (profesionalId: string | undefined, hora: Date) => void
+  onBloquearHorario: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
+  onEliminarBloqueo?: (id: string) => void
   fecha: Date
+  horaInicioLaboral?: number
+  horaFinLaboral?: number
 }) {
   const dispuestas = calcularColumnas(citas)
   const [hoverY, setHoverY] = useState<number | null>(null)
   const [sobreFondo, setSobreFondo] = useState(false)
+  const [menu, setMenu] = useState<MenuContextual | null>(null)
 
-  function handleClickFondo(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target !== e.currentTarget) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const y = e.clientY - rect.top
+  function horaDesdeY(y: number): Date {
     const minutos = Math.floor(y / PIXEL_POR_MIN)
     const minutosRedondeados = Math.floor(minutos / 15) * 15
     const hora = new Date(fecha)
     hora.setHours(HORA_GRILLA_INICIO + Math.floor(minutosRedondeados / 60))
     hora.setMinutes(minutosRedondeados % 60)
     hora.setSeconds(0)
-    onClickCelda(profesional.id, hora)
+    return hora
+  }
+
+  function handleClickFondo(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target !== e.currentTarget) return
+    const hora = horaDesdeY(e.clientY - e.currentTarget.getBoundingClientRect().top)
+    const rect = e.currentTarget.getBoundingClientRect()
+    setMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, hora, profesionalId: profesional.id })
   }
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
@@ -100,6 +125,32 @@ function ColumnaProfesional({
       onMouseMove={handleMouseMove}
       onMouseLeave={() => { setHoverY(null); setSobreFondo(false) }}
     >
+      {/* Menú contextual */}
+      {menu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
+          <div
+            className="absolute z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden"
+            style={{ top: menu.y, left: menu.x, maxWidth: 180, minWidth: 160 }}
+          >
+            <button
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors text-left"
+              onClick={() => { setMenu(null); onClickCelda(menu.profesionalId, menu.hora) }}
+            >
+              <Calendar className="size-3.5 text-[#2563EB] shrink-0" />
+              Nueva cita
+            </button>
+            <button
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors text-left"
+              onClick={() => { setMenu(null); onBloquearHorario(menu.profesionalId, menu.hora) }}
+            >
+              <Ban className="size-3.5 text-gray-400 shrink-0" />
+              Bloquear horario
+            </button>
+          </div>
+        </>
+      )}
+
       {/* Highlight de cuarto de hora al pasar el mouse sobre fondo vacío */}
       {sobreFondo && hoverY !== null && (
         <div
@@ -121,10 +172,46 @@ function ColumnaProfesional({
         </div>
       )}
 
+      {/* Fuera de horario — mañana */}
+      {horaInicioLaboral !== undefined && horaInicioLaboral > HORA_GRILLA_INICIO && (
+        <div
+          className="absolute left-0 right-0 bg-gray-50/70 pointer-events-none z-0"
+          style={{
+            top: 0,
+            height: (horaInicioLaboral - HORA_GRILLA_INICIO) * ALTURA_HORA_PX,
+          }}
+        />
+      )}
+      {/* Fuera de horario — tarde */}
+      {horaFinLaboral !== undefined && horaFinLaboral < HORA_FIN_GRILLA && (
+        <div
+          className="absolute left-0 right-0 bg-gray-50/70 pointer-events-none z-0"
+          style={{
+            top: (horaFinLaboral - HORA_GRILLA_INICIO) * ALTURA_HORA_PX,
+            bottom: 0,
+          }}
+        />
+      )}
+
+      {/* Bloqueos de horario */}
+      {bloqueos.map((bloqueo) => {
+        const { top, height } = calcularPosicion(bloqueo.inicio, bloqueo.fin)
+        return (
+          <BloqueHorario
+            key={bloqueo.id}
+            titulo={bloqueo.titulo}
+            topPx={top}
+            heightPx={height}
+            onEliminar={onEliminarBloqueo ? () => onEliminarBloqueo(bloqueo.id) : undefined}
+          />
+        )
+      })}
+
       {/* Citas posicionadas absolutamente */}
       {dispuestas.map(({ cita, col, totalCols }) => {
         const { top, height } = calcularPosicion(cita.inicio, cita.fin)
         const ancho = 100 / totalCols
+        const bufferPx = (cita.buffer_minutos ?? 0) * PIXEL_POR_MIN
         return (
           <BloqueCita
             key={cita.id}
@@ -135,6 +222,7 @@ function ColumnaProfesional({
             heightPx={height - 2}
             leftPercent={col * ancho + 0.5}
             widthPercent={ancho - 1}
+            bufferPx={bufferPx}
           />
         )
       })}
@@ -148,20 +236,30 @@ type Props = {
   fecha: Date
   profesionales: ProfesionalRow[]
   citas: CitaConRelaciones[]
+  bloqueos?: BloqueoProfesional[]
   profesionalesFiltrados: string[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
+  onBloquearHorario?: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
+  onEliminarBloqueo?: (id: string) => void
+  horaInicioLaboral?: number
+  horaFinLaboral?: number
 }
 
 export function CalendarioDia({
   fecha,
   profesionales,
   citas,
+  bloqueos = [],
   profesionalesFiltrados,
   onClickCita,
   onClickCelda,
+  onBloquearHorario,
   onResizeCita,
+  onEliminarBloqueo,
+  horaInicioLaboral,
+  horaFinLaboral,
 }: Props) {
   const [lineaHora, setLineaHora] = useState<number | null>(() => {
     const ahora = new Date()
@@ -304,15 +402,21 @@ export function CalendarioDia({
             {/* Columnas de profesionales */}
             {profsVisibles.map((prof) => {
               const citasProf = citas.filter((c) => c.profesional_id === prof.id)
+              const bloqueosProf = bloqueos.filter((b) => b.profesional_id === prof.id)
               return (
                 <div key={prof.id} className="flex-1 min-w-[120px]">
                   <ColumnaProfesional
                     profesional={prof}
                     citas={citasProf}
+                    bloqueos={bloqueosProf}
                     onClickCita={onClickCita}
                     onClickCelda={onClickCelda}
-                  onResizeCita={onResizeCita}
+                    onBloquearHorario={onBloquearHorario ?? (() => undefined)}
+                    onResizeCita={onResizeCita}
+                    onEliminarBloqueo={onEliminarBloqueo}
                     fecha={fecha}
+                    horaInicioLaboral={horaInicioLaboral}
+                    horaFinLaboral={horaFinLaboral}
                   />
                 </div>
               )

@@ -298,3 +298,42 @@ export async function actualizarFichaClinica(
   }
   return true
 }
+
+export type NotaClinica = {
+  id: string
+  contenido: string
+  created_at: string
+  profesionales?: { nombre: string; color: string } | null
+  cita_id?: string | null
+}
+
+export async function getNotasClinicas(pacienteId: string): Promise<NotaClinica[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('notas_clinicas')
+    .select('id, contenido, created_at, cita_id, profesionales(nombre, color)')
+    .eq('paciente_id', pacienteId)
+    .order('created_at', { ascending: false })
+  return (data ?? []) as unknown as NotaClinica[]
+}
+
+export async function crearNotaClinica(input: {
+  paciente_id: string
+  contenido: string
+  profesional_id?: string
+  cita_id?: string
+}): Promise<boolean> {
+  const supabase = createClient()
+  const { data: clinicaId } = await supabase.rpc('auth_clinica_id')
+  const { error } = await supabase.from('notas_clinicas').insert({
+    clinica_id: clinicaId,
+    ...input,
+  })
+  return !error
+}
+
+export async function eliminarNotaClinica(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from('notas_clinicas').delete().eq('id', id)
+  return !error
+}

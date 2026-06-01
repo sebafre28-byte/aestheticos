@@ -17,14 +17,20 @@ import type {
 } from '@/lib/agenda/queries'
 import type { PagoCitaFields } from '@/lib/cobros/queries'
 import {
-  getCitasDelDia, getCitasDeSemana, getCitasDelMes, getProfesionales, getServiciosAgenda, getClinicaId, editarCita
+  getCitasDelDia, getCitasDeSemana, getCitasDelMes, getProfesionales, getServiciosAgenda, getClinicaId, editarCita,
+  getBloqueos, eliminarBloqueo,
 } from '@/lib/agenda/queries'
+import type { BloqueoProfesional } from '@/lib/agenda/queries'
+import { getClinicaConfig } from '@/lib/onboarding/queries'
+import type { HorariosConfig } from '@/lib/onboarding/queries'
 import { CalendarioDia } from './CalendarioDia'
 import { CalendarioSemana } from './CalendarioSemana'
 import { ModalCita } from './ModalCita'
+import { ModalBloqueo } from './ModalBloqueo'
 import { PanelDetalleCita } from './PanelDetalleCita'
 import { ListaPendientes } from './ListaPendientes'
 import { CalendarioMes } from './CalendarioMes'
+import { MiniCalendario } from './MiniCalendario'
 import { citaWallClockTime } from '@/lib/agenda/datetime'
 import { trackAgendaMetric } from '@/lib/agenda/metrics'
 
@@ -50,10 +56,13 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   }, [])
   const [fechaActual, setFechaActual] = useState(new Date())
   const [citas, setCitas] = useState<CitaConRelaciones[]>([])
+  const [bloqueos, setBloqueos] = useState<BloqueoProfesional[]>([])
   const [profesionales, setProfesionales] = useState<ProfesionalRow[]>([])
   const [servicios, setServicios] = useState<ServicioRow[]>([])
   const [cargando, setCargando] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
+  const [horaInicioLaboral, setHoraInicioLaboral] = useState<number>(9)
+  const [horaFinLaboral, setHoraFinLaboral] = useState<number>(18)
 
   const [profsFiltrados, setProfsFiltrados] = useState<string[]>([])
   const [fechaJump, setFechaJump] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -68,13 +77,35 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   const [citaDetalle, setCitaDetalle] = useState<CitaConRelaciones | null>(null)
   const [busqueda, setBusqueda] = useState('')
 
+  // ─── Estado del modal de bloqueo ──────────────────────────────────────────
+  const [modalBloqueoAbierto, setModalBloqueoAbierto] = useState(false)
+  const [bloqueoHoraInicial, setBloqueoHoraInicial] = useState<Date | undefined>()
+  const [bloqueoProfeIdInicial, setBloqueoProfeIdInicial] = useState<string | undefined>()
+
   // ─── Cargar datos ─────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
       const clinicaId = await getClinicaId()
-const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda(true)])
+      const [profs, servs, config] = await Promise.all([
+        getProfesionales(),
+        getServiciosAgenda(true),
+        getClinicaConfig(),
+      ])
       setProfesionales(profs)
       setServicios(servs)
+
+      if (config.horarios) {
+        const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+        const hoy = new Date()
+        const diaNombre = diasSemana[hoy.getDay()]
+        const horarioDia = (config.horarios as HorariosConfig)[diaNombre]
+        if (horarioDia?.activo && horarioDia.desde && horarioDia.hasta) {
+          const [hInicio] = horarioDia.desde.split(':').map(Number)
+          const [hFin] = horarioDia.hasta.split(':').map(Number)
+          if (!isNaN(hInicio)) setHoraInicioLaboral(hInicio)
+          if (!isNaN(hFin)) setHoraFinLaboral(hFin)
+        }
+      }
     }
     init()
   }, [])
@@ -89,6 +120,8 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
     try {
       let datos: CitaConRelaciones[]
 
+      const fechaStr = format(fechaActual, 'yyyy-MM-dd')
+
       if (vista === 'mes') {
         const inicioMes = startOfMonth(fechaActual)
         const finMes = endOfMonth(fechaActual)
@@ -97,7 +130,12 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
           format(finMes, 'yyyy-MM-dd')
         )
       } else if (vista === 'dia' || vista === 'lista') {
-        datos = await getCitasDelDia(format(fechaActual, 'yyyy-MM-dd'))
+        const [citasDia, bloquesDia] = await Promise.all([
+          getCitasDelDia(fechaStr),
+          getBloqueos(fechaStr),
+        ])
+        datos = citasDia
+        setBloqueos(bloquesDia)
       } else {
         const lunes = startOfWeek(fechaActual, { weekStartsOn: 1 })
         const domingo = endOfWeek(fechaActual, { weekStartsOn: 1 })
@@ -303,6 +341,21 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
 
   function handleCitaConfirmada(citaId: string) {
     handleEstadoActualizado(citaId, 'confirmada')
+  }
+
+  // ─── Abrir modal de bloqueo ───────────────────────────────────────────────
+  function handleBloquearHorario(profesionalId: string | undefined, hora: Date) {
+    if (isVistaProfe) return
+    setBloqueoProfeIdInicial(profesionalId)
+    setBloqueoHoraInicial(hora)
+    setModalBloqueoAbierto(true)
+  }
+
+
+  // ─── Eliminar bloqueo ─────────────────────────────────────────────────────
+  async function handleEliminarBloqueo(id: string) {
+    await eliminarBloqueo(id)
+    setBloqueos((prev) => prev.filter((b) => b.id !== id))
   }
 
   // Ir a vista día de una fecha específica (desde click en header semana)
@@ -602,7 +655,19 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
       })()}
 
       {/* ── Cuerpo principal ── */}
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 flex gap-5">
+        {/* Mini calendario lateral — solo desktop, solo vistas día/semana */}
+        {(vista === 'dia' || vista === 'semana') && (
+          <MiniCalendario
+            fechaSeleccionada={fechaActual}
+            citas={citas}
+            onChange={(fecha) => {
+              setFechaActual(fecha)
+              setVista('dia')
+            }}
+          />
+        )}
+        <div className="flex-1 min-w-0 relative">
         {errorCarga && (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-red-50 border border-red-100">
             <div className="text-center">
@@ -622,6 +687,7 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
             fecha={fechaActual}
             profesionales={profesionales}
             citas={citasFiltradas}
+            bloqueos={bloqueos}
             profesionalesFiltrados={
               isVistaProfe && profesionalPropio
                 ? [profesionalPropio]
@@ -629,7 +695,11 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
             }
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
+            onBloquearHorario={handleBloquearHorario}
             onResizeCita={redimensionarCita}
+            onEliminarBloqueo={handleEliminarBloqueo}
+            horaInicioLaboral={horaInicioLaboral}
+            horaFinLaboral={horaFinLaboral}
           />
         )}
         {vista === 'dia' && citas.length === 0 && !cargando && (
@@ -652,6 +722,7 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
             citas={citasFiltradas}
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
+            onBloquearHorario={handleBloquearHorario}
             onResizeCita={redimensionarCita}
             onVerDia={handleVerDia}
           />
@@ -749,6 +820,7 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
             )}
           </div>
         )}
+        </div>{/* fin flex-1 min-w-0 */}
       </div>
 
       {/* ── Modal crear/editar cita ── */}
@@ -761,6 +833,20 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
           servicios={servicios}
           onGuardada={handleCitaGuardada}
           onCerrar={() => { setModalAbierto(false); setCitaParaEditar(null) }}
+        />
+      )}
+
+      {/* ── Modal bloqueo de horario ── */}
+      {modalBloqueoAbierto && (
+        <ModalBloqueo
+          profesionalId={bloqueoProfeIdInicial}
+          horaInicio={bloqueoHoraInicial}
+          profesionales={profesionales}
+          onGuardado={() => {
+            setModalBloqueoAbierto(false)
+            cargarCitas()
+          }}
+          onCerrar={() => setModalBloqueoAbierto(false)}
         />
       )}
 
