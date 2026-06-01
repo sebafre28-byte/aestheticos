@@ -917,3 +917,18 @@ export async function getClinicaId(): Promise<string | null> {
   if (error) return null
   return data?.id ?? null
 }
+
+export async function getCitasFuturasPaciente(pacienteId: string): Promise<CitaConRelaciones[]> {
+  const supabase = createClient()
+  const ahora = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('citas')
+    .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+    .eq('paciente_id', pacienteId)
+    .gt('inicio', ahora)
+    .not('estado', 'in', '("cancelada","no_asistio")')
+    .order('inicio', { ascending: true })
+    .limit(3)
+  if (error) return []
+  return (data ?? []) as CitaConRelaciones[]
+}
