@@ -6,7 +6,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useAcceso } from "@/components/auth/RolGuard"
@@ -24,17 +24,21 @@ import {
   rolLabel, type UsuarioClinica, type RolUsuario,
 } from "@/lib/usuarios/queries"
 import { createClient } from "@/lib/supabase/client"
-import type { ProfesionalRow } from "@/lib/agenda/queries"
+import {
+  getProfesionales, getDisponibilidadProfesional, setDisponibilidadProfesional,
+  type ProfesionalRow, type DisponibilidadRow,
+} from "@/lib/agenda/queries"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "equipo" | "horarios" | "usuarios" | "whatsapp" | "recordatorios" | "plan" | "seguridad"
+type SeccionId = "clinica" | "equipo" | "horarios" | "disponibilidad" | "usuarios" | "whatsapp" | "recordatorios" | "plan" | "seguridad"
 
 const NAV: { id: SeccionId; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[] = [
   { id: "clinica",       label: "Datos de la clínica",   icon: Building2 },
   { id: "equipo",        label: "Equipo",                icon: Users },
-  { id: "horarios",      label: "Horarios de atención",  icon: Clock },
-  { id: "usuarios",      label: "Usuarios y roles",      icon: UserCog },
+  { id: "horarios",       label: "Horarios de atención",  icon: Clock },
+  { id: "disponibilidad", label: "Disponibilidad",        icon: CalendarDays },
+  { id: "usuarios",       label: "Usuarios y roles",      icon: UserCog },
   { id: "whatsapp",      label: "WhatsApp Business",     icon: MessageCircle },
   { id: "recordatorios", label: "Recordatorios",         icon: Bell },
   { id: "plan",          label: "Plan y facturación",    icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
@@ -1041,6 +1045,195 @@ function SeccionHorarios() {
   )
 }
 
+// ─── Sección Disponibilidad por profesional ───────────────────────────────────
+
+const DIAS_SEMANA = [
+  { num: 1, label: 'Lunes' },
+  { num: 2, label: 'Martes' },
+  { num: 3, label: 'Miércoles' },
+  { num: 4, label: 'Jueves' },
+  { num: 5, label: 'Viernes' },
+  { num: 6, label: 'Sábado' },
+  { num: 7, label: 'Domingo' },
+]
+
+type DiaDisponibilidad = {
+  dia_semana: number
+  activo: boolean
+  hora_inicio: string
+  hora_fin: string
+}
+
+function buildDisponibilidadVacia(): DiaDisponibilidad[] {
+  return DIAS_SEMANA.map((d) => ({
+    dia_semana: d.num,
+    activo: d.num <= 5,
+    hora_inicio: '09:00',
+    hora_fin: '18:00',
+  }))
+}
+
+function rowsToForm(rows: DisponibilidadRow[]): DiaDisponibilidad[] {
+  return DIAS_SEMANA.map((d) => {
+    const row = rows.find((r) => r.dia_semana === d.num)
+    if (row) {
+      return { dia_semana: d.num, activo: row.activo, hora_inicio: row.hora_inicio, hora_fin: row.hora_fin }
+    }
+    return { dia_semana: d.num, activo: false, hora_inicio: '09:00', hora_fin: '18:00' }
+  })
+}
+
+function SeccionDisponibilidad() {
+  const [profesionales, setProfesionales] = useState<ProfesionalRow[]>([])
+  const [profesionalId, setProfesionalId] = useState<string>('')
+  const [dias, setDias] = useState<DiaDisponibilidad[]>(buildDisponibilidadVacia())
+  const [cargando, setCargando] = useState(true)
+  const [cargandoDias, setCargandoDias] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null)
+
+  useEffect(() => {
+    getProfesionales().then((profs) => {
+      setProfesionales(profs)
+      if (profs.length > 0) setProfesionalId(profs[0].id)
+      setCargando(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!profesionalId) return
+    setCargandoDias(true)
+    setFeedback(null)
+    getDisponibilidadProfesional(profesionalId).then((rows) => {
+      setDias(rowsToForm(rows))
+      setCargandoDias(false)
+    })
+  }, [profesionalId])
+
+  function toggleDia(num: number) {
+    setDias((prev) => prev.map((d) => d.dia_semana === num ? { ...d, activo: !d.activo } : d))
+  }
+
+  function setHora(num: number, campo: 'hora_inicio' | 'hora_fin', valor: string) {
+    setDias((prev) => prev.map((d) => d.dia_semana === num ? { ...d, [campo]: valor } : d))
+  }
+
+  async function guardar() {
+    if (!profesionalId) return
+    setGuardando(true)
+    setFeedback(null)
+    const filas: DisponibilidadRow[] = dias.map((d) => ({
+      id: '',
+      clinica_id: '',
+      profesional_id: profesionalId,
+      dia_semana: d.dia_semana,
+      hora_inicio: d.hora_inicio,
+      hora_fin: d.hora_fin,
+      activo: d.activo,
+    }))
+    const ok = await setDisponibilidadProfesional(profesionalId, filas)
+    setGuardando(false)
+    if (ok) {
+      setFeedback({ tipo: 'ok', msg: 'Disponibilidad guardada correctamente.' })
+      setTimeout(() => setFeedback(null), 3000)
+    } else {
+      setFeedback({ tipo: 'error', msg: 'No se pudo guardar. Intenta nuevamente.' })
+    }
+  }
+
+  if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
+
+  if (profesionales.length === 0) {
+    return (
+      <div>
+        <SectionHeader title="Disponibilidad por profesional" subtitle="Configura el horario individual de cada profesional" />
+        <div className="text-center py-12">
+          <CalendarDays className="size-8 text-gray-300 mx-auto mb-2" />
+          <p className="text-[13px] text-gray-500">No hay profesionales registrados.</p>
+        </div>
+      </div>
+    )
+  }
+
+  const profesionalActual = profesionales.find((p) => p.id === profesionalId)
+
+  return (
+    <div>
+      <SectionHeader title="Disponibilidad por profesional" subtitle="Configura el horario individual de cada profesional" />
+
+      <div className="flex gap-2 flex-wrap mb-6">
+        {profesionales.map((p) => {
+          const initials = p.nombre.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+          const isSelected = p.id === profesionalId
+          return (
+            <button
+              key={p.id}
+              onClick={() => setProfesionalId(p.id)}
+              className={`flex items-center gap-2 h-9 pl-2 pr-3 rounded-xl border text-[13px] font-medium transition-colors ${isSelected ? 'border-[#2563EB] bg-blue-50 text-[#2563EB]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0" style={{ backgroundColor: p.color }}>
+                {initials}
+              </span>
+              {p.nombre}
+            </button>
+          )
+        })}
+      </div>
+
+      {profesionalActual && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+          <p className="text-[13px] font-semibold text-gray-700 mb-3">
+            Horario de {profesionalActual.nombre}
+          </p>
+          {cargandoDias ? (
+            <div className="flex items-center gap-2 py-6 justify-center text-[13px] text-gray-400">
+              <Loader2 className="size-4 animate-spin" /> Cargando…
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {dias.map((d) => {
+                const diaLabel = DIAS_SEMANA.find((x) => x.num === d.dia_semana)?.label ?? ''
+                return (
+                  <div key={d.dia_semana} className={`bg-gray-50 rounded-xl border border-gray-100 p-3 flex items-center gap-4 transition-opacity ${!d.activo ? 'opacity-60' : ''}`}>
+                    <Toggle activo={d.activo} onChange={() => toggleDia(d.dia_semana)} />
+                    <span className="w-24 text-[13px] font-medium text-gray-800 shrink-0">{diaLabel}</span>
+                    {d.activo ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="time"
+                          value={d.hora_inicio}
+                          onChange={(e) => setHora(d.dia_semana, 'hora_inicio', e.target.value)}
+                          className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+                        />
+                        <span className="text-[12px] text-gray-400">–</span>
+                        <input
+                          type="time"
+                          value={d.hora_fin}
+                          onChange={(e) => setHora(d.dia_semana, 'hora_fin', e.target.value)}
+                          className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-[12px] text-gray-400 flex-1">No trabaja este día</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <Feedback f={feedback} />
+      <div className="flex justify-end">
+        <Button onClick={guardar} disabled={guardando || cargandoDias} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+          {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Guardar disponibilidad"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Header card ─────────────────────────────────────────────────────────────
 
 function ClinicaHeaderCard() {
@@ -1101,14 +1294,15 @@ export default function ConfiguracionPage() {
   }
 
   const SECCIONES: Record<SeccionId, React.ReactNode> = {
-    clinica:       <SeccionClinica />,
-    equipo:        <SeccionEquipo />,
-    horarios:      <SeccionHorarios />,
-    usuarios:      <SeccionUsuarios />,
-    whatsapp:      <SeccionWhatsApp />,
-    recordatorios: <SeccionRecordatorios />,
-    plan:          <SeccionPlan />,
-    seguridad:     <SeccionSeguridad />,
+    clinica:        <SeccionClinica />,
+    equipo:         <SeccionEquipo />,
+    horarios:       <SeccionHorarios />,
+    disponibilidad: <SeccionDisponibilidad />,
+    usuarios:       <SeccionUsuarios />,
+    whatsapp:       <SeccionWhatsApp />,
+    recordatorios:  <SeccionRecordatorios />,
+    plan:           <SeccionPlan />,
+    seguridad:      <SeccionSeguridad />,
   }
 
   return (

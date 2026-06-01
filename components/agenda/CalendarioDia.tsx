@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
+import { Calendar, Ban } from 'lucide-react'
 import { citaWallClockMinutes } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones, ProfesionalRow } from '@/lib/agenda/queries'
 import { BloqueCita, PIXEL_POR_MIN, HORA_GRILLA_INICIO } from './BloquesCita'
@@ -56,12 +57,20 @@ function etiquetaDesdeY(y: number): string {
 
 // ─── Columna de un profesional ────────────────────────────────────────────────
 
+type MenuContextual = {
+  x: number
+  y: number
+  hora: Date
+  profesionalId: string | undefined
+}
+
 function ColumnaProfesional({
   profesional,
   citas,
   bloqueos,
   onClickCita,
   onClickCelda,
+  onBloquearHorario,
   onResizeCita,
   onEliminarBloqueo,
   fecha,
@@ -73,6 +82,7 @@ function ColumnaProfesional({
   bloqueos: BloqueoProfesional[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
+  onBloquearHorario: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onEliminarBloqueo?: (id: string) => void
   fecha: Date
@@ -82,18 +92,23 @@ function ColumnaProfesional({
   const dispuestas = calcularColumnas(citas)
   const [hoverY, setHoverY] = useState<number | null>(null)
   const [sobreFondo, setSobreFondo] = useState(false)
+  const [menu, setMenu] = useState<MenuContextual | null>(null)
 
-  function handleClickFondo(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target !== e.currentTarget) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const y = e.clientY - rect.top
+  function horaDesdeY(y: number): Date {
     const minutos = Math.floor(y / PIXEL_POR_MIN)
     const minutosRedondeados = Math.floor(minutos / 15) * 15
     const hora = new Date(fecha)
     hora.setHours(HORA_GRILLA_INICIO + Math.floor(minutosRedondeados / 60))
     hora.setMinutes(minutosRedondeados % 60)
     hora.setSeconds(0)
-    onClickCelda(profesional.id, hora)
+    return hora
+  }
+
+  function handleClickFondo(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target !== e.currentTarget) return
+    const hora = horaDesdeY(e.clientY - e.currentTarget.getBoundingClientRect().top)
+    const rect = e.currentTarget.getBoundingClientRect()
+    setMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, hora, profesionalId: profesional.id })
   }
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
@@ -110,6 +125,32 @@ function ColumnaProfesional({
       onMouseMove={handleMouseMove}
       onMouseLeave={() => { setHoverY(null); setSobreFondo(false) }}
     >
+      {/* Menú contextual */}
+      {menu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
+          <div
+            className="absolute z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden"
+            style={{ top: menu.y, left: menu.x, maxWidth: 180, minWidth: 160 }}
+          >
+            <button
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors text-left"
+              onClick={() => { setMenu(null); onClickCelda(menu.profesionalId, menu.hora) }}
+            >
+              <Calendar className="size-3.5 text-[#2563EB] shrink-0" />
+              Nueva cita
+            </button>
+            <button
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors text-left"
+              onClick={() => { setMenu(null); onBloquearHorario(menu.profesionalId, menu.hora) }}
+            >
+              <Ban className="size-3.5 text-gray-400 shrink-0" />
+              Bloquear horario
+            </button>
+          </div>
+        </>
+      )}
+
       {/* Highlight de cuarto de hora al pasar el mouse sobre fondo vacío */}
       {sobreFondo && hoverY !== null && (
         <div
@@ -170,6 +211,7 @@ function ColumnaProfesional({
       {dispuestas.map(({ cita, col, totalCols }) => {
         const { top, height } = calcularPosicion(cita.inicio, cita.fin)
         const ancho = 100 / totalCols
+        const bufferPx = (cita.buffer_minutos ?? 0) * PIXEL_POR_MIN
         return (
           <BloqueCita
             key={cita.id}
@@ -180,6 +222,7 @@ function ColumnaProfesional({
             heightPx={height - 2}
             leftPercent={col * ancho + 0.5}
             widthPercent={ancho - 1}
+            bufferPx={bufferPx}
           />
         )
       })}
@@ -197,6 +240,7 @@ type Props = {
   profesionalesFiltrados: string[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
+  onBloquearHorario?: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onEliminarBloqueo?: (id: string) => void
   horaInicioLaboral?: number
@@ -211,6 +255,7 @@ export function CalendarioDia({
   profesionalesFiltrados,
   onClickCita,
   onClickCelda,
+  onBloquearHorario,
   onResizeCita,
   onEliminarBloqueo,
   horaInicioLaboral,
@@ -366,6 +411,7 @@ export function CalendarioDia({
                     bloqueos={bloqueosProf}
                     onClickCita={onClickCita}
                     onClickCelda={onClickCelda}
+                    onBloquearHorario={onBloquearHorario ?? (() => undefined)}
                     onResizeCita={onResizeCita}
                     onEliminarBloqueo={onEliminarBloqueo}
                     fecha={fecha}

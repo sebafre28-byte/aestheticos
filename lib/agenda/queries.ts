@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { addDays, addWeeks, addMonths, parseISO, format } from 'date-fns'
+import { getClinicaConfig } from '@/lib/onboarding/queries'
 
 async function triggerCitaJobs(citaId: string, action: 'schedule' | 'cancel' | 'reschedule'): Promise<void> {
   try {
@@ -101,6 +102,7 @@ export type ServicioRow = {
   precio: number
   color: string
   activo: boolean
+  buffer_minutos: number
   created_at: string
 }
 
@@ -131,6 +133,7 @@ export type CitaConRelaciones = {
   pago_estado?: PagoEstado
   pago_metodo?: PagoMetodo | null
   pago_registrado_at?: string | null
+  buffer_minutos?: number
   created_at: string
   pacientes: PacienteRow
   profesionales: ProfesionalRow
@@ -151,6 +154,7 @@ export type NuevaCitaData = {
   recurrence_rule?: string | null
   recurrence_parent_id?: string | null
   recurrence_instance_date?: string | null
+  buffer_minutos?: number
 }
 
 export type DisponibilidadRow = {
@@ -379,18 +383,34 @@ export async function verificarConflicto(
   profesionalId: string,
   inicio: string,
   fin: string,
-  excludeCitaId?: string
+  excludeCitaId?: string,
+  bufferMinutos = 0
 ): Promise<CitaConRelaciones | null> {
   const supabase = createClient()
+
+  // Cuando hay buffer, la zona ocupada de la cita existente se extiende bufferMinutos después de su fin.
+  // Para detectar esto, buscamos citas existentes donde:
+  //   inicio_existente < fin_nueva  (la cita existente comienza antes de que termine la nueva)
+  //   fin_existente + buffer > inicio_nueva  (la cita existente + buffer termina después de que inicia la nueva)
+  //
+  // Equivalentemente, se puede ampliar el fin de búsqueda y el inicio de búsqueda:
+  //   inicio_existente < fin + buffer  (para cubrir citas que comienzan antes del fin+buffer de la nueva)
+  //   fin_existente > inicio - buffer  (para cubrir citas cuyo fin+buffer supera el inicio de la nueva)
+  const finBusqueda = bufferMinutos > 0
+    ? format(new Date(parseISO(fin).getTime() + bufferMinutos * 60_000), "yyyy-MM-dd'T'HH:mm:ss")
+    : fin
+  const inicioBusqueda = bufferMinutos > 0
+    ? format(new Date(parseISO(inicio).getTime() - bufferMinutos * 60_000), "yyyy-MM-dd'T'HH:mm:ss")
+    : inicio
 
   let query = supabase
     .from('citas')
     .select(`*, pacientes(*), profesionales(*), servicios(*)`)
     .eq('profesional_id', profesionalId)
     .not('estado', 'in', '("cancelada","no_asistio")')
-    // Hay conflicto si los rangos se solapan: inicio_existente < fin_nueva AND fin_existente > inicio_nueva
-    .lt('inicio', fin)
-    .gt('fin', inicio)
+    // Hay conflicto si los rangos (con buffer) se solapan
+    .lt('inicio', finBusqueda)
+    .gt('fin', inicioBusqueda)
     .limit(1)
 
   if (excludeCitaId) {
@@ -446,6 +466,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
         recurrence_rule: data.recurrence_rule ?? null,
         recurrence_parent_id: data.recurrence_parent_id ?? null,
         recurrence_instance_date: data.recurrence_instance_date ?? null,
+        buffer_minutos: data.buffer_minutos ?? 0,
       })
       .select(`*, pacientes(*), profesionales(*), servicios(*)`)
       .single()
@@ -646,6 +667,11 @@ export async function actualizarEstadoCita(
   return true
 }
 
+const DIA_SEMANA_MAP: Record<string, number> = {
+  lunes: 1, martes: 2, 'miércoles': 3, miercoles: 3,
+  jueves: 4, viernes: 5, 'sábado': 6, sabado: 6, domingo: 7,
+}
+
 // ─── Disponibilidad por profesional y fecha ────────────────────────────────────
 export async function getDisponibilidadProfesional(profesionalId: string): Promise<DisponibilidadRow[]> {
   const supabase = createClient()
@@ -653,14 +679,75 @@ export async function getDisponibilidadProfesional(profesionalId: string): Promi
     .from('agenda_disponibilidad')
     .select('*')
     .eq('profesional_id', profesionalId)
-    .eq('activo', true)
     .order('dia_semana', { ascending: true })
 
   if (error) {
     console.error('Error getDisponibilidadProfesional:', error)
     return []
   }
-  return (data ?? []) as DisponibilidadRow[]
+
+  const filas = (data ?? []) as DisponibilidadRow[]
+  if (filas.length > 0) return filas
+
+  const [config, clinicaId] = await Promise.all([getClinicaConfig(), getClinicaId()])
+  const horarios = config.horarios ?? {}
+  const resultado: DisponibilidadRow[] = []
+
+  for (const [dia, diaDato] of Object.entries(horarios)) {
+    const diaSemana = DIA_SEMANA_MAP[dia]
+    if (!diaSemana) continue
+    resultado.push({
+      id: `global-${diaSemana}`,
+      clinica_id: clinicaId ?? '',
+      profesional_id: profesionalId,
+      dia_semana: diaSemana,
+      hora_inicio: diaDato.desde,
+      hora_fin: diaDato.hasta,
+      activo: diaDato.activo,
+    })
+  }
+
+  return resultado.sort((a, b) => a.dia_semana - b.dia_semana)
+}
+
+export async function setDisponibilidadProfesional(
+  profesionalId: string,
+  disponibilidad: DisponibilidadRow[]
+): Promise<boolean> {
+  const supabase = createClient()
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return false
+
+  const { error: deleteError } = await supabase
+    .from('agenda_disponibilidad')
+    .delete()
+    .eq('profesional_id', profesionalId)
+
+  if (deleteError) {
+    console.error('Error setDisponibilidadProfesional delete:', deleteError)
+    return false
+  }
+
+  const filas = disponibilidad.map((d) => ({
+    clinica_id: clinicaId,
+    profesional_id: profesionalId,
+    dia_semana: d.dia_semana,
+    hora_inicio: d.hora_inicio,
+    hora_fin: d.hora_fin,
+    activo: d.activo,
+  }))
+
+  if (filas.length === 0) return true
+
+  const { error: insertError } = await supabase
+    .from('agenda_disponibilidad')
+    .insert(filas)
+
+  if (insertError) {
+    console.error('Error setDisponibilidadProfesional insert:', insertError)
+    return false
+  }
+  return true
 }
 
 export async function getBloqueosRango(
@@ -774,32 +861,42 @@ export type BloqueoProfesional = {
 export async function getBloqueos(fecha: string): Promise<BloqueoProfesional[]> {
   const supabase = createClient()
   const { data } = await supabase
-    .from('bloqueos')
+    .from('agenda_bloqueos')
     .select('id, profesional_id, inicio, fin, titulo')
     .gte('inicio', `${fecha}T00:00:00`)
     .lt('inicio', `${fecha}T23:59:59`)
   return (data ?? []) as BloqueoProfesional[]
 }
 
-export async function crearBloqueo(input: {
-  profesional_id: string
-  inicio: string
-  fin: string
-  titulo?: string
+export async function crearBloqueo(data: {
+  clinica_id: string
+  profesional_id?: string
+  titulo: string
+  tipo: 'bloqueo' | 'vacaciones' | 'feriado' | 'almuerzo' | 'capacitacion'
+  inicio: string  // ISO wall-clock
+  fin: string     // ISO wall-clock
+  motivo?: string
 }): Promise<boolean> {
   const supabase = createClient()
-  const { data: clinicaId } = await supabase.rpc('auth_clinica_id')
-  const { error } = await supabase.from('bloqueos').insert({
-    clinica_id: clinicaId,
-    ...input,
-    titulo: input.titulo ?? 'No disponible',
+  const { error } = await supabase.from('agenda_bloqueos').insert({
+    clinica_id: data.clinica_id,
+    profesional_id: data.profesional_id ?? null,
+    titulo: data.titulo,
+    tipo: data.tipo,
+    inicio: data.inicio,
+    fin: data.fin,
+    motivo: data.motivo ?? null,
   })
-  return !error
+  if (error) {
+    console.error('Error crearBloqueo:', error)
+    return false
+  }
+  return true
 }
 
 export async function eliminarBloqueo(id: string): Promise<boolean> {
   const supabase = createClient()
-  const { error } = await supabase.from('bloqueos').delete().eq('id', id)
+  const { error } = await supabase.from('agenda_bloqueos').delete().eq('id', id)
   return !error
 }
 
@@ -819,4 +916,19 @@ export async function getClinicaId(): Promise<string | null> {
 
   if (error) return null
   return data?.id ?? null
+}
+
+export async function getCitasFuturasPaciente(pacienteId: string): Promise<CitaConRelaciones[]> {
+  const supabase = createClient()
+  const ahora = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('citas')
+    .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+    .eq('paciente_id', pacienteId)
+    .gt('inicio', ahora)
+    .not('estado', 'in', '("cancelada","no_asistio")')
+    .order('inicio', { ascending: true })
+    .limit(3)
+  if (error) return []
+  return (data ?? []) as CitaConRelaciones[]
 }

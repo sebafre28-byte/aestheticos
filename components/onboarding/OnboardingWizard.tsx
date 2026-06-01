@@ -69,6 +69,7 @@ function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) 
   )
 }
 
+
 const DIAS = [
   { key: 'lunes',     label: 'L' },
   { key: 'martes',    label: 'M' },

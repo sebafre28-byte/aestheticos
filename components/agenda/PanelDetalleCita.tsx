@@ -1,16 +1,16 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { format, parseISO, differenceInMinutes, formatDistanceToNow } from 'date-fns'
+import { format, parseISO, differenceInMinutes, formatDistanceToNow, isPast } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   X, Edit2, MessageCircle, CheckCircle, CheckCircle2, Clock,
   User, Scissors, Calendar, FileText, History, Phone, ClipboardEdit, Loader2,
-  XCircle, UserX, CalendarClock,
+  XCircle, UserX, CalendarClock, Mail, Repeat2, Banknote, Star, CalendarCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
-import { actualizarEstadoCita, getHistorialPaciente, editarCita, getAuditCita, type AuditLogRow } from '@/lib/agenda/queries'
+import { actualizarEstadoCita, getHistorialPaciente, editarCita, getAuditCita, getCitasFuturasPaciente, type AuditLogRow } from '@/lib/agenda/queries'
 import type { PagoCitaFields } from '@/lib/cobros/queries'
 import { SeccionCobroCita } from './SeccionCobroCita'
 import { useDialogA11y } from './useDialogA11y'
@@ -129,6 +129,21 @@ function getAcciones(estado: EstadoCita): AccionEstado[] {
   }
 }
 
+// Colores de avatar basados en el nombre
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #2563EB 0%, #0891B2 100%)',
+  'linear-gradient(135deg, #14B8A6 0%, #0B132B 100%)',
+  'linear-gradient(135deg, #7C3AED 0%, #DB2777 100%)',
+  'linear-gradient(135deg, #D97706 0%, #DC2626 100%)',
+  'linear-gradient(135deg, #059669 0%, #0B132B 100%)',
+  'linear-gradient(135deg, #0B132B 0%, #2563EB 100%)',
+]
+
+function getAvatarGradient(nombre: string): string {
+  const idx = nombre.charCodeAt(0) % AVATAR_GRADIENTS.length
+  return AVATAR_GRADIENTS[idx]
+}
+
 type Props = {
   cita: CitaConRelaciones
   isVistaProfe?: boolean
@@ -152,6 +167,7 @@ export function PanelDetalleCita({
   const [actualizando, setActualizando] = useState<EstadoCita | null>(null)
   const [historial, setHistorial] = useState<CitaConRelaciones[]>([])
   const [cargandoHistorial, setCargandoHistorial] = useState(true)
+  const [citasFuturas, setCitasFuturas] = useState<CitaConRelaciones[]>([])
   const [audit, setAudit] = useState<AuditLogRow[]>([])
 
   const [mostrarNota, setMostrarNota] = useState(false)
@@ -168,6 +184,7 @@ export function PanelDetalleCita({
   const horaFin = cita.fin.slice(11, 16)
   const fechaFormateada = format(parseISO(cita.inicio), "EEEE d 'de' MMMM", { locale: es })
   const duracion = differenceInMinutes(parseISO(cita.fin), parseISO(cita.inicio))
+  const esFutura = !isPast(parseISO(cita.fin))
 
   const estadoInfo = estadoConfig[estadoActual]
   const IconoEstado = estadoInfo.icon
@@ -176,14 +193,32 @@ export function PanelDetalleCita({
   useEffect(() => {
     if (!paciente?.id) return
     getHistorialPaciente(paciente.id).then((h) => {
-      setHistorial(h.filter((c) => c.id !== cita.id).slice(0, 5))
+      const sinActual = h.filter((c) => c.id !== cita.id)
+      setHistorial(sinActual.slice(0, 5))
       setCargandoHistorial(false)
+    })
+    getCitasFuturasPaciente(paciente.id).then((futuras) => {
+      setCitasFuturas(futuras.filter((c) => c.id !== cita.id))
     })
   }, [paciente?.id, cita.id])
 
   useEffect(() => {
     getAuditCita(cita.id).then(setAudit)
   }, [cita.id])
+
+  // Métricas del paciente derivadas del historial
+  const totalVisitas = historial.length + 1 // +1 la actual
+  const gastoHistorial = historial.reduce((sum, h) => {
+    if (h.pago_estado === 'pagado' || h.pago_estado === 'parcial') {
+      return sum + (h.pago_monto ?? 0)
+    }
+    return sum
+  }, 0)
+  const gastoCitaActual =
+    (cita.pago_estado === 'pagado' || cita.pago_estado === 'parcial') ? (cita.pago_monto ?? 0) : 0
+  const gastoTotal = gastoHistorial + gastoCitaActual
+  const esClienteFrecuente = totalVisitas > 5
+  const ultimaVisita = historial[0]?.inicio ?? null
 
   async function cambiarEstado(nuevoEstado: EstadoCita) {
     setConfirmarCambio(null)
@@ -219,10 +254,19 @@ export function PanelDetalleCita({
   function abrirWhatsApp() {
     if (!paciente?.telefono) return
     const num = paciente.telefono.replace(/\D/g, '')
-    const mensaje = encodeURIComponent(
-      `Hola ${paciente.nombre}, te recordamos tu cita el ${fechaFormateada} a las ${horaInicio} para ${servicio?.nombre ?? 'tu servicio'}.`
-    )
-    window.open(`https://wa.me/${num}?text=${mensaje}`, '_blank')
+    let mensaje: string
+
+    if (esFutura && (estadoActual === 'pendiente' || estadoActual === 'confirmada')) {
+      mensaje = `Hola ${paciente.nombre}, te recordamos tu cita el ${fechaFormateada} a las ${horaInicio} para ${servicio?.nombre ?? 'tu servicio'}. ¡Te esperamos! 😊`
+    } else if (!esFutura && estadoActual === 'completada') {
+      mensaje = `Hola ${paciente.nombre}, esperamos que te haya ido muy bien en tu cita de ${servicio?.nombre ?? 'tu servicio'}. ¿Cómo te encuentras? Estamos para cualquier consulta. 🌟`
+    } else if (estadoActual === 'cancelada') {
+      mensaje = `Hola ${paciente.nombre}, queremos ofrecerte una nueva fecha para ${servicio?.nombre ?? 'tu servicio'}. ¿Cuándo te acomoda? Con gusto reagendamos tu cita. 📅`
+    } else {
+      mensaje = `Hola ${paciente.nombre}, te recordamos tu cita el ${fechaFormateada} a las ${horaInicio} para ${servicio?.nombre ?? 'tu servicio'}.`
+    }
+
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(mensaje)}`, '_blank')
   }
 
   return (
@@ -265,34 +309,105 @@ export function PanelDetalleCita({
         </div>
 
         {/* Badge de estado prominente */}
-        <div className={`px-5 py-3.5 border-b flex items-center gap-3 shrink-0 ${estadoInfo.bgColor} ${estadoInfo.borderColor}`}>
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-white/70`}>
+        <div className={`px-5 py-3 border-b flex items-center gap-3 shrink-0 ${estadoInfo.bgColor} ${estadoInfo.borderColor}`}>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-white/70">
             <IconoEstado className={`size-5 ${estadoInfo.textColor}`} />
           </div>
-          <p className={`text-[15px] font-bold ${estadoInfo.textColor}`}>
+          <p className={`text-[14px] font-bold flex-1 ${estadoInfo.textColor}`}>
             {estadoInfo.descripcion}
           </p>
         </div>
 
+        {/* Acciones rápidas fijas — visible sin scroll */}
+        {!isVistaProfe && (
+          <div className="px-5 py-2.5 border-b border-gray-100 shrink-0 bg-gray-50/60">
+            <div className="flex gap-2 flex-wrap">
+              {acciones.map((accion) => {
+                const IconAccion = accion.icon
+                const cargando = actualizando === accion.estado
+                return (
+                  <button
+                    key={accion.estado}
+                    onClick={() => handleAccion(accion)}
+                    disabled={!!actualizando}
+                    className={`h-8 px-3 rounded-lg text-[12px] font-medium transition-all flex items-center gap-1.5 disabled:opacity-60 ${accion.className}`}
+                  >
+                    {cargando
+                      ? <Loader2 className="size-3.5 animate-spin" />
+                      : <IconAccion className="size-3.5" />
+                    }
+                    {accion.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Contenido scrolleable */}
         <div className="flex-1 overflow-y-auto">
 
-          {/* ── Paciente ── */}
+          {/* ── Paciente enriquecido ── */}
           <div className="px-5 py-4 border-b border-gray-50">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
+              {/* Avatar grande con gradiente basado en nombre */}
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-[13px] font-bold"
-                style={{ background: 'linear-gradient(135deg, #2563EB 0%, #0891B2 100%)' }}
+                className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-white text-[14px] font-bold"
+                style={{ background: getAvatarGradient(paciente?.nombre ?? 'P') }}
               >
                 {paciente?.nombre?.slice(0, 2).toUpperCase() ?? 'PA'}
               </div>
-              <div>
-                <p className="text-[14px] font-semibold text-gray-900">{paciente?.nombre ?? '—'}</p>
+
+              <div className="flex-1 min-w-0">
+                {/* Nombre + badge cliente frecuente */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[15px] font-bold text-gray-900">{paciente?.nombre ?? '—'}</p>
+                  {esClienteFrecuente && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                      <Star className="size-2.5 fill-amber-500 text-amber-500" />
+                      Frecuente
+                    </span>
+                  )}
+                </div>
+
+                {/* Teléfono */}
                 {paciente?.telefono && (
-                  <div className="flex items-center gap-1 mt-0.5">
+                  <div className="flex items-center gap-1 mt-1">
                     <Phone className="size-3 text-gray-400" />
                     <p className="text-[12px] text-gray-500">{paciente.telefono}</p>
                   </div>
+                )}
+
+                {/* Email */}
+                {paciente?.email && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <Mail className="size-3 text-gray-400" />
+                    <p className="text-[12px] text-gray-500 truncate">{paciente.email}</p>
+                  </div>
+                )}
+
+                {/* Métricas: visitas + gasto */}
+                {!cargandoHistorial && (
+                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                      <Repeat2 className="size-3 text-gray-400" />
+                      {totalVisitas} {totalVisitas === 1 ? 'visita' : 'visitas'}
+                    </span>
+                    {gastoTotal > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
+                        <Banknote className="size-3 text-teal-500" />
+                        $ {gastoTotal.toLocaleString('es-CL')}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Última visita */}
+                {ultimaVisita && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Última visita:{' '}
+                    {formatDistanceToNow(parseISO(ultimaVisita), { locale: es, addSuffix: true })}
+                  </p>
                 )}
               </div>
             </div>
@@ -344,79 +459,83 @@ export function PanelDetalleCita({
             <SeccionCobroCita cita={cita} onPagoActualizado={onPagoActualizado} />
           )}
 
-          {/* ── Cambiar estado (solo recepción) ── */}
-          {!isVistaProfe && (
+          {/* ── Nota clínica (admin y profesional) ── */}
+          <div className="px-5 py-4 border-b border-gray-50">
+            {!mostrarNota ? (
+              <button
+                onClick={() => setMostrarNota(true)}
+                className="flex items-center gap-2 text-[13px] font-medium text-[#2563EB] hover:text-blue-700 transition-colors"
+              >
+                <ClipboardEdit className="size-4" />
+                {cita.notas ? 'Editar nota clínica' : 'Agregar nota clínica'}
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                  Nota clínica
+                </p>
+                <textarea
+                  value={textoNota}
+                  onChange={(e) => setTextoNota(e.target.value)}
+                  placeholder="Evolución, observaciones, tratamiento aplicado..."
+                  rows={4}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30 placeholder:text-gray-400"
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={guardarNota}
+                    disabled={guardandoNota}
+                    className="text-[12px] text-white bg-[#2563EB] hover:bg-blue-700 border-0"
+                  >
+                    {guardandoNota && <Loader2 className="size-3 animate-spin mr-1" />}
+                    {notaGuardada ? '¡Guardado!' : 'Guardar nota'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setMostrarNota(false)}
+                    className="text-[12px]"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Próximas citas del mismo paciente ── */}
+          {citasFuturas.length > 0 && (
             <div className="px-5 py-4 border-b border-gray-50">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                Cambiar estado
-              </p>
-              <div className="flex flex-col gap-2">
-                {acciones.map((accion) => {
-                  const IconAccion = accion.icon
-                  const cargando = actualizando === accion.estado
+              <div className="flex items-center gap-2 mb-3">
+                <CalendarCheck className="size-3.5 text-teal-500" />
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                  Próximas citas
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                {citasFuturas.map((fc) => {
+                  const fechaCorta = format(parseISO(fc.inicio), 'EEE d MMM', { locale: es })
+                  const hora = fc.inicio.slice(11, 16)
+                  const colorProfe = fc.profesionales?.color ?? '#6B7280'
                   return (
-                    <button
-                      key={accion.estado}
-                      onClick={() => handleAccion(accion)}
-                      disabled={!!actualizando}
-                      className={`h-9 rounded-lg text-[12px] font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-60 ${accion.className}`}
-                    >
-                      {cargando
-                        ? <Loader2 className="size-3.5 animate-spin" />
-                        : <IconAccion className="size-3.5" />
-                      }
-                      {accion.label}
-                    </button>
+                    <div key={fc.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-gray-50 border border-gray-100">
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ background: colorProfe }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-medium text-gray-700 truncate">
+                          {fc.servicios?.nombre ?? '—'}
+                        </p>
+                        <p className="text-[11px] text-gray-400">
+                          {fechaCorta} · {hora} · {fc.profesionales?.nombre ?? '—'}
+                        </p>
+                      </div>
+                    </div>
                   )
                 })}
               </div>
-            </div>
-          )}
-
-          {/* ── Nota clínica (solo vista profesional) ── */}
-          {isVistaProfe && (
-            <div className="px-5 py-4 border-b border-gray-50">
-              {!mostrarNota ? (
-                <button
-                  onClick={() => setMostrarNota(true)}
-                  className="flex items-center gap-2 text-[13px] font-medium text-[#2563EB] hover:text-blue-700 transition-colors"
-                >
-                  <ClipboardEdit className="size-4" />
-                  Agregar nota clínica
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
-                    Nota clínica
-                  </p>
-                  <textarea
-                    value={textoNota}
-                    onChange={(e) => setTextoNota(e.target.value)}
-                    placeholder="Evolución, observaciones, tratamiento aplicado..."
-                    rows={4}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30 placeholder:text-gray-400"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={guardarNota}
-                      disabled={guardandoNota}
-                      className="text-[12px] text-white bg-[#2563EB] hover:bg-blue-700 border-0"
-                    >
-                      {guardandoNota && <Loader2 className="size-3 animate-spin mr-1" />}
-                      {notaGuardada ? '¡Guardado!' : 'Guardar nota'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setMostrarNota(false)}
-                      className="text-[12px]"
-                    >
-                      Cancelar
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

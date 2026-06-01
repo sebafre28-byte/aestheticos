@@ -14,6 +14,7 @@ type Servicio = {
   duracion_minutos: number
   precio: number
   color: string
+  buffer_minutos: number
 }
 
 type Profesional = {
@@ -47,6 +48,7 @@ type SlotOcupado = {
   inicio: string
   fin: string
   profesional_id: string
+  buffer_minutos?: number
 }
 
 type FormData = {
@@ -126,9 +128,10 @@ function buildSlotsDisponibles(
     // For overlap comparison, compare as wall-clock strings (lexicographic is safe for same-day)
     const ocupado = slotsOcupados.some((s) => {
       if (s.profesional_id !== profesionalId) return false
-      // Normalize occupied slot to wall-clock for comparison
+      // Normalize occupied slot to wall-clock for comparison, extending fin by buffer_minutos
       const oInicioWall = toWallClockIso(new Date(s.inicio), tz)
-      const oFinWall = toWallClockIso(new Date(s.fin), tz)
+      const bufferMs = (s.buffer_minutos ?? 0) * 60_000
+      const oFinWall = toWallClockIso(new Date(new Date(s.fin).getTime() + bufferMs), tz)
       return slotInicioStr < oFinWall && slotFinStr > oInicioWall
     })
 
@@ -354,11 +357,19 @@ function PasoHora({
     setCargando(true)
     const supabase = createClient()
     const fechaISO = formatDateISO(fecha)
-    const { data } = await supabase.rpc('get_slots_ocupados', {
-      p_clinica_id: clinicaId,
-      p_fecha: fechaISO,
-      p_profesional_id: profesionalId,
-    })
+    const [{ data }, { data: bloqueosData }] = await Promise.all([
+      supabase.rpc('get_slots_ocupados', {
+        p_clinica_id: clinicaId,
+        p_fecha: fechaISO,
+        p_profesional_id: profesionalId,
+      }),
+      supabase
+        .from('agenda_bloqueos')
+        .select('inicio, fin, profesional_id')
+        .eq('clinica_id', clinicaId)
+        .gte('inicio', `${fechaISO}T00:00:00`)
+        .lte('fin', `${fechaISO}T23:59:59`),
+    ])
     const ocupados: SlotOcupado[] = Array.isArray(data) ? data : []
 
     const nombreDia = DIAS_ES[fecha.getDay()]
@@ -369,7 +380,25 @@ function PasoHora({
       return
     }
 
-    const disponibles = buildSlotsDisponibles(horarioDia, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
+    const bloqueos: Array<{ inicio: string; fin: string; profesional_id: string | null }> = Array.isArray(bloqueosData) ? bloqueosData : []
+
+    let disponibles = buildSlotsDisponibles(horarioDia, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
+
+    // Filtrar slots que se solapan con bloqueos (para todos los profesionales o el específico)
+    if (bloqueos.length > 0) {
+      const duracionMs = servicio.duracion_minutos * 60 * 1000
+      disponibles = disponibles.filter((slot) => {
+        const slotInicioMs = slot.getTime()
+        const slotFinMs = slotInicioMs + duracionMs
+        return !bloqueos.some((b) => {
+          if (b.profesional_id !== null && b.profesional_id !== profesionalId) return false
+          const bInicioMs = new Date(b.inicio).getTime()
+          const bFinMs = new Date(b.fin).getTime()
+          return slotInicioMs < bFinMs && slotFinMs > bInicioMs
+        })
+      })
+    }
+
     setSlots(disponibles)
     setCargando(false)
   }, [fecha, clinicaId, profesionalId, horarios, servicio.duracion_minutos])
