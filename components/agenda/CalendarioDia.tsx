@@ -315,6 +315,28 @@ export function CalendarioDia({
             .map((n) => n[0])
             .join('')
             .toUpperCase()
+          const citasActivas = citasProf.filter(
+            (c) => c.estado !== 'cancelada' && c.estado !== 'no_asistio'
+          )
+          const minutosOcupados = citasActivas.reduce((sum, c) => {
+            const minI = minutosDia(c.inicio)
+            const minF = minutosDia(c.fin)
+            return sum + Math.max(0, minF - minI)
+          }, 0)
+          const minutosLaborales =
+            horaInicioLaboral !== undefined && horaFinLaboral !== undefined
+              ? (horaFinLaboral - horaInicioLaboral) * 60
+              : 480
+          const porcentaje = minutosLaborales > 0
+            ? Math.min(100, Math.round((minutosOcupados / minutosLaborales) * 100))
+            : 0
+          const colorBarra =
+            porcentaje > 80
+              ? 'bg-red-400'
+              : porcentaje >= 50
+              ? 'bg-amber-400'
+              : 'bg-emerald-400'
+
           return (
             <div
               key={prof.id}
@@ -334,6 +356,14 @@ export function CalendarioDia({
               <p className="text-[10px] text-gray-400">
                 {citasProf.length} {citasProf.length === 1 ? 'cita' : 'citas'} hoy
               </p>
+              {/* Barra de ocupación */}
+              <div className="w-full h-1 rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${colorBarra}`}
+                  style={{ width: `${porcentaje}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-gray-400">{porcentaje}% ocupado</p>
             </div>
           )
         })}
