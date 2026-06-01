@@ -33,6 +33,7 @@ import { CalendarioMes } from './CalendarioMes'
 import { MiniCalendario } from './MiniCalendario'
 import { citaWallClockTime } from '@/lib/agenda/datetime'
 import { trackAgendaMetric } from '@/lib/agenda/metrics'
+import { createClient } from '@/lib/supabase/client'
 
 type Vista = 'dia' | 'semana' | 'lista' | 'mes'
 
@@ -114,6 +115,28 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   useEffect(() => {
     cargarCitas()
   }, [fechaActual, vista])
+
+  useEffect(() => {
+    const supabase = createClient()
+    let debounceTimer: ReturnType<typeof setTimeout>
+
+    const channel = supabase
+      .channel('agenda-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_citas' }, () => {
+        clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => cargarCitas(), 800)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_bloqueos' }, () => {
+        clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => cargarCitas(), 800)
+      })
+      .subscribe()
+
+    return () => {
+      clearTimeout(debounceTimer)
+      supabase.removeChannel(channel)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function cargarCitas() {
     setCargando(true)
@@ -284,6 +307,12 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     setCitas((prev) => prev.map((item) => (item.id === cita.id ? actualizada : item)))
     if (citaDetalle?.id === cita.id) setCitaDetalle(actualizada)
     trackAgendaMetric('appointment_drag_moved', { citaId: cita.id })
+  }
+
+  function handleMoverCita(cita: CitaConRelaciones, deltaMinutos: number) {
+    const inicio = new Date(cita.inicio)
+    const nuevaHora = new Date(inicio.getTime() + deltaMinutos * 60_000)
+    moverCita(cita, cita.profesional_id!, nuevaHora)
   }
 
   async function redimensionarCita(cita: CitaConRelaciones, deltaMinutos: number) {
@@ -714,6 +743,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             onClickCelda={handleClickCelda}
             onBloquearHorario={handleBloquearHorario}
             onResizeCita={redimensionarCita}
+            onMoveCita={handleMoverCita}
             onEliminarBloqueo={handleEliminarBloqueo}
             onEditarBloqueo={handleEditarBloqueo}
             horaInicioLaboral={horaInicioLaboral}
