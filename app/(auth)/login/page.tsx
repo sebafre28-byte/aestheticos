@@ -56,7 +56,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/onboarding')
+    router.push('/dashboard')
   }
 
   return (
