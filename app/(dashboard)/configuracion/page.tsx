@@ -45,6 +45,25 @@ const COLORES_PROF = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#E
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
+const MEDIAS_CONFIG = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2)
+  const m = i % 2 === 0 ? '00' : '30'
+  return `${String(h).padStart(2, '0')}:${m}`
+})
+
+function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="h-8 rounded-lg border border-slate-200 bg-white px-2 pr-6 text-[12px] font-medium text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 cursor-pointer appearance-none"
+      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
+    >
+      {MEDIAS_CONFIG.map(h => <option key={h} value={h}>{h}</option>)}
+    </select>
+  )
+}
+
 function Toggle({ activo, onChange }: { activo: boolean; onChange: () => void }) {
   return (
     <button
@@ -1001,19 +1020,9 @@ function SeccionHorarios() {
               <span className="w-24 text-[13px] font-medium text-gray-800 capitalize shrink-0">{dia}</span>
               {h.activo ? (
                 <div className="flex items-center gap-2 flex-1">
-                  <input
-                    type="time"
-                    value={h.desde}
-                    onChange={(e) => setHora(dia, 'desde', e.target.value)}
-                    className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-                  />
-                  <span className="text-[12px] text-gray-400">–</span>
-                  <input
-                    type="time"
-                    value={h.hasta}
-                    onChange={(e) => setHora(dia, 'hasta', e.target.value)}
-                    className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-                  />
+                  <TimeSelect value={h.desde} onChange={v => setHora(dia, 'desde', v)} />
+                  <span className="text-[12px] text-gray-400">→</span>
+                  <TimeSelect value={h.hasta} onChange={v => setHora(dia, 'hasta', v)} />
                 </div>
               ) : (
                 <span className="text-[12px] text-gray-400 flex-1">Cerrado</span>
