@@ -10,23 +10,24 @@ function formatCLP(v: number) {
 }
 
 export function TopServicios({ servicios }: Props) {
-  const maxIngresos = Math.max(...servicios.map((s) => s.ingresos), 1)
+  const maxTotal = Math.max(...servicios.map((s) => s.total), 1)
 
   return (
-    <Card className="gap-0 border border-slate-200 bg-white py-0 shadow-none">
-      <CardHeader className="px-4 pb-3 pt-4">
+    <Card className="gap-0 border border-slate-100 bg-white rounded-2xl py-0 shadow-sm h-full">
+      <CardHeader className="px-6 pb-3 pt-5">
         <CardTitle className="text-sm font-semibold text-[#0B132B]">Top servicios — esta semana</CardTitle>
+        <p className="text-[11px] text-slate-400 mt-0.5">Servicios más solicitados</p>
       </CardHeader>
-      <CardContent className="px-4 pb-4">
+      <CardContent className="px-6 pb-6">
         {servicios.length === 0 ? (
-          <p className="text-sm text-slate-500">No hay servicios agendados esta semana.</p>
+          <p className="text-sm text-slate-400">No hay servicios agendados esta semana.</p>
         ) : (
           <ol className="space-y-4">
             {servicios.map((s, i) => {
-              const pct = Math.round((s.ingresos / maxIngresos) * 100)
+              const pct = Math.round((s.total / maxTotal) * 100)
               return (
                 <li key={s.id}>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white shrink-0"
                         style={{ backgroundColor: COLORS[i] ?? '#94A3B8' }}>
@@ -55,11 +56,12 @@ export function TopServicios({ servicios }: Props) {
 
 export function TopServiciosSkeleton() {
   return (
-    <Card className="gap-0 border border-slate-200 bg-white py-0 shadow-none">
-      <CardHeader className="px-4 pb-3 pt-4">
+    <Card className="gap-0 border border-slate-100 bg-white rounded-2xl py-0 shadow-sm">
+      <CardHeader className="px-6 pb-3 pt-5">
         <div className="h-4 w-44 animate-pulse rounded bg-slate-200" />
+        <div className="h-3 w-32 animate-pulse rounded bg-slate-200 mt-1" />
       </CardHeader>
-      <CardContent className="space-y-4 px-4 pb-4">
+      <CardContent className="space-y-4 px-6 pb-6">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="space-y-1.5">
             <div className="flex items-center justify-between">

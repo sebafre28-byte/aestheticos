@@ -8,6 +8,8 @@ type MetricCardProps = {
   subtitle?: string
   icon: LucideIcon
   accent?: 'primary' | 'teal' | 'navy'
+  trend?: { valor: number; subio: boolean; label?: string }
+  progress?: number
 }
 
 const accentStyles: Record<NonNullable<MetricCardProps['accent']>, string> = {
@@ -23,19 +25,39 @@ export function MetricCard({
   subtitle,
   icon: Icon,
   accent = 'primary',
+  trend,
+  progress,
 }: MetricCardProps) {
   return (
-    <Card className="gap-0 border border-slate-200 bg-white py-0 shadow-none">
-      <CardHeader className="flex flex-row items-center justify-between px-4 pb-2 pt-4">
-        <CardTitle className="text-sm font-semibold text-[#0B132B]">{title}</CardTitle>
+    <Card className="gap-0 border border-slate-100 bg-white rounded-2xl py-0 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between px-6 pb-2 pt-5">
+        <CardTitle className="text-[11px] text-slate-400 uppercase tracking-wide font-medium">{title}</CardTitle>
         <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${accentStyles[accent]}`}>
           <Icon className="h-4 w-4" />
         </div>
       </CardHeader>
-      <CardContent className="space-y-1 px-4 pb-4">
-        <p className="text-2xl font-bold tracking-tight text-[#0B132B]">{value}</p>
+      <CardContent className="px-6 pb-5 space-y-2">
+        <div className="flex items-end justify-between gap-2">
+          <p className="text-2xl font-bold tracking-tight text-[#0B132B]">{value}</p>
+          {trend != null && (
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${trend.subio ? 'text-emerald-600 bg-emerald-50' : 'text-red-500 bg-red-50'}`}>
+              {trend.subio ? '+' : '-'}{trend.valor}%{trend.label ? ` ${trend.label}` : ''}
+            </span>
+          )}
+        </div>
+        {progress != null && (
+          <div className="h-1 w-full rounded-full bg-slate-100 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${Math.min(100, Math.max(0, progress))}%`,
+                backgroundColor: accent === 'teal' ? '#14B8A6' : accent === 'navy' ? '#0B132B' : '#2563EB',
+              }}
+            />
+          </div>
+        )}
         {detail ? <p className="text-xs font-medium text-[#14B8A6]">{detail}</p> : null}
-        {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
+        {subtitle ? <p className="text-[11px] text-slate-400">{subtitle}</p> : null}
       </CardContent>
     </Card>
   )
@@ -43,12 +65,12 @@ export function MetricCard({
 
 export function MetricCardSkeleton() {
   return (
-    <Card className="gap-0 border border-slate-200 bg-white py-0 shadow-none">
-      <CardHeader className="flex flex-row items-center justify-between px-4 pb-2 pt-4">
-        <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+    <Card className="gap-0 border border-slate-100 bg-white rounded-2xl py-0 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between px-6 pb-2 pt-5">
+        <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
         <div className="h-8 w-8 animate-pulse rounded-lg bg-slate-200" />
       </CardHeader>
-      <CardContent className="space-y-2 px-4 pb-4">
+      <CardContent className="space-y-2 px-6 pb-5">
         <div className="h-8 w-28 animate-pulse rounded bg-slate-200" />
         <div className="h-3 w-36 animate-pulse rounded bg-slate-200" />
         <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />

@@ -41,8 +41,16 @@ export type VentasMesItem = {
   citas: number
 }
 
+export type ProfesionalStatItem = {
+  id: string
+  nombre: string
+  color: string
+  citasMes: number
+  ingresosMes: number
+}
+
 export type DashboardData = {
-  citasHoy: { total: number; confirmadas: number; pendientes: number }
+  citasHoy: { total: number; confirmadas: number; pendientes: number; completadas: number }
   ingresosHoy: number
   ingresosMes: number
   ingresosMesAnterior: number
@@ -52,6 +60,18 @@ export type DashboardData = {
   proximasCitas: ProximaCitaItem[]
   topServicios: TopServicioItem[]
   ventasUltimos6Meses: VentasMesItem[]
+  citasPorEstadoMes: {
+    pendiente: number
+    confirmada: number
+    completada: number
+    cancelada: number
+    no_asistio: number
+  }
+  tasaCancelacion: number
+  tasaRetornoMes: number
+  ingresosProyectadosMes: number
+  citasPorDiaSemana: { dia: string; citas: number }[]
+  profesionalStats: ProfesionalStatItem[]
 }
 
 function getTodayRange() {
@@ -107,6 +127,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     citasMesResult,
     citasPrevMesResult,
     citas6MesesResult,
+    citasMesDetalleResult,
+    profesionalesResult,
   ] = await Promise.all([
     supabase.from('citas').select(`
       id, inicio, estado, pago_monto, pago_estado, servicio_id,
@@ -141,6 +163,16 @@ export async function getDashboardData(): Promise<DashboardData> {
       .gte('inicio', mes6Start.toISOString())
       .lte('inicio', monthEnd.toISOString())
       .not('estado', 'in', '("cancelada","no_asistio")'),
+
+    // Extended month citas with paciente_id, profesional_id, service price
+    supabase.from('citas').select(`
+      id, inicio, estado, pago_monto, pago_estado, paciente_id, profesional_id,
+      profesionales(id, nombre, color), servicios(precio)
+    `)
+      .gte('inicio', monthStart.toISOString())
+      .lte('inicio', monthEnd.toISOString()),
+
+    supabase.from('profesionales').select('id, nombre, color').eq('activo', true),
   ])
 
   const citasHoyData = (citasHoyResult.data ?? []) as CitaDashboardRow[]
@@ -218,11 +250,128 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   })
 
+  // --- New fields ---
+
+  type CitaMesDetalleRow = {
+    id: string
+    inicio: string
+    estado: string
+    pago_monto: number
+    pago_estado: string
+    paciente_id: string | null
+    profesional_id: string | null
+    profesionales: { id: string; nombre: string; color: string }[] | { id: string; nombre: string; color: string } | null
+    servicios: { precio: number }[] | { precio: number } | null
+  }
+
+  const citasMesDetalle = (citasMesDetalleResult.data ?? []) as CitaMesDetalleRow[]
+
+  // citasPorEstadoMes
+  const citasPorEstadoMes = {
+    pendiente: 0, confirmada: 0, completada: 0, cancelada: 0, no_asistio: 0,
+  }
+  for (const c of citasMesDetalle) {
+    const est = c.estado as keyof typeof citasPorEstadoMes
+    if (est in citasPorEstadoMes) citasPorEstadoMes[est] += 1
+  }
+
+  // tasaCancelacion
+  const totalCitasMes = citasMesDetalle.length
+  const tasaCancelacion = totalCitasMes > 0
+    ? Math.round(((citasPorEstadoMes.cancelada + citasPorEstadoMes.no_asistio) / totalCitasMes) * 100)
+    : 0
+
+  // ingresosProyectadosMes: cobros ya realizados + precio de citas pendientes/confirmadas
+  let ingresosProyectadosMes = 0
+  for (const c of citasMesDetalle) {
+    if (c.estado === 'completada') {
+      ingresosProyectadosMes += montoIngresoCobrado(c.pago_estado as PagoEstado ?? 'pendiente', c.pago_monto ?? 0)
+    } else if (c.estado === 'confirmada' || c.estado === 'pendiente') {
+      const servicio = fromMaybeArray(c.servicios)
+      ingresosProyectadosMes += servicio?.precio ?? 0
+    }
+  }
+
+  // citasPorDiaSemana: group by day of week (Mon=Lu,...Sun=Do)
+  const diasLabels = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do']
+  const diaCount = [0, 0, 0, 0, 0, 0, 0] // 0=Lu(Mon),...5=Sa,6=Do(Sun)
+  for (const c of citasMesDetalle) {
+    if (c.estado === 'cancelada' || c.estado === 'no_asistio') continue
+    const jsDay = new Date(c.inicio).getDay() // 0=Sun,1=Mon,...6=Sat
+    const idx = jsDay === 0 ? 6 : jsDay - 1  // Mon=0,...Sun=6
+    diaCount[idx] = (diaCount[idx] ?? 0) + 1
+  }
+  const citasPorDiaSemana = diasLabels.map((dia, i) => ({ dia, citas: diaCount[i] ?? 0 }))
+
+  // profesionalStats: top 5 by citas
+  type ProfRow = { id: string; nombre: string; color: string }
+  const profList = (profesionalesResult.data ?? []) as ProfRow[]
+  const PROF_COLORS = ['#2563EB', '#14B8A6', '#8B5CF6', '#F59E0B', '#EF4444']
+  const profMap = new Map<string, ProfesionalStatItem>()
+  for (const p of profList) {
+    profMap.set(p.id, {
+      id: p.id,
+      nombre: p.nombre,
+      color: p.color || PROF_COLORS[profMap.size % PROF_COLORS.length] || '#2563EB',
+      citasMes: 0,
+      ingresosMes: 0,
+    })
+  }
+  for (const c of citasMesDetalle) {
+    if (c.estado === 'cancelada' || c.estado === 'no_asistio') continue
+    const prof = fromMaybeArray(c.profesionales)
+    const profId = prof?.id ?? c.profesional_id
+    if (!profId) continue
+    let entry = profMap.get(profId)
+    if (!entry) {
+      entry = {
+        id: profId,
+        nombre: prof?.nombre ?? 'Profesional',
+        color: PROF_COLORS[profMap.size % PROF_COLORS.length] || '#2563EB',
+        citasMes: 0,
+        ingresosMes: 0,
+      }
+      profMap.set(profId, entry)
+    }
+    entry.citasMes += 1
+    entry.ingresosMes += montoIngresoCobrado(c.pago_estado as PagoEstado ?? 'pendiente', c.pago_monto ?? 0)
+  }
+  const profesionalStats = Array.from(profMap.values())
+    .filter((p) => p.citasMes > 0)
+    .sort((a, b) => b.citasMes - a.citasMes)
+    .slice(0, 5)
+
+  // tasaRetornoMes: pacientes que tuvieron cita este mes y tienen historial previo
+  const pacientesMesSet = new Set<string>()
+  for (const c of citasMesDetalle) {
+    if (c.paciente_id && c.estado !== 'cancelada' && c.estado !== 'no_asistio') {
+      pacientesMesSet.add(c.paciente_id)
+    }
+  }
+  let pacientesRetorno = 0
+  if (pacientesMesSet.size > 0) {
+    const pacientesArr = Array.from(pacientesMesSet)
+    const { data: retornoData } = await supabase
+      .from('citas')
+      .select('paciente_id')
+      .in('paciente_id', pacientesArr)
+      .lt('inicio', monthStart.toISOString())
+      .not('estado', 'in', '("cancelada","no_asistio")')
+    const retornoSet = new Set(
+      (retornoData ?? []).map((r: Record<string, string>) => r['paciente_id'])
+    )
+    pacientesRetorno = retornoSet.size
+  }
+  const tasaRetornoMes = pacientesMesSet.size > 0
+    ? Math.round((pacientesRetorno / pacientesMesSet.size) * 100)
+    : 0
+
   return {
     citasHoy: {
       total: citasValidas.length,
       confirmadas: citasValidas.filter((c) => c.estado === 'confirmada').length,
       pendientes: citasValidas.filter((c) => c.estado === 'pendiente').length,
+      completadas: citasValidas.filter((c) => c.estado === 'completada').length,
     },
     ingresosHoy,
     ingresosMes,
@@ -233,5 +382,11 @@ export async function getDashboardData(): Promise<DashboardData> {
     proximasCitas,
     topServicios,
     ventasUltimos6Meses,
+    citasPorEstadoMes,
+    tasaCancelacion,
+    tasaRetornoMes,
+    ingresosProyectadosMes,
+    citasPorDiaSemana,
+    profesionalStats,
   }
 }
