@@ -346,7 +346,7 @@ export function OnboardingWizard() {
               </Field>
               <Field label="Sitio web" hint="opcional">
                 <Input
-                  type="url"
+                  type="text"
                   value={sitioWeb}
                   onChange={e => setSitioWeb(e.target.value)}
                   placeholder="https://tuclinica.cl"
