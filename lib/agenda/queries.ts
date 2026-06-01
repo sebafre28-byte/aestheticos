@@ -78,6 +78,9 @@ export type ProfesionalRow = {
   color: string
   activo: boolean
   created_at: string
+  foto_url?: string | null
+  bio?: string | null
+  servicios?: string[]
 }
 
 export type PacienteRow = {
@@ -288,6 +291,21 @@ export async function getProfesionales(): Promise<ProfesionalRow[]> {
     return []
   }
   return (data ?? []) as ProfesionalRow[]
+}
+
+// ─── Profesionales con sus servicios asignados ────────────────────────────────
+
+export async function getProfesionalesConServicios(): Promise<(ProfesionalRow & { servicios: string[] })[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('profesionales')
+    .select('*, profesional_servicios(servicio_id)')
+    .eq('activo', true)
+    .order('nombre')
+  return (data ?? []).map((p: ProfesionalRow & { profesional_servicios?: { servicio_id: string }[] }) => ({
+    ...p,
+    servicios: (p.profesional_servicios ?? []).map((ps: { servicio_id: string }) => ps.servicio_id),
+  }))
 }
 
 // ─── Servicios activos de la clínica ──────────────────────────────────────────

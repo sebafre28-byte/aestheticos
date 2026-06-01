@@ -22,6 +22,9 @@ type Profesional = {
   nombre: string
   especialidad: string | null
   color: string
+  foto_url?: string | null
+  bio?: string | null
+  servicios_ids?: string[]
 }
 
 type HorarioDia = {
@@ -182,18 +185,34 @@ function StepIndicator({ paso, total }: { paso: number; total: number }) {
 
 // ─── Paso 1: Servicio ─────────────────────────────────────────────────────────
 
-function PasoServicio({ servicios, onSelect }: { servicios: Servicio[]; onSelect: (s: Servicio) => void }) {
+function PasoServicio({
+  servicios,
+  onSelect,
+  profesionalId,
+  profesionales,
+}: {
+  servicios: Servicio[]
+  onSelect: (s: Servicio) => void
+  profesionalId?: string | null
+  profesionales?: Profesional[]
+}) {
+  // Si hay un profesional preseleccionado con servicios configurados, filtrar
+  const profesionalActual = profesionalId && profesionales ? profesionales.find(p => p.id === profesionalId) : null
+  const serviciosFiltrados = profesionalActual?.servicios_ids && profesionalActual.servicios_ids.length > 0
+    ? servicios.filter(s => profesionalActual.servicios_ids!.includes(s.id))
+    : servicios
+
   return (
     <div>
       <h2 className="text-xl font-semibold text-[#0B132B] mb-1">¿Qué servicio necesitas?</h2>
       <p className="text-sm text-gray-500 mb-5">Selecciona el tratamiento que deseas reservar</p>
-      {servicios.length === 0 ? (
+      {serviciosFiltrados.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 text-sm">Esta clínica no tiene servicios disponibles por ahora.</p>
         </div>
       ) : (
         <div className="grid gap-3">
-          {servicios.map((s) => (
+          {serviciosFiltrados.map((s) => (
             <button
               key={s.id}
               onClick={() => onSelect(s)}
@@ -235,6 +254,7 @@ function PasoProfesionalFecha({
   onFecha,
   horarios,
   tz = DEFAULT_TZ,
+  servicioId,
 }: {
   profesionales: Profesional[]
   profesionalId: string | null
@@ -243,7 +263,13 @@ function PasoProfesionalFecha({
   onFecha: (d: Date) => void
   horarios: Record<string, HorarioDia> | undefined
   tz?: string
+  servicioId?: string | null
 }) {
+  // Filtrar profesionales por servicio seleccionado si tienen servicios_ids configurados
+  const algunoTieneServicios = profesionales.some(p => p.servicios_ids && p.servicios_ids.length > 0)
+  const profesionalesFiltrados = servicioId && algunoTieneServicios
+    ? profesionales.filter(p => !p.servicios_ids || p.servicios_ids.length === 0 || p.servicios_ids.includes(servicioId))
+    : profesionales
   const today = toLocalDate(new Date(), tz)
 
   // Build 28-day calendar starting from the Monday on or before today
@@ -283,11 +309,11 @@ function PasoProfesionalFecha({
       <h2 className="text-xl font-semibold text-[#0B132B] mb-1">Elige profesional y fecha</h2>
       <p className="text-sm text-gray-500 mb-5">¿Con quién y cuándo te gustaría ser atendido?</p>
 
-      {profesionales.length > 1 && (
+      {profesionalesFiltrados.length > 1 && (
         <div className="mb-5">
           <p className="text-xs font-medium text-gray-700 mb-2 uppercase tracking-wide">Profesional</p>
           <div className="grid gap-2">
-            {profesionales.map((p) => (
+            {profesionalesFiltrados.map((p) => (
               <button
                 key={p.id}
                 onClick={() => onProfesional(p.id)}
@@ -298,14 +324,18 @@ function PasoProfesionalFecha({
                 }`}
               >
                 <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ backgroundColor: p.color || '#2563EB' }}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 overflow-hidden"
+                  style={{ backgroundColor: p.foto_url ? undefined : (p.color || '#2563EB') }}
                 >
-                  {getInitials(p.nombre)}
+                  {p.foto_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.foto_url} alt={p.nombre} className="w-full h-full object-cover" />
+                  ) : getInitials(p.nombre)}
                 </div>
                 <div className="flex-1">
                   <p className="font-medium text-[#0B132B] text-sm">{p.nombre}</p>
                   {p.especialidad && <p className="text-xs text-gray-500">{p.especialidad}</p>}
+                  {p.bio && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{p.bio}</p>}
                 </div>
                 {profesionalId === p.id && (
                   <div className="w-4 h-4 rounded-full bg-[#2563EB] flex items-center justify-center shrink-0">
@@ -686,9 +716,12 @@ function PantallaExito({
         </div>
         {profesional && (
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-              style={{ backgroundColor: profesional.color || '#2563EB' }}>
-              {getInitials(profesional.nombre)}
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 overflow-hidden"
+              style={{ backgroundColor: profesional.foto_url ? undefined : (profesional.color || '#2563EB') }}>
+              {profesional.foto_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profesional.foto_url} alt={profesional.nombre} className="w-full h-full object-cover" />
+              ) : getInitials(profesional.nombre)}
             </div>
             <p className="text-sm text-gray-700">{profesional.nombre}</p>
           </div>
@@ -869,7 +902,12 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
         {/* Steps */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
           {paso === 0 && (
-            <PasoServicio servicios={clinica.servicios} onSelect={handleSelectServicio} />
+            <PasoServicio
+              servicios={clinica.servicios}
+              onSelect={handleSelectServicio}
+              profesionalId={profesionalId}
+              profesionales={clinica.profesionales}
+            />
           )}
 
           {paso === 1 && servicioSeleccionado && (
@@ -882,6 +920,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 onFecha={handleFecha}
                 horarios={horarios}
                 tz={tz}
+                servicioId={servicioSeleccionado.id}
               />
               {/* Auto-advance only when date is selected; profesional is pre-selected if only one */}
             </>
