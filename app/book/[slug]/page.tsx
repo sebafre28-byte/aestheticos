@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, use } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle2, ChevronLeft, Loader2, MapPin, Phone, Mail, Clock, DollarSign } from 'lucide-react'
 import { sendEmail } from '@/lib/email/sendEmail'
@@ -64,10 +64,10 @@ const DIAS_ES: Record<number, string> = {
   0: 'domingo',
   1: 'lunes',
   2: 'martes',
-  3: 'miércoles',
+  3: 'miercoles',
   4: 'jueves',
   5: 'viernes',
-  6: 'sábado',
+  6: 'sabado',
 }
 
 const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
@@ -684,8 +684,8 @@ function PantallaExito({
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
-export default function BookingPage({ params }: { params: { slug: string } }) {
-  const { slug } = params
+export default function BookingPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params)
   const [clinica, setClinica] = useState<ClinicaPublica | null>(null)
   const [cargando, setCargando] = useState(true)
   const [notFound, setNotFound] = useState(false)
