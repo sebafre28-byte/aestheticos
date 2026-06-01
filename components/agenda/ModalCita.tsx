@@ -94,6 +94,7 @@ export function ModalCita({
   const [recurrenceKind, setRecurrenceKind] = useState<'none' | 'daily' | 'weekly' | 'monthly'>(
     (citaExistente?.recurrence_kind as 'none' | 'daily' | 'weekly' | 'monthly' | undefined) ?? 'none'
   )
+  const [recurrenceCount, setRecurrenceCount] = useState(8)
   const [serieEditMode, setSerieEditMode] = useState<'single' | 'future' | 'all'>('single')
 
   const [conflicto, setConflicto] = useState<CitaConRelaciones | null>(null)
@@ -158,9 +159,8 @@ export function ModalCita({
       const disponibilidad = await getDisponibilidadProfesional(profesionalId)
       const tramosDia = disponibilidad.filter((d) => d.dia_semana === diaSemanaISO)
       if (tramosDia.length === 0) {
-        if (active) {
-          setAlertaSoft('El profesional no tiene disponibilidad declarada para este día.')
-        }
+        // No hay horario específico configurado para este profesional — no bloquear
+        if (active) setAlertaSoft(null)
         return
       }
 
@@ -330,7 +330,7 @@ export function ModalCita({
           recurrence_rule: recurrenceKind === 'none' ? null : `FREQ=${recurrenceKind.toUpperCase()}`,
         }
         if (recurrenceKind !== 'none') {
-          resultado = await crearCitasRecurrentes(datos, recurrenceKind as 'daily' | 'weekly' | 'monthly')
+          resultado = await crearCitasRecurrentes(datos, recurrenceKind as 'daily' | 'weekly' | 'monthly', recurrenceCount)
         } else {
           resultado = await crearCita(datos)
         }
@@ -659,39 +659,57 @@ export function ModalCita({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
-                Recurrencia
-              </Label>
-              <select
-                value={recurrenceKind}
-                onChange={(e) => setRecurrenceKind(e.target.value as 'none' | 'daily' | 'weekly' | 'monthly')}
-                className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
-              >
-                <option value="none">No repetir</option>
-                <option value="daily">Diaria</option>
-                <option value="weekly">Semanal</option>
-                <option value="monthly">Mensual</option>
-              </select>
-            </div>
-            {esEdicion && recurrenceKind !== 'none' && (
-              <div>
-                <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
-                  Aplicar cambios a
-                </Label>
-                <select
-                  value={serieEditMode}
-                  onChange={(e) => setSerieEditMode(e.target.value as 'single' | 'future' | 'all')}
-                  className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+          <div className="space-y-2">
+            <Label className="text-[12px] font-semibold text-gray-700 mb-1 block">Recurrencia</Label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['none', 'daily', 'weekly', 'monthly'] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setRecurrenceKind(k)}
+                  className={`h-8 rounded-lg text-[12px] font-medium border transition-all ${
+                    recurrenceKind === k
+                      ? 'bg-[#2563EB] border-[#2563EB] text-white'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
                 >
-                  <option value="single">Solo esta cita</option>
-                  <option value="future">Esta y siguientes</option>
-                  <option value="all">Toda la serie</option>
-                </select>
+                  {k === 'none' ? 'Una vez' : k === 'daily' ? 'Diaria' : k === 'weekly' ? 'Semanal' : 'Mensual'}
+                </button>
+              ))}
+            </div>
+            {recurrenceKind !== 'none' && !esEdicion && (
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-[12px] text-gray-500">Repetir</span>
+                <input
+                  type="number"
+                  min={2}
+                  max={52}
+                  value={recurrenceCount}
+                  onChange={(e) => setRecurrenceCount(Math.max(2, Math.min(52, parseInt(e.target.value) || 2)))}
+                  className="w-16 h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 text-center focus:outline-none focus:ring-1 focus:ring-blue-400/50"
+                />
+                <span className="text-[12px] text-gray-500">
+                  veces en total ({recurrenceKind === 'daily' ? 'días' : recurrenceKind === 'weekly' ? 'semanas' : 'meses'})
+                </span>
               </div>
             )}
           </div>
+          {esEdicion && recurrenceKind !== 'none' && (
+            <div>
+              <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
+                Aplicar cambios a
+              </Label>
+              <select
+                value={serieEditMode}
+                onChange={(e) => setSerieEditMode(e.target.value as 'single' | 'future' | 'all')}
+                className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+              >
+                <option value="single">Solo esta cita</option>
+                <option value="future">Esta y siguientes</option>
+                <option value="all">Toda la serie</option>
+              </select>
+            </div>
+          )}
 
           {/* ── Advertencia de conflicto mejorada ── */}
           {conflicto && (
