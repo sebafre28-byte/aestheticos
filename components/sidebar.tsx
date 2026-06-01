@@ -43,6 +43,15 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
   const [logoClinica, setLogoClinica] = useState('')
   const [nombreClinica, setNombreClinica] = useState('')
 
+  const cargarClinica = () => {
+    getClinicaBasica().then((c) => {
+      if (c) {
+        setLogoClinica(c.logo_url ?? '')
+        setNombreClinica(c.nombre ?? '')
+      }
+    })
+  }
+
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -56,13 +65,10 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       )
       setRolUsuario(user.user_metadata?.rol ?? 'Administrador')
     })
-    getClinicaBasica().then((c) => {
-      if (c) {
-        setLogoClinica(c.logo_url ?? '')
-        setNombreClinica(c.nombre ?? '')
-      }
-    })
-  }, [])
+    cargarClinica()
+    window.addEventListener('clinica-updated', cargarClinica)
+    return () => window.removeEventListener('clinica-updated', cargarClinica)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleLogout() {
     const supabase = createClient()
@@ -79,7 +85,8 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       <div className="px-4 pt-5 pb-4 border-b border-white/10">
         <div className="flex items-center gap-2.5">
           {logoClinica ? (
-            <Image src={logoClinica} width={28} height={28} className="w-7 h-7 rounded-lg object-cover" alt="logo" />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoClinica} width={28} height={28} className="w-7 h-7 rounded-lg object-cover" alt="logo" />
           ) : (
             <LogoIcon />
           )}
