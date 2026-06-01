@@ -898,20 +898,23 @@ export async function getCitasPendientes48h(): Promise<CitaConRelaciones[]> {
 
 export type BloqueoProfesional = {
   id: string
-  profesional_id: string
+  profesional_id: string | null
   inicio: string
   fin: string
   titulo: string
+  tipo?: string
+  motivo?: string | null
+  profesionales?: { nombre: string; color?: string | null } | null
 }
 
 export async function getBloqueos(fecha: string): Promise<BloqueoProfesional[]> {
   const supabase = createClient()
   const { data } = await supabase
     .from('agenda_bloqueos')
-    .select('id, profesional_id, inicio, fin, titulo')
+    .select('id, profesional_id, inicio, fin, titulo, tipo, motivo, profesionales(nombre, color)')
     .lt('inicio', `${fecha}T23:59:59`)
     .gt('fin', `${fecha}T00:00:00`)
-  return (data ?? []) as BloqueoProfesional[]
+  return (data ?? []) as unknown as BloqueoProfesional[]
 }
 
 export async function crearBloqueo(data: {
