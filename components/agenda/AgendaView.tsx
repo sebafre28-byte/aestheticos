@@ -629,7 +629,6 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
             }
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
-            onDropCita={moverCita}
             onResizeCita={redimensionarCita}
           />
         )}
@@ -653,7 +652,6 @@ const [profs, servs] = await Promise.all([getProfesionales(), getServiciosAgenda
             citas={citasFiltradas}
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
-            onDropCita={moverCita}
             onResizeCita={redimensionarCita}
             onVerDia={handleVerDia}
           />
