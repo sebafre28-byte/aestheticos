@@ -171,16 +171,14 @@ function SeccionClinica() {
     setFeedback(null)
     const supabase = createClient()
     const path = `${clinicaId}/logo.jpg`
+    console.log('[logo] subiendo a:', path, 'bucket: logos')
     const { error: uploadError } = await supabase.storage
       .from("logos")
       .upload(path, file, { upsert: true, contentType: file.type })
     if (uploadError) {
+      console.error('[logo] error upload:', uploadError)
       setSubiendoLogo(false)
-      if (uploadError.message?.toLowerCase().includes("bucket")) {
-        setFeedback({ tipo: "error", msg: "Configura el bucket 'logos' en Supabase Storage." })
-      } else {
-        setFeedback({ tipo: "error", msg: `No se pudo subir el logo: ${uploadError.message}` })
-      }
+      setFeedback({ tipo: "error", msg: `Error al subir logo: ${uploadError.message}` })
       return
     }
     const { data: { publicUrl } } = supabase.storage.from("logos").getPublicUrl(path)
@@ -367,14 +365,17 @@ function ModalProfesional({
     const profId = profesionalExistente?.id ?? `temp-${Date.now()}`
     const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
     const path = `${clinicaId}/${profId}.${ext}`
+    console.log('[foto] subiendo a:', path, 'bucket: profesionales')
     const { error: uploadError } = await supabase.storage
       .from("profesionales")
       .upload(path, file, { upsert: true, contentType: file.type })
     if (uploadError) {
-      setError(`No se pudo subir la foto: ${uploadError.message}`)
+      console.error('[foto] error upload:', uploadError)
+      setError(`Error al subir foto: ${uploadError.message} (${uploadError.name ?? uploadError.cause ?? ''})`)
       setSubiendoFoto(false)
       return
     }
+    console.log('[foto] subida OK')
     const { data: { publicUrl } } = supabase.storage.from("profesionales").getPublicUrl(path)
     setForm(p => ({ ...p, foto_url: `${publicUrl}?t=${Date.now()}` }))
     setSubiendoFoto(false)
