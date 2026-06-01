@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Clock, CheckCircle, CheckCircle2, XCircle, UserX } from 'lucide-react'
+import { Clock, CheckCircle, CheckCircle2, XCircle, UserX, DollarSign } from 'lucide-react'
 import { citaWallClockTime } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
 import { TooltipCita } from './TooltipCita'
@@ -209,6 +209,18 @@ export function BloqueCita({
           </p>
         )}
       </div>
+      {/* Badge de pago pendiente — esquina inferior derecha */}
+      {alturaReal >= 40 && cita.estado === 'completada' && (!cita.pago_estado || cita.pago_estado === 'pendiente') && (
+        <div className="w-4 h-4 rounded-full bg-amber-100 flex items-center justify-center absolute bottom-1 right-1 pointer-events-none">
+          <DollarSign className="size-2.5 text-amber-600" />
+        </div>
+      )}
+
+      {/* Punto de nota clínica — esquina inferior izquierda */}
+      {alturaReal >= 40 && cita.notas && cita.notas.trim().length > 0 && (
+        <div className="w-1.5 h-1.5 rounded-full bg-blue-400 absolute bottom-1 left-1 pointer-events-none" />
+      )}
+
       {onResize && (
         <button
           type="button"

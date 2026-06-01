@@ -304,11 +304,21 @@ export function CalendarioSemana({
                 {numDia}
               </button>
 
-              {/* Contador de citas */}
+              {/* Badge de citas del día */}
               {totalCitas > 0 && (
-                <p className="text-[10px] text-gray-400 mt-0.5">
-                  {totalCitas} {totalCitas === 1 ? 'cita' : 'citas'}
-                </p>
+                <div className="flex justify-center mt-0.5">
+                  <span
+                    className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${
+                      totalCitas >= 7
+                        ? 'bg-red-50 text-red-600'
+                        : totalCitas >= 4
+                        ? 'bg-amber-50 text-amber-600'
+                        : 'bg-blue-50 text-blue-600'
+                    }`}
+                  >
+                    {totalCitas}
+                  </span>
+                </div>
               )}
             </div>
           )
