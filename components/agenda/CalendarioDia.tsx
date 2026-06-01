@@ -72,6 +72,7 @@ function ColumnaProfesional({
   onClickCelda,
   onBloquearHorario,
   onResizeCita,
+  onMoveCita,
   onEliminarBloqueo,
   onEditarBloqueo,
   fecha,
@@ -85,6 +86,7 @@ function ColumnaProfesional({
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
   onBloquearHorario: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
+  onMoveCita?: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onEliminarBloqueo?: (id: string) => void
   onEditarBloqueo?: (bloqueo: BloqueoProfesional) => void
   fecha: Date
@@ -221,6 +223,7 @@ function ColumnaProfesional({
             cita={cita}
             onClick={onClickCita}
             onResize={onResizeCita}
+            onMove={onMoveCita}
             topPx={top + 1}
             heightPx={height - 2}
             leftPercent={col * ancho + 0.5}
@@ -245,6 +248,7 @@ type Props = {
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
   onBloquearHorario?: (profesionalId: string | undefined, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
+  onMoveCita?: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onEliminarBloqueo?: (id: string) => void
   onEditarBloqueo?: (bloqueo: BloqueoProfesional) => void
   horaInicioLaboral?: number
@@ -261,6 +265,7 @@ export function CalendarioDia({
   onClickCelda,
   onBloquearHorario,
   onResizeCita,
+  onMoveCita,
   onEliminarBloqueo,
   onEditarBloqueo,
   horaInicioLaboral,
@@ -448,6 +453,7 @@ export function CalendarioDia({
                     onClickCelda={onClickCelda}
                     onBloquearHorario={onBloquearHorario ?? (() => undefined)}
                     onResizeCita={onResizeCita}
+                    onMoveCita={onMoveCita}
                     onEliminarBloqueo={onEliminarBloqueo}
                     onEditarBloqueo={onEditarBloqueo}
                     fecha={fecha}

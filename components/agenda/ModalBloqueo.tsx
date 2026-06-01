@@ -109,11 +109,30 @@ export function ModalBloqueo({ profesionalId, horaInicio, profesionales, bloqueo
   const [motivo, setMotivo] = useState(bloqueoEditar?.motivo ?? '')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [conflictos, setConflictos] = useState(0)
+  const [confirmarConConflicto, setConfirmarConConflicto] = useState(false)
 
   async function handleGuardar() {
     if (!titulo.trim()) { setError('El título es requerido'); return }
     setGuardando(true)
     setError(null)
+
+    // Check for citas conflicts
+    const supabase = createClient()
+    let conflictQuery = supabase
+      .from('agenda_citas')
+      .select('id, inicio, fin, pacientes(nombre)')
+      .lt('inicio', `${fechaFin}T${horaFinVal}:00`)
+      .gt('fin', `${fechaInicio}T${horaInicioVal}:00`)
+    if (profSeleccionado !== '__todos__') {
+      conflictQuery = conflictQuery.eq('profesional_id', profSeleccionado)
+    }
+    const { data: citasConflicto } = await conflictQuery
+    if (citasConflicto && citasConflicto.length > 0 && !confirmarConConflicto) {
+      setConflictos(citasConflicto.length)
+      setGuardando(false)
+      return
+    }
 
     const profId = profSeleccionado === '__todos__' ? null : profSeleccionado
 
@@ -332,6 +351,21 @@ export function ModalBloqueo({ profesionalId, horaInicio, profesionales, bloqueo
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] text-gray-700 placeholder:text-gray-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 resize-none"
             />
           </div>
+
+          {conflictos > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 flex flex-col gap-1.5">
+              <p className="text-[12px] font-medium text-amber-800">
+                ⚠️ Hay {conflictos} cita{conflictos > 1 ? 's' : ''} programada{conflictos > 1 ? 's' : ''} en este horario
+              </p>
+              <button
+                type="button"
+                onClick={() => { setConfirmarConConflicto(true); handleGuardar() }}
+                className="text-[11px] text-amber-700 underline text-left"
+              >
+                Bloquear de todos modos
+              </button>
+            </div>
+          )}
 
           {error && (
             <p className="text-[12px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
