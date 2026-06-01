@@ -463,8 +463,8 @@ function PasoHora({
         .from('agenda_bloqueos')
         .select('inicio, fin, profesional_id')
         .eq('clinica_id', clinicaId)
-        .gte('inicio', `${fechaISO}T00:00:00`)
-        .lte('fin', `${fechaISO}T23:59:59`),
+        .lt('inicio', `${fechaISO}T23:59:59`)
+        .gt('fin', `${fechaISO}T00:00:00`),
     ])
     const ocupados: SlotOcupado[] = Array.isArray(data) ? data : []
 

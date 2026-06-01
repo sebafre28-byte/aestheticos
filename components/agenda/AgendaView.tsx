@@ -18,9 +18,9 @@ import type {
 import type { PagoCitaFields } from '@/lib/cobros/queries'
 import {
   getCitasDelDia, getCitasDeSemana, getCitasDelMes, getProfesionales, getServiciosAgenda, getClinicaId, editarCita,
-  getBloqueos, eliminarBloqueo,
+  getBloqueos, getBloqueosRango, eliminarBloqueo,
 } from '@/lib/agenda/queries'
-import type { BloqueoProfesional } from '@/lib/agenda/queries'
+import type { BloqueoProfesional, BloqueoAgendaRow } from '@/lib/agenda/queries'
 import { getClinicaConfig } from '@/lib/onboarding/queries'
 import type { HorariosConfig } from '@/lib/onboarding/queries'
 import { CalendarioDia } from './CalendarioDia'
@@ -95,7 +95,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       setServicios(servs)
 
       if (config.horarios) {
-        const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+        const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
         const hoy = new Date()
         const diaNombre = diasSemana[hoy.getDay()]
         const horarioDia = (config.horarios as HorariosConfig)[diaNombre]
@@ -122,27 +122,36 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
       const fechaStr = format(fechaActual, 'yyyy-MM-dd')
 
-      if (vista === 'mes') {
-        const inicioMes = startOfMonth(fechaActual)
-        const finMes = endOfMonth(fechaActual)
-        datos = await getCitasDelMes(
-          format(inicioMes, 'yyyy-MM-dd'),
-          format(finMes, 'yyyy-MM-dd')
-        )
-      } else if (vista === 'dia' || vista === 'lista') {
+      if (vista === 'dia' || vista === 'lista') {
         const [citasDia, bloquesDia] = await Promise.all([
           getCitasDelDia(fechaStr),
           getBloqueos(fechaStr),
         ])
         datos = citasDia
         setBloqueos(bloquesDia)
-      } else {
+      } else if (vista === 'semana') {
         const lunes = startOfWeek(fechaActual, { weekStartsOn: 1 })
         const domingo = endOfWeek(fechaActual, { weekStartsOn: 1 })
-        datos = await getCitasDeSemana(
-          format(lunes, 'yyyy-MM-dd'),
-          format(domingo, 'yyyy-MM-dd')
-        )
+        const lunesStr = format(lunes, 'yyyy-MM-dd')
+        const domingoStr = format(domingo, 'yyyy-MM-dd')
+        const [citasSemana, bloquesSemana] = await Promise.all([
+          getCitasDeSemana(lunesStr, domingoStr),
+          getBloqueosRango(`${lunesStr}T00:00:00`, `${domingoStr}T23:59:59`),
+        ])
+        datos = citasSemana
+        setBloqueos(bloquesSemana as BloqueoProfesional[])
+      } else {
+        // vista === 'mes'
+        const inicioMes = startOfMonth(fechaActual)
+        const finMes = endOfMonth(fechaActual)
+        const inicioStr = format(inicioMes, 'yyyy-MM-dd')
+        const finStr = format(finMes, 'yyyy-MM-dd')
+        const [citasMes, bloquesMes] = await Promise.all([
+          getCitasDelMes(inicioStr, finStr),
+          getBloqueosRango(`${inicioStr}T00:00:00`, `${finStr}T23:59:59`),
+        ])
+        datos = citasMes
+        setBloqueos(bloquesMes as BloqueoProfesional[])
       }
 
       if (isVistaProfe && profesionalPropio) {
@@ -741,6 +750,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
           <CalendarioMes
             fechaBase={fechaActual}
             citas={citasFiltradas}
+            bloqueos={bloqueos}
             onVerDia={handleVerDia}
             onClickCita={handleClickCita}
           />

@@ -3,16 +3,17 @@
 import { endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { citaWallClockDate, citaWallClockTime } from '@/lib/agenda/datetime'
-import type { CitaConRelaciones } from '@/lib/agenda/queries'
+import type { CitaConRelaciones, BloqueoProfesional } from '@/lib/agenda/queries'
 
 type Props = {
   fechaBase: Date
   citas: CitaConRelaciones[]
+  bloqueos?: BloqueoProfesional[]
   onVerDia: (fecha: Date) => void
   onClickCita: (cita: CitaConRelaciones) => void
 }
 
-export function CalendarioMes({ fechaBase, citas, onVerDia, onClickCita }: Props) {
+export function CalendarioMes({ fechaBase, citas, bloqueos = [], onVerDia, onClickCita }: Props) {
   const monthStart = startOfMonth(fechaBase)
   const monthEnd = endOfMonth(fechaBase)
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 })
@@ -40,6 +41,9 @@ export function CalendarioMes({ fechaBase, citas, onVerDia, onClickCita }: Props
           const citasDia = citas
             .filter((c) => citaWallClockDate(c.inicio) === dayKey)
             .sort((a, b) => a.inicio.localeCompare(b.inicio))
+          const bloqueosDia = bloqueos.filter((b) =>
+            b.inicio < `${dayKey}T23:59:59` && b.fin > `${dayKey}T00:00:00`
+          )
           return (
             <button
               key={dayKey}
@@ -48,13 +52,20 @@ export function CalendarioMes({ fechaBase, citas, onVerDia, onClickCita }: Props
                 !isSameMonth(day, monthStart) ? 'bg-gray-50/50' : 'bg-white'
               }`}
             >
-              <span
-                className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-semibold ${
-                  isToday(day) ? 'bg-[#2563EB] text-white' : 'text-gray-700'
-                }`}
-              >
-                {format(day, 'd', { locale: es })}
-              </span>
+              <div className="flex items-center justify-between">
+                <span
+                  className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-semibold ${
+                    isToday(day) ? 'bg-[#2563EB] text-white' : 'text-gray-700'
+                  }`}
+                >
+                  {format(day, 'd', { locale: es })}
+                </span>
+                {bloqueosDia.length > 0 && (
+                  <span className="text-[9px] font-medium text-gray-400 bg-gray-100 rounded px-1 py-0.5">
+                    🔒 {bloqueosDia.length}
+                  </span>
+                )}
+              </div>
               <div className="mt-1.5 space-y-1">
                 {citasDia.slice(0, 3).map((cita) => (
                   <div

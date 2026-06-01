@@ -909,8 +909,8 @@ export async function getBloqueos(fecha: string): Promise<BloqueoProfesional[]> 
   const { data } = await supabase
     .from('agenda_bloqueos')
     .select('id, profesional_id, inicio, fin, titulo')
-    .gte('inicio', `${fecha}T00:00:00`)
     .lt('inicio', `${fecha}T23:59:59`)
+    .gt('fin', `${fecha}T00:00:00`)
   return (data ?? []) as BloqueoProfesional[]
 }
 
