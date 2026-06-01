@@ -352,12 +352,15 @@ export function CalendarioDia({
               key={prof.id}
               className="flex-1 min-w-[120px] px-3 py-2.5 border-l border-gray-100 text-center flex flex-col items-center gap-1"
             >
-              {/* Avatar circular con iniciales */}
+              {/* Avatar circular con foto o iniciales */}
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-bold shrink-0"
-                style={{ backgroundColor: prof.color }}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[12px] font-bold shrink-0 overflow-hidden"
+                style={{ backgroundColor: prof.foto_url ? undefined : prof.color }}
               >
-                {iniciales}
+                {prof.foto_url
+                  ? <img src={prof.foto_url} alt={prof.nombre} className="w-full h-full object-cover" />
+                  : iniciales
+                }
               </div>
               <p className="text-[12px] font-semibold text-gray-800 leading-tight">{prof.nombre}</p>
               {prof.especialidad && (

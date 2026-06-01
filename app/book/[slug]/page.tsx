@@ -540,9 +540,28 @@ function PasoHora({
   return (
     <div>
       <h2 className="text-xl font-semibold text-[#0B132B] mb-1">¿A qué hora?</h2>
-      <p className="text-sm text-gray-500 mb-5">
+      <p className="text-sm text-gray-500 mb-4">
         {fecha.getDate()} de {MESES_ES[fecha.getMonth()]} · {servicio.nombre} ({servicio.duracion_minutos} min)
       </p>
+
+      {/* Profesional card */}
+      {profesional && (
+        <div className="flex items-center gap-3 bg-gray-50 rounded-xl border border-gray-100 px-3 py-2.5 mb-5">
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 overflow-hidden"
+            style={{ backgroundColor: profesional.foto_url ? undefined : (profesional.color || '#2563EB') }}
+          >
+            {profesional.foto_url
+              ? <img src={profesional.foto_url} alt={profesional.nombre} className="w-full h-full object-cover" />
+              : getInitials(profesional.nombre)
+            }
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[#0B132B] truncate">{profesional.nombre}</p>
+            {profesional.especialidad && <p className="text-xs text-gray-500 truncate">{profesional.especialidad}</p>}
+          </div>
+        </div>
+      )}
 
       {slots.length === 0 ? (
         <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-100">
@@ -739,6 +758,41 @@ function PasoDatos({
 
 // ─── Pantalla de éxito ────────────────────────────────────────────────────────
 
+function buildCalendarLinks(
+  titulo: string,
+  descripcion: string,
+  ubicacion: string,
+  inicio: Date,
+  fin: Date,
+) {
+  // Format as YYYYMMDDTHHMMSS (wall-clock, no TZ)
+  function fmt(d: Date) {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`
+  }
+  const start = fmt(inicio)
+  const end = fmt(fin)
+  const enc = encodeURIComponent
+
+  const google = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${enc(titulo)}&dates=${start}/${end}&details=${enc(descripcion)}&location=${enc(ubicacion)}`
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'BEGIN:VEVENT',
+    `DTSTART:${start}`,
+    `DTEND:${end}`,
+    `SUMMARY:${titulo}`,
+    `DESCRIPTION:${descripcion}`,
+    `LOCATION:${ubicacion}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n')
+  const icsBlob = `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`
+
+  return { google, ics: icsBlob }
+}
+
 function PantallaExito({
   clinica,
   servicio,
@@ -754,6 +808,14 @@ function PantallaExito({
   fin: Date
   tz?: string
 }) {
+  const direccion = clinica.direccion ?? ''
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`
+  const wazeUrl = `https://waze.com/ul?q=${encodeURIComponent(direccion)}&navigate=yes`
+
+  const calTitulo = `${servicio.nombre} — ${clinica.nombre}`
+  const calDesc = `Servicio: ${servicio.nombre}\nProfesional: ${profesional?.nombre ?? ''}\nDuración: ${servicio.duracion_minutos} min`
+  const { google: googleCalUrl, ics: icsUrl } = buildCalendarLinks(calTitulo, calDesc, direccion, inicio, fin)
+
   return (
     <div className="text-center py-6">
       <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
@@ -762,7 +824,7 @@ function PantallaExito({
       <h2 className="text-xl font-bold text-[#0B132B] mb-1">¡Tu cita está confirmada!</h2>
       <p className="text-sm text-gray-500 mb-6">Te esperamos en {clinica.nombre}</p>
 
-      <div className="bg-gray-50 rounded-xl border border-gray-100 p-5 text-left space-y-3 mb-6">
+      <div className="bg-gray-50 rounded-xl border border-gray-100 p-5 text-left space-y-3 mb-5">
         <div className="flex items-start gap-3">
           <div className="w-3 h-3 rounded-full mt-0.5 shrink-0" style={{ backgroundColor: servicio.color || '#2563EB' }} />
           <div>
@@ -770,31 +832,90 @@ function PantallaExito({
             <p className="text-xs text-gray-500">{servicio.duracion_minutos} min · {formatPrecio(servicio.precio)}</p>
           </div>
         </div>
+
         {profesional && (
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 overflow-hidden"
-              style={{ backgroundColor: profesional.foto_url ? undefined : (profesional.color || '#2563EB') }}>
-              {profesional.foto_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={profesional.foto_url} alt={profesional.nombre} className="w-full h-full object-cover" />
-              ) : getInitials(profesional.nombre)}
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0 overflow-hidden"
+              style={{ backgroundColor: profesional.foto_url ? undefined : (profesional.color || '#2563EB') }}
+            >
+              {profesional.foto_url
+                ? <img src={profesional.foto_url} alt={profesional.nombre} className="w-full h-full object-cover" />
+                : getInitials(profesional.nombre)
+              }
             </div>
-            <p className="text-sm text-gray-700">{profesional.nombre}</p>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">{profesional.nombre}</p>
+              {profesional.especialidad && <p className="text-xs text-gray-500">{profesional.especialidad}</p>}
+            </div>
           </div>
         )}
+
         <div className="flex items-center gap-2 text-sm text-gray-700">
           <Clock className="w-4 h-4 text-gray-400 shrink-0" />
           <span>
             {inicio.toLocaleDateString('es-CL', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long' })} a las {formatHora(inicio, tz)} — {formatHora(fin, tz)}
           </span>
         </div>
-        {clinica.direccion && (
+
+        {direccion && (
           <div className="flex items-start gap-2 text-sm text-gray-700">
             <MapPin className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-            <span>{clinica.direccion}</span>
+            <span>{direccion}</span>
           </div>
         )}
       </div>
+
+      {/* Agregar al calendario */}
+      <div className="mb-4">
+        <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Agregar al calendario</p>
+        <div className="flex gap-2 justify-center">
+          <a
+            href={googleCalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 text-[12px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#4285F4" strokeWidth="2"/><path d="M8 12h8M12 8v8" stroke="#4285F4" strokeWidth="2" strokeLinecap="round"/></svg>
+            Google Calendar
+          </a>
+          <a
+            href={icsUrl}
+            download="cita.ics"
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 text-[12px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#6B7280" strokeWidth="2"/><path d="M8 3v4M16 3v4M3 9h18" stroke="#6B7280" strokeWidth="2" strokeLinecap="round"/></svg>
+            Outlook / Apple
+          </a>
+        </div>
+      </div>
+
+      {/* Cómo llegar */}
+      {direccion && (
+        <div className="mb-5">
+          <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Cómo llegar</p>
+          <div className="flex gap-2 justify-center">
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 text-[12px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#4285F4"/></svg>
+              Google Maps
+            </a>
+            <a
+              href={wazeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 text-[12px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="10" r="7" stroke="#00CCFF" strokeWidth="2"/><path d="M9 10.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5" stroke="#00CCFF" strokeWidth="1.5" strokeLinecap="round"/><circle cx="10" cy="9" r="0.75" fill="#00CCFF"/><circle cx="14" cy="9" r="0.75" fill="#00CCFF"/><path d="M10 19l2 3 2-3" stroke="#00CCFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Waze
+            </a>
+          </div>
+        </div>
+      )}
 
       <p className="text-xs text-gray-400">Si necesitas cancelar o modificar tu cita, comunícate directamente con la clínica.</p>
       {clinica.telefono && (
