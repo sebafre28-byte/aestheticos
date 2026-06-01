@@ -59,8 +59,11 @@ export function useSubscripcion(): SubscripcionState {
         let trialDiasRestantes: number | null = null
         let trialVencido = false
 
-        if (esTrial && data?.trial_ends_at) {
-          const diff = new Date(data.trial_ends_at).getTime() - Date.now()
+        if (esTrial) {
+          const endsAt = data?.trial_ends_at
+            ? new Date(data.trial_ends_at)
+            : new Date(new Date(data?.created_at ?? Date.now()).getTime() + 7 * 24 * 60 * 60 * 1000)
+          const diff = endsAt.getTime() - Date.now()
           const dias = Math.ceil(diff / (1000 * 60 * 60 * 24))
           trialDiasRestantes = Math.max(0, dias)
           trialVencido = dias <= 0
