@@ -192,6 +192,7 @@ function SeccionClinica() {
     setSubiendoLogo(false)
     setFeedback({ tipo: "ok", msg: "Logo actualizado correctamente." })
     setTimeout(() => setFeedback(null), 3000)
+    window.dispatchEvent(new CustomEvent('clinica-updated'))
   }
 
   async function guardar(e: { preventDefault: () => void }) {
@@ -204,6 +205,7 @@ function SeccionClinica() {
     if (result) {
       setFeedback({ tipo: "ok", msg: "Cambios guardados correctamente." })
       setTimeout(() => setFeedback(null), 3000)
+      window.dispatchEvent(new CustomEvent('clinica-updated'))
     } else {
       setFeedback({ tipo: "error", msg: "No se pudo guardar. Intenta nuevamente." })
     }
