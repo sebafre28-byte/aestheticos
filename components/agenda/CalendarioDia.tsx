@@ -211,6 +211,7 @@ function ColumnaProfesional({
       {dispuestas.map(({ cita, col, totalCols }) => {
         const { top, height } = calcularPosicion(cita.inicio, cita.fin)
         const ancho = 100 / totalCols
+        const bufferPx = (cita.buffer_minutos ?? 0) * PIXEL_POR_MIN
         return (
           <BloqueCita
             key={cita.id}
@@ -221,6 +222,7 @@ function ColumnaProfesional({
             heightPx={height - 2}
             leftPercent={col * ancho + 0.5}
             widthPercent={ancho - 1}
+            bufferPx={bufferPx}
           />
         )
       })}

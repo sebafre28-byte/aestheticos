@@ -69,6 +69,7 @@ export default function ServiciosPage() {
     precio: number
     color: string
     activo: boolean
+    buffer_minutos: number
   }) {
     if (servicioEditando) {
       await actualizarServicio(servicioEditando.id, data)

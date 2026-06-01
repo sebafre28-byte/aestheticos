@@ -128,7 +128,7 @@ function buildSlotsDisponibles(
     // For overlap comparison, compare as wall-clock strings (lexicographic is safe for same-day)
     const ocupado = slotsOcupados.some((s) => {
       if (s.profesional_id !== profesionalId) return false
-      // Normalize occupied slot to wall-clock for comparison
+      // Normalize occupied slot to wall-clock for comparison, extending fin by buffer_minutos
       const oInicioWall = toWallClockIso(new Date(s.inicio), tz)
       const bufferMs = (s.buffer_minutos ?? 0) * 60_000
       const oFinWall = toWallClockIso(new Date(new Date(s.fin).getTime() + bufferMs), tz)

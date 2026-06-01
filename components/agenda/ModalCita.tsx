@@ -289,7 +289,7 @@ export function ModalCita({
       try {
         const inicio = modalWallClockToIso(fecha, hora)
         const fin = modalWallClockFinIso(fecha, hora, servicioActual.duracion_minutos)
-        const c = await verificarConflicto(profesionalId, inicio, fin, citaExistente?.id)
+        const c = await verificarConflicto(profesionalId, inicio, fin, citaExistente?.id, servicioActual?.buffer_minutos ?? 0)
         setConflicto(c)
       } catch {
         setConflicto(null)
@@ -325,6 +325,7 @@ export function ModalCita({
           notas: notas || undefined,
           recurrence_kind: recurrenceKind,
           recurrence_rule: recurrenceKind === 'none' ? null : `FREQ=${recurrenceKind.toUpperCase()}`,
+          buffer_minutos: servicioActual?.buffer_minutos ?? 0,
         })
       } else {
         const clinicaId = await getClinicaId()
@@ -339,6 +340,7 @@ export function ModalCita({
           notas: notas || undefined,
           recurrence_kind: recurrenceKind,
           recurrence_rule: recurrenceKind === 'none' ? null : `FREQ=${recurrenceKind.toUpperCase()}`,
+          buffer_minutos: servicioActual?.buffer_minutos ?? 0,
         }
         if (recurrenceKind !== 'none') {
           resultado = await crearCitasRecurrentes(

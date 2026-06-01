@@ -102,6 +102,7 @@ export type ServicioRow = {
   precio: number
   color: string
   activo: boolean
+  buffer_minutos: number
   created_at: string
 }
 
@@ -132,6 +133,7 @@ export type CitaConRelaciones = {
   pago_estado?: PagoEstado
   pago_metodo?: PagoMetodo | null
   pago_registrado_at?: string | null
+  buffer_minutos?: number
   created_at: string
   pacientes: PacienteRow
   profesionales: ProfesionalRow
@@ -152,6 +154,7 @@ export type NuevaCitaData = {
   recurrence_rule?: string | null
   recurrence_parent_id?: string | null
   recurrence_instance_date?: string | null
+  buffer_minutos?: number
 }
 
 export type DisponibilidadRow = {
@@ -380,18 +383,34 @@ export async function verificarConflicto(
   profesionalId: string,
   inicio: string,
   fin: string,
-  excludeCitaId?: string
+  excludeCitaId?: string,
+  bufferMinutos = 0
 ): Promise<CitaConRelaciones | null> {
   const supabase = createClient()
+
+  // Cuando hay buffer, la zona ocupada de la cita existente se extiende bufferMinutos después de su fin.
+  // Para detectar esto, buscamos citas existentes donde:
+  //   inicio_existente < fin_nueva  (la cita existente comienza antes de que termine la nueva)
+  //   fin_existente + buffer > inicio_nueva  (la cita existente + buffer termina después de que inicia la nueva)
+  //
+  // Equivalentemente, se puede ampliar el fin de búsqueda y el inicio de búsqueda:
+  //   inicio_existente < fin + buffer  (para cubrir citas que comienzan antes del fin+buffer de la nueva)
+  //   fin_existente > inicio - buffer  (para cubrir citas cuyo fin+buffer supera el inicio de la nueva)
+  const finBusqueda = bufferMinutos > 0
+    ? format(new Date(parseISO(fin).getTime() + bufferMinutos * 60_000), "yyyy-MM-dd'T'HH:mm:ss")
+    : fin
+  const inicioBusqueda = bufferMinutos > 0
+    ? format(new Date(parseISO(inicio).getTime() - bufferMinutos * 60_000), "yyyy-MM-dd'T'HH:mm:ss")
+    : inicio
 
   let query = supabase
     .from('citas')
     .select(`*, pacientes(*), profesionales(*), servicios(*)`)
     .eq('profesional_id', profesionalId)
     .not('estado', 'in', '("cancelada","no_asistio")')
-    // Hay conflicto si los rangos se solapan: inicio_existente < fin_nueva AND fin_existente > inicio_nueva
-    .lt('inicio', fin)
-    .gt('fin', inicio)
+    // Hay conflicto si los rangos (con buffer) se solapan
+    .lt('inicio', finBusqueda)
+    .gt('fin', inicioBusqueda)
     .limit(1)
 
   if (excludeCitaId) {
@@ -447,6 +466,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
         recurrence_rule: data.recurrence_rule ?? null,
         recurrence_parent_id: data.recurrence_parent_id ?? null,
         recurrence_instance_date: data.recurrence_instance_date ?? null,
+        buffer_minutos: data.buffer_minutos ?? 0,
       })
       .select(`*, pacientes(*), profesionales(*), servicios(*)`)
       .single()

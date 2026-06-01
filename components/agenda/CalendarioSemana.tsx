@@ -177,6 +177,7 @@ function ColumnaDia({
                 heightPx={height - 2}
                 leftPercent={col * ancho + 0.5}
                 widthPercent={ancho - 1}
+                bufferPx={(cita.buffer_minutos ?? 0) * PIXEL_POR_MIN}
               />
               {/* Badge "+N más" cuando hay citas que no caben */}
               {mostrarOverflow && (
