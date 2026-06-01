@@ -478,7 +478,8 @@ export async function crearCitasRecurrentes(
   data: NuevaCitaData,
   recurrenceKind: 'daily' | 'weekly' | 'monthly',
   totalCitas = 8,
-  horaOverrides: Record<number, string> = {}
+  horaOverrides: Record<number, string> = {},
+  fechaOverrides: Record<number, string> = {}
 ): Promise<CitaConRelaciones | null> {
   // Apply override for session 0 (the parent) if provided
   const horaBase = data.inicio.slice(11, 16) // HH:mm
@@ -507,7 +508,7 @@ export async function crearCitasRecurrentes(
         ? addWeeks(parseISO(data.inicio), idx)
         : addMonths(parseISO(data.inicio), idx)
 
-    const fechaStr = format(baseDate, 'yyyy-MM-dd')
+    const fechaStr = fechaOverrides[idx] ?? format(baseDate, 'yyyy-MM-dd')
     const horaSession = horaOverrides[idx] ?? horaBase
     const inicioDate = parseISO(`${fechaStr}T${horaSession}:00`)
     const finDate = new Date(inicioDate.getTime() + duracionMs)
