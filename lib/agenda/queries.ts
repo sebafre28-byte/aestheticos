@@ -476,13 +476,13 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
 
 export async function crearCitasRecurrentes(
   data: NuevaCitaData,
-  recurrenceKind: 'daily' | 'weekly' | 'monthly'
+  recurrenceKind: 'daily' | 'weekly' | 'monthly',
+  totalCitas = 8
 ): Promise<CitaConRelaciones | null> {
   const citaPadre = await crearCita(data)
   if (!citaPadre) return null
 
-  const counts = { daily: 29, weekly: 11, monthly: 5 }
-  const n = counts[recurrenceKind]
+  const n = Math.max(1, totalCitas - 1) // padre ya cuenta como 1
 
   const ocurrencias = Array.from({ length: n }, (_, i) => {
     const idx = i + 1
