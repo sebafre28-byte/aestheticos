@@ -5,28 +5,8 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { ArrowRight, Eye, EyeOff } from "lucide-react"
+import { SimpliClinicLogo } from '@/components/ui/SimpliClinicLogo'
 
-function ClinicIcon({ size = 30 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
-      <rect x="1.5" y="1.5" width="33" height="33" rx="9" stroke="#2563EB" strokeWidth="2.8"/>
-      <path d="M10.5 20.5 Q18 27 25.5 20.5" stroke="#2563EB" strokeWidth="2.8" strokeLinecap="round" fill="none"/>
-      <circle cx="24" cy="12" r="2.2" fill="#2563EB"/>
-    </svg>
-  )
-}
-
-function Logo() {
-  return (
-    <div className="flex items-center gap-2 select-none">
-      <span className="text-[20px] font-extrabold leading-none tracking-tight">
-        <span style={{ color: '#0B132B' }}>Simpli</span>
-        <span style={{ color: '#2563EB' }}>Clinic</span>
-      </span>
-      <ClinicIcon size={28} />
-    </div>
-  )
-}
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -85,7 +65,7 @@ export default function ResetPasswordPage() {
 
       <div className="w-full max-w-[400px]">
         <div className="flex justify-center mb-8">
-          <Logo />
+          <SimpliClinicLogo size={32} />
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-8 py-8">
