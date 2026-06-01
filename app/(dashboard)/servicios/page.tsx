@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Scissors, DollarSign, Star, TrendingUp } from 'lucide-react'
+import { Syringe, DollarSign, Star, TrendingUp } from 'lucide-react'
 import { FichaServicio } from '@/components/servicios/FichaServicio'
 import { FormServicio } from '@/components/servicios/FormServicio'
 import { ListaServicios } from '@/components/servicios/ListaServicios'
@@ -124,7 +124,7 @@ export default function ServiciosPage() {
               <p className="text-[22px] font-extrabold text-gray-900">{serviciosActivos}</p>
             </div>
             <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-              <Scissors className="size-4 text-[#2563EB]" />
+              <Syringe className="size-4 text-[#2563EB]" />
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-start justify-between">

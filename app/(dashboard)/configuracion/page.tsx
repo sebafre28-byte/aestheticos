@@ -6,7 +6,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useAcceso } from "@/components/auth/RolGuard"
@@ -297,13 +297,35 @@ function SeccionClinica() {
   )
 }
 
-// ─── Modal agregar profesional ────────────────────────────────────────────────
+// ─── Modal crear/editar profesional ──────────────────────────────────────────
 
-function ModalAgregarProfesional({ onClose, onCreado }: { onClose: () => void; onCreado: () => void }) {
-  const [form, setForm] = useState({ nombre: "", especialidad: "", telefono: "", email: "", color: "#2563EB" })
+function ModalProfesional({
+  onClose,
+  onGuardado,
+  profesionalExistente,
+}: {
+  onClose: () => void
+  onGuardado: () => void
+  profesionalExistente?: ProfesionalRow | null
+}) {
+  const esEdicion = !!profesionalExistente
+  const [form, setForm] = useState({
+    nombre: profesionalExistente?.nombre ?? "",
+    especialidad: profesionalExistente?.especialidad ?? "",
+    telefono: profesionalExistente?.telefono ?? "",
+    email: profesionalExistente?.email ?? "",
+    color: profesionalExistente?.color ?? "#2563EB",
+    bio: profesionalExistente?.bio ?? "",
+    foto_url: profesionalExistente?.foto_url ?? "",
+  })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
+  const [serviciosClinica, setServiciosClinica] = useState<{ id: string; nombre: string; duracion_minutos: number; precio: number }[]>([])
+  const [serviciosSeleccionados, setServiciosSeleccionados] = useState<string[]>([])
+  const [clinicaId, setClinicaId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fotoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
   useEffect(() => {
@@ -312,74 +334,244 @@ function ModalAgregarProfesional({ onClose, onCreado }: { onClose: () => void; o
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
 
+  useEffect(() => {
+    const supabase = createClient()
+    // Cargar clinicaId
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data } = await supabase.from("clinicas").select("id").eq("owner_id", user.id).single()
+      if (data) setClinicaId(data.id)
+    })
+    // Cargar servicios activos
+    supabase.from("servicios").select("id, nombre, duracion_minutos, precio").eq("activo", true).order("nombre").then(({ data }) => {
+      setServiciosClinica((data ?? []) as { id: string; nombre: string; duracion_minutos: number; precio: number }[])
+    })
+    // Cargar servicios asignados al profesional (si edición)
+    if (profesionalExistente) {
+      supabase.from("profesional_servicios").select("servicio_id").eq("profesional_id", profesionalExistente.id).then(({ data }) => {
+        setServiciosSeleccionados((data ?? []).map((r: { servicio_id: string }) => r.servicio_id))
+      })
+    }
+  }, [profesionalExistente])
+
+  async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !clinicaId) return
+    setSubiendoFoto(true)
+    try {
+      const supabase = createClient()
+      const profId = profesionalExistente?.id ?? `temp-${Date.now()}`
+      const path = `${clinicaId}/${profId}.jpg`
+      await supabase.storage.from("profesionales").upload(path, file, { upsert: true, contentType: file.type })
+      const { data: { publicUrl } } = supabase.storage.from("profesionales").getPublicUrl(path)
+      setForm(p => ({ ...p, foto_url: `${publicUrl}?t=${Date.now()}` }))
+    } catch {
+      // Bucket no existe — continuar sin foto
+    } finally {
+      setSubiendoFoto(false)
+    }
+  }
+
+  function toggleServicio(id: string) {
+    setServiciosSeleccionados(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    )
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.nombre.trim()) { setError("El nombre es requerido."); return }
     setGuardando(true)
     setError(null)
-    const result = await crearProfesional(form)
-    setGuardando(false)
-    if (result) {
-      onCreado()
-      onClose()
+    const supabase = createClient()
+
+    let profId = profesionalExistente?.id ?? null
+
+    if (esEdicion && profId) {
+      const { error: updateError } = await supabase.from("profesionales").update({
+        nombre: form.nombre.trim(),
+        especialidad: form.especialidad.trim() || null,
+        telefono: form.telefono.trim() || null,
+        email: form.email.trim() || null,
+        color: form.color,
+        bio: form.bio.trim() || null,
+        foto_url: form.foto_url || null,
+      }).eq("id", profId)
+      if (updateError) {
+        setGuardando(false)
+        setError("No se pudo actualizar el profesional.")
+        return
+      }
     } else {
-      setError("No se pudo crear el profesional. Intenta nuevamente.")
+      const result = await crearProfesional({
+        nombre: form.nombre.trim(),
+        especialidad: form.especialidad.trim() || undefined,
+        telefono: form.telefono.trim() || undefined,
+        email: form.email.trim() || undefined,
+        color: form.color,
+      })
+      if (!result) {
+        setGuardando(false)
+        setError("No se pudo crear el profesional.")
+        return
+      }
+      profId = result.id
+      // Si se subió foto con temp id, actualizar la url
+      if (form.foto_url || form.bio) {
+        await supabase.from("profesionales").update({
+          bio: form.bio.trim() || null,
+          foto_url: form.foto_url || null,
+        }).eq("id", profId)
+      }
     }
+
+    if (profId) {
+      // Sync profesional_servicios: delete + insert
+      await supabase.from("profesional_servicios").delete().eq("profesional_id", profId)
+      if (serviciosSeleccionados.length > 0) {
+        await supabase.from("profesional_servicios").insert(
+          serviciosSeleccionados.map(sid => ({ profesional_id: profId, servicio_id: sid }))
+        )
+      }
+    }
+
+    setGuardando(false)
+    onGuardado()
+    onClose()
   }
+
+  const initials = form.nombre
+    ? form.nombre.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase()
+    : "?"
 
   return (
     <>
       <div className="fixed inset-0 bg-black/30 z-50" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-[15px] font-semibold text-gray-900">Agregar profesional</h3>
+            <h3 className="text-[15px] font-semibold text-gray-900">
+              {esEdicion ? "Editar profesional" : "Agregar profesional"}
+            </h3>
             <button onClick={onClose} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center">
               <X className="size-4 text-gray-400" />
             </button>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Nombre <span className="text-red-400">*</span></Label>
-              <Input ref={inputRef} value={form.nombre} onChange={(e) => setForm(p => ({ ...p, nombre: e.target.value }))}
-                placeholder="Ej: Dra. Ana García" className="h-9 text-[13px]" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+          <form onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Columna izquierda: foto + datos básicos */}
+              <div className="space-y-4">
+                {/* Foto */}
+                <div>
+                  <Label className="mb-2 block text-[12px] font-medium text-gray-700">Foto</Label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => fotoInputRef.current?.click()}
+                      className="w-14 h-14 rounded-full flex items-center justify-center shrink-0 text-white text-[14px] font-bold overflow-hidden relative hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: form.foto_url ? undefined : form.color }}
+                    >
+                      {form.foto_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={form.foto_url} alt="foto" className="w-full h-full object-cover" />
+                      ) : (
+                        initials
+                      )}
+                    </button>
+                    <input ref={fotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleFotoChange} />
+                    <div>
+                      <button
+                        type="button"
+                        disabled={subiendoFoto}
+                        onClick={() => fotoInputRef.current?.click()}
+                        className="h-7 px-3 rounded-lg border border-gray-200 text-[12px] font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                      >
+                        {subiendoFoto ? <><Loader2 className="size-3 animate-spin" />Subiendo…</> : "Cambiar foto"}
+                      </button>
+                      <p className="text-[11px] text-gray-400 mt-1">PNG o JPG</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Nombre <span className="text-red-400">*</span></Label>
+                  <Input ref={inputRef} value={form.nombre} onChange={(e) => setForm(p => ({ ...p, nombre: e.target.value }))}
+                    placeholder="Ej: Dra. Ana García" className="h-9 text-[13px]" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Especialidad</Label>
+                    <Input value={form.especialidad} onChange={(e) => setForm(p => ({ ...p, especialidad: e.target.value }))}
+                      placeholder="Ej: Estética facial" className="h-9 text-[13px]" />
+                  </div>
+                  <div>
+                    <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Teléfono</Label>
+                    <Input value={form.telefono} onChange={(e) => setForm(p => ({ ...p, telefono: e.target.value }))}
+                      placeholder="+56 9 1234 5678" className="h-9 text-[13px]" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Email</Label>
+                  <Input value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
+                    type="email" placeholder="ana@tuclinica.cl" className="h-9 text-[13px]" />
+                </div>
+                <div>
+                  <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Bio</Label>
+                  <textarea
+                    value={form.bio}
+                    onChange={(e) => setForm(p => ({ ...p, bio: e.target.value }))}
+                    rows={2}
+                    placeholder="Cuéntanos sobre la experiencia y enfoque de este profesional…"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
+                  />
+                </div>
+                <div>
+                  <Label className="mb-2 block text-[12px] font-medium text-gray-700">Color identificador</Label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {COLORES_PROF.map((c) => (
+                      <button key={c} type="button" onClick={() => setForm(p => ({ ...p, color: c }))}
+                        className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${form.color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""}`}
+                        style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Columna derecha: servicios */}
               <div>
-                <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Especialidad</Label>
-                <Input value={form.especialidad} onChange={(e) => setForm(p => ({ ...p, especialidad: e.target.value }))}
-                  placeholder="Ej: Estética facial" className="h-9 text-[13px]" />
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Teléfono</Label>
-                <Input value={form.telefono} onChange={(e) => setForm(p => ({ ...p, telefono: e.target.value }))}
-                  placeholder="+56 9 1234 5678" className="h-9 text-[13px]" />
-              </div>
-            </div>
-            <div>
-              <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Email</Label>
-              <Input value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
-                type="email" placeholder="ana@tuclinica.cl" className="h-9 text-[13px]" />
-            </div>
-            <div>
-              <Label className="mb-2 block text-[12px] font-medium text-gray-700">Color identificador</Label>
-              <div className="flex items-center gap-2 flex-wrap">
-                {COLORES_PROF.map((c) => (
-                  <button key={c} type="button" onClick={() => setForm(p => ({ ...p, color: c }))}
-                    className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${form.color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""}`}
-                    style={{ backgroundColor: c }} />
-                ))}
+                <Label className="mb-2 block text-[12px] font-medium text-gray-700">Servicios que atiende</Label>
+                {serviciosClinica.length === 0 ? (
+                  <p className="text-[12px] text-gray-400">No hay servicios activos.</p>
+                ) : (
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    {serviciosClinica.map((s) => (
+                      <label key={s.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={serviciosSeleccionados.includes(s.id)}
+                          onChange={() => toggleServicio(s.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-[#2563EB] focus:ring-[#2563EB]/20"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium text-gray-900 truncate">{s.nombre}</p>
+                          <p className="text-[11px] text-gray-500">{s.duracion_minutos} min · ${s.precio.toLocaleString("es-CL")}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+
             {error && (
-              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-600">
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-600 mt-4">
                 <AlertCircle className="size-3.5 shrink-0" />{error}
               </div>
             )}
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 pt-4 mt-2 border-t border-gray-100">
               <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-9 text-[13px]">Cancelar</Button>
               <Button type="submit" disabled={guardando} className="flex-1 h-9 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
-                {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Agregar profesional"}
+                {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : esEdicion ? "Guardar cambios" : "Agregar profesional"}
               </Button>
             </div>
           </form>
@@ -391,16 +583,26 @@ function ModalAgregarProfesional({ onClose, onCreado }: { onClose: () => void; o
 
 // ─── Sección Equipo ───────────────────────────────────────────────────────────
 
+type ProfesionalConServicios = ProfesionalRow & { servicios_nombres?: string[] }
+
 function SeccionEquipo() {
-  const [profesionales, setProfesionales] = useState<ProfesionalRow[]>([])
+  const [profesionales, setProfesionales] = useState<ProfesionalConServicios[]>([])
   const [cargando, setCargando] = useState(true)
   const [eliminando, setEliminando] = useState<string | null>(null)
   const [abrirModal, setAbrirModal] = useState(false)
+  const [editandoProfesional, setEditandoProfesional] = useState<ProfesionalRow | null>(null)
 
   const cargar = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase.from("profesionales").select("*").order("nombre", { ascending: true })
-    setProfesionales((data ?? []) as ProfesionalRow[])
+    const { data } = await supabase
+      .from("profesionales")
+      .select("*, profesional_servicios(servicio_id, servicios(nombre))")
+      .order("nombre", { ascending: true })
+    const rows = (data ?? []).map((p: ProfesionalRow & { profesional_servicios?: { servicio_id: string; servicios?: { nombre: string } | null }[] }) => ({
+      ...p,
+      servicios_nombres: (p.profesional_servicios ?? []).map(ps => ps.servicios?.nombre ?? "").filter(Boolean),
+    }))
+    setProfesionales(rows)
     setCargando(false)
   }, [])
 
@@ -447,21 +649,40 @@ function SeccionEquipo() {
         <div className="space-y-3">
           {profesionales.map((p) => {
             const initials = p.nombre.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
+            const serviciosNombres = p.servicios_nombres ?? []
+            const badgesVisibles = serviciosNombres.slice(0, 3)
+            const extra = serviciosNombres.length - 3
             return (
               <div key={p.id} className={`bg-gray-50 rounded-xl border border-gray-100 p-4 flex items-center gap-4 ${!p.activo ? "opacity-60" : ""}`}>
-                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-[12px] font-bold" style={{ backgroundColor: p.color }}>
-                  {initials}
+                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-[12px] font-bold overflow-hidden" style={{ backgroundColor: p.foto_url ? undefined : p.color }}>
+                  {p.foto_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.foto_url} alt={p.nombre} className="w-full h-full object-cover" />
+                  ) : initials}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold text-gray-900">{p.nombre}</p>
                   <p className="text-[12px] text-gray-500 mt-0.5">{p.especialidad ?? "Sin especialidad"}</p>
-                  {p.telefono && <p className="text-[11px] text-gray-400 mt-0.5">{p.telefono}</p>}
+                  {badgesVisibles.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {badgesVisibles.map(nombre => (
+                        <span key={nombre} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-[#2563EB]">{nombre}</span>
+                      ))}
+                      {extra > 0 && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">+{extra} más</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${p.activo ? "bg-emerald-50 text-[#10B981]" : "bg-gray-100 text-gray-500"}`}>
                     {p.activo ? "Activo" : "Inactivo"}
                   </span>
                   <Toggle activo={p.activo} onChange={() => toggleActivo(p)} />
+                  <button onClick={() => setEditandoProfesional(p)}
+                    className="h-7 w-7 rounded-lg hover:bg-blue-50 flex items-center justify-center transition-colors group">
+                    <Pencil className="size-3.5 text-gray-300 group-hover:text-[#2563EB]" />
+                  </button>
                   <button onClick={() => eliminar(p.id)} disabled={eliminando === p.id}
                     className="h-7 w-7 rounded-lg hover:bg-red-50 flex items-center justify-center transition-colors group">
                     {eliminando === p.id ? <Loader2 className="size-3.5 animate-spin text-gray-400" /> : <Trash2 className="size-3.5 text-gray-300 group-hover:text-red-400" />}
@@ -473,7 +694,14 @@ function SeccionEquipo() {
         </div>
       )}
 
-      {abrirModal && <ModalAgregarProfesional onClose={() => setAbrirModal(false)} onCreado={cargar} />}
+      {abrirModal && <ModalProfesional onClose={() => setAbrirModal(false)} onGuardado={cargar} />}
+      {editandoProfesional && (
+        <ModalProfesional
+          onClose={() => setEditandoProfesional(null)}
+          onGuardado={() => { setEditandoProfesional(null); cargar() }}
+          profesionalExistente={editandoProfesional}
+        />
+      )}
     </div>
   )
 }

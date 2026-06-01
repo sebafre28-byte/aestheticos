@@ -21,6 +21,7 @@ import {
 import {
   getPacientesBusqueda, crearPacienteRapido, crearCita, crearCitasRecurrentes, editarCita,
   verificarConflicto, getClinicaId, getCitasDelDia, getDisponibilidadProfesional, getBloqueosRango, crearRecordatorioCita,
+  getProfesionalesConServicios,
 } from '@/lib/agenda/queries'
 import { getClinicaConfig, type HorariosConfig } from '@/lib/onboarding/queries'
 import { useDialogA11y } from './useDialogA11y'
@@ -107,6 +108,8 @@ export function ModalCita({
   const [error, setError] = useState<string | null>(null)
   const [recordatorioWhatsApp, setRecordatorioWhatsApp] = useState(true)
   const [recordatorioMinutos, setRecordatorioMinutos] = useState(120)
+  // Map de profesionalId -> servicios asignados (string[])
+  const [profesionalServicios, setProfesionalServicios] = useState<Record<string, string[]>>({})
 
   // ─── Time picker ───────────────────────────────────────────────────────────
   const [abiertoPicker, setAbiertoPicker] = useState(false)
@@ -142,6 +145,12 @@ export function ModalCita({
   useEffect(() => {
     getClinicaConfig().then(cfg => {
       if (cfg.horarios) setHorariosClinica(cfg.horarios)
+    })
+    // Cargar servicios por profesional
+    getProfesionalesConServicios().then(profs => {
+      const map: Record<string, string[]> = {}
+      profs.forEach(p => { map[p.id] = p.servicios ?? [] })
+      setProfesionalServicios(map)
     })
   }, [])
 
@@ -531,7 +540,12 @@ export function ModalCita({
           <div>
             <label className="block text-[13px] font-semibold text-gray-700 mb-2">Servicio</label>
             <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto pr-1">
-              {servicios.filter(s => s.activo).map((s) => (
+              {servicios.filter(s => {
+                if (!s.activo) return false
+                const asignados = profesionalId ? profesionalServicios[profesionalId] : undefined
+                if (!asignados || asignados.length === 0) return true
+                return asignados.includes(s.id)
+              }).map((s) => (
                 <button
                   key={s.id}
                   type="button"
