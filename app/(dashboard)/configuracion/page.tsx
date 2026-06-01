@@ -1226,11 +1226,17 @@ function SeccionHorarios() {
   }, [])
 
   function toggleDia(dia: string) {
-    setHorarios((prev) => ({ ...prev, [dia]: { ...prev[dia], activo: !prev[dia].activo } }))
+    setHorarios((prev) => {
+      const current = prev[dia] ?? { activo: false, desde: '09:00', hasta: '18:00' }
+      return { ...prev, [dia]: { ...current, activo: !current.activo } }
+    })
   }
 
   function setHora(dia: string, campo: 'desde' | 'hasta', valor: string) {
-    setHorarios((prev) => ({ ...prev, [dia]: { ...prev[dia], [campo]: valor } }))
+    setHorarios((prev) => {
+      const current = prev[dia] ?? { activo: false, desde: '09:00', hasta: '18:00' }
+      return { ...prev, [dia]: { ...current, [campo]: valor } }
+    })
   }
 
   async function guardar() {
