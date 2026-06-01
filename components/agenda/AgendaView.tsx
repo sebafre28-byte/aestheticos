@@ -680,7 +680,6 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             }
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
-            onDropCita={moverCita}
             onResizeCita={redimensionarCita}
             onEliminarBloqueo={handleEliminarBloqueo}
             horaInicioLaboral={horaInicioLaboral}
@@ -707,7 +706,6 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             citas={citasFiltradas}
             onClickCita={handleClickCita}
             onClickCelda={handleClickCelda}
-            onDropCita={moverCita}
             onResizeCita={redimensionarCita}
             onVerDia={handleVerDia}
           />

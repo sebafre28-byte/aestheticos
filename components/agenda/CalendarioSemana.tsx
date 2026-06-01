@@ -51,7 +51,6 @@ function ColumnaDia({
   profesionalesFiltrados,
   onClickCita,
   onClickCelda,
-  onDropCita,
   onResizeCita,
 }: {
   dia: Date
@@ -60,7 +59,6 @@ function ColumnaDia({
   profesionalesFiltrados: string[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
-  onDropCita: (cita: CitaConRelaciones, profesionalId: string, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
 }) {
   const dispuestas = calcularColumnas(citas)
@@ -92,22 +90,6 @@ function ColumnaDia({
         setSobreFondo(e.target === e.currentTarget)
       }}
       onMouseLeave={() => { setHoverY(null); setSobreFondo(false) }}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault()
-        const citaId = e.dataTransfer.getData('text/cita-id')
-        const cita = citas.find((item) => item.id === citaId)
-        if (!cita) return
-        const rect = e.currentTarget.getBoundingClientRect()
-        const y = e.clientY - rect.top
-        const minutos = Math.floor(y / PIXEL_POR_MIN)
-        const minutosRedondeados = Math.floor(minutos / 15) * 15
-        const hora = new Date(dia)
-        hora.setHours(HORA_GRILLA_INICIO + Math.floor(minutosRedondeados / 60))
-        hora.setMinutes(minutosRedondeados % 60)
-        hora.setSeconds(0)
-        onDropCita(cita, cita.profesional_id, hora)
-      }}
     >
       {/* Highlight de cuarto de hora al hover sobre fondo */}
       {sobreFondo && hoverY !== null && (
@@ -185,7 +167,6 @@ type Props = {
   citas: CitaConRelaciones[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
-  onDropCita: (cita: CitaConRelaciones, profesionalId: string, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onVerDia?: (fecha: Date) => void
 }
@@ -196,7 +177,6 @@ export function CalendarioSemana({
   citas,
   onClickCita,
   onClickCelda,
-  onDropCita,
   onResizeCita,
   onVerDia,
 }: Props) {
@@ -353,7 +333,6 @@ export function CalendarioSemana({
                   profesionalesFiltrados={profesionalesFiltrados}
                   onClickCita={onClickCita}
                   onClickCelda={onClickCelda}
-                  onDropCita={onDropCita}
                   onResizeCita={onResizeCita}
                 />
               )
