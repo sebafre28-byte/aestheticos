@@ -47,7 +47,6 @@ const ESTADO_BORDE: Record<EstadoCita, { color: string; style: 'solid' | 'dashed
 type Props = {
   cita: CitaConRelaciones
   onClick: (cita: CitaConRelaciones) => void
-  onDragStart?: (cita: CitaConRelaciones) => void
   onResize?: (cita: CitaConRelaciones, deltaMinutos: number) => void
   topPx: number
   heightPx: number
@@ -58,7 +57,6 @@ type Props = {
 export function BloqueCita({
   cita,
   onClick,
-  onDragStart,
   onResize,
   topPx,
   heightPx,
@@ -134,11 +132,6 @@ export function BloqueCita({
       tabIndex={0}
       onClick={() => onClick(cita)}
       onKeyDown={(e) => e.key === 'Enter' && onClick(cita)}
-      draggable
-      onDragStart={(event) => {
-        event.dataTransfer.setData('text/cita-id', cita.id)
-        onDragStart?.(cita)
-      }}
       onMouseEnter={(e) => setTooltip({ x: e.clientX, y: e.clientY })}
       onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY })}
       onMouseLeave={() => setTooltip(null)}

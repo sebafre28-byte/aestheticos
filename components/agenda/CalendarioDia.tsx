@@ -62,7 +62,6 @@ function ColumnaProfesional({
   bloqueos,
   onClickCita,
   onClickCelda,
-  onDropCita,
   onResizeCita,
   onEliminarBloqueo,
   fecha,
@@ -74,7 +73,6 @@ function ColumnaProfesional({
   bloqueos: BloqueoProfesional[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
-  onDropCita: (cita: CitaConRelaciones, profesionalId: string, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onEliminarBloqueo?: (id: string) => void
   fecha: Date
@@ -98,16 +96,6 @@ function ColumnaProfesional({
     onClickCelda(profesional.id, hora)
   }
 
-  function horaDesdeY(y: number): Date {
-    const minutos = Math.floor(y / PIXEL_POR_MIN)
-    const minutosRedondeados = Math.floor(minutos / 15) * 15
-    const hora = new Date(fecha)
-    hora.setHours(HORA_GRILLA_INICIO + Math.floor(minutosRedondeados / 60))
-    hora.setMinutes(minutosRedondeados % 60)
-    hora.setSeconds(0)
-    return hora
-  }
-
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
     setHoverY(e.clientY - rect.top)
@@ -121,16 +109,6 @@ function ColumnaProfesional({
       onClick={handleClickFondo}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => { setHoverY(null); setSobreFondo(false) }}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault()
-        const citaId = e.dataTransfer.getData('text/cita-id')
-        const cita = citas.find((item) => item.id === citaId)
-        if (!cita) return
-        const rect = e.currentTarget.getBoundingClientRect()
-        const y = e.clientY - rect.top
-        onDropCita(cita, profesional.id, horaDesdeY(y))
-      }}
     >
       {/* Highlight de cuarto de hora al pasar el mouse sobre fondo vacío */}
       {sobreFondo && hoverY !== null && (
@@ -219,7 +197,6 @@ type Props = {
   profesionalesFiltrados: string[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
-  onDropCita: (cita: CitaConRelaciones, profesionalId: string, hora: Date) => void
   onResizeCita: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onEliminarBloqueo?: (id: string) => void
   horaInicioLaboral?: number
@@ -234,7 +211,6 @@ export function CalendarioDia({
   profesionalesFiltrados,
   onClickCita,
   onClickCelda,
-  onDropCita,
   onResizeCita,
   onEliminarBloqueo,
   horaInicioLaboral,
@@ -390,7 +366,6 @@ export function CalendarioDia({
                     bloqueos={bloqueosProf}
                     onClickCita={onClickCita}
                     onClickCelda={onClickCelda}
-                    onDropCita={onDropCita}
                     onResizeCita={onResizeCita}
                     onEliminarBloqueo={onEliminarBloqueo}
                     fecha={fecha}
