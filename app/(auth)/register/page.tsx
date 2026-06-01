@@ -4,38 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { ArrowRight, CheckCircle, Eye, EyeOff, Mail } from "lucide-react"
-
-// ─── Logo (igual que la landing) ─────────────────────────────────────────────
-
-function ClinicIcon({ size = 32 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
-      <rect x="1.5" y="1.5" width="33" height="33" rx="9" stroke="#2563EB" strokeWidth="2.8"/>
-      <path d="M10.5 20.5 Q18 27 25.5 20.5" stroke="#2563EB" strokeWidth="2.8" strokeLinecap="round" fill="none"/>
-      <circle cx="24" cy="12" r="2.2" fill="#2563EB"/>
-    </svg>
-  )
-}
-
-function Logo({ light = false }: { light?: boolean }) {
-  return (
-    <div className="flex items-center gap-2 select-none">
-      <span className="text-[20px] font-extrabold leading-none tracking-tight">
-        <span style={{ color: light ? 'white' : '#0B132B' }}>Simpli</span>
-        <span style={{ color: light ? '#60A5FA' : '#2563EB' }}>Clinic</span>
-      </span>
-      {light ? (
-        <svg width="30" height="30" viewBox="0 0 36 36" fill="none">
-          <rect x="1.5" y="1.5" width="33" height="33" rx="9" stroke="#60A5FA" strokeWidth="2.8"/>
-          <path d="M10.5 20.5 Q18 27 25.5 20.5" stroke="#60A5FA" strokeWidth="2.8" strokeLinecap="round" fill="none"/>
-          <circle cx="24" cy="12" r="2.2" fill="#60A5FA"/>
-        </svg>
-      ) : (
-        <ClinicIcon size={30} />
-      )}
-    </div>
-  )
-}
+import { SimpliClinicLogo } from '@/components/ui/SimpliClinicLogo'
 
 // ─── Left panel value props ───────────────────────────────────────────────────
 
@@ -98,7 +67,7 @@ export default function RegisterPage() {
         className="hidden lg:flex lg:w-[480px] xl:w-[520px] shrink-0 flex-col justify-between p-10"
         style={{ background: 'linear-gradient(160deg, #0B132B 0%, #0f2040 60%, #0B132B 100%)' }}
       >
-        <Logo light />
+        <SimpliClinicLogo size={32} light />
 
         <div>
           <div className="mb-8">
@@ -153,7 +122,7 @@ export default function RegisterPage() {
 
         {/* Mobile logo */}
         <div className="lg:hidden mb-8">
-          <Logo />
+          <SimpliClinicLogo size={32} />
         </div>
 
         <div className="w-full max-w-[400px]">

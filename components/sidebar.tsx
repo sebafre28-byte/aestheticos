@@ -30,15 +30,8 @@ const navItems = [
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ]
 
-// Ícono SimpliClinic: cruz médica en azul sobre fondo blanco
 function LogoIcon() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="32" height="32" rx="9" fill="white" />
-      <rect x="13" y="7" width="6" height="18" rx="3" fill="#2563EB" />
-      <rect x="7" y="13" width="18" height="6" rx="3" fill="#2563EB" />
-    </svg>
-  )
+  return <Image src="/logo-icon.jpg" width={28} height={28} alt="SimpliClinic" className="rounded-lg" />
 }
 
 export function Sidebar() {
