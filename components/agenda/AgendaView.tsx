@@ -81,6 +81,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   const [modalBloqueoAbierto, setModalBloqueoAbierto] = useState(false)
   const [bloqueoHoraInicial, setBloqueoHoraInicial] = useState<Date | undefined>()
   const [bloqueoProfeIdInicial, setBloqueoProfeIdInicial] = useState<string | undefined>()
+  const [bloqueoParaEditar, setBloqueoParaEditar] = useState<BloqueoProfesional | undefined>()
 
   // ─── Cargar datos ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -365,6 +366,13 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   async function handleEliminarBloqueo(id: string) {
     await eliminarBloqueo(id)
     setBloqueos((prev) => prev.filter((b) => b.id !== id))
+  }
+
+  function handleEditarBloqueo(bloqueo: BloqueoProfesional) {
+    setBloqueoParaEditar(bloqueo)
+    setBloqueoHoraInicial(undefined)
+    setBloqueoProfeIdInicial(undefined)
+    setModalBloqueoAbierto(true)
   }
 
   // Ir a vista día de una fecha específica (desde click en header semana)
@@ -707,6 +715,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             onBloquearHorario={handleBloquearHorario}
             onResizeCita={redimensionarCita}
             onEliminarBloqueo={handleEliminarBloqueo}
+            onEditarBloqueo={handleEditarBloqueo}
             horaInicioLaboral={horaInicioLaboral}
             horaFinLaboral={horaFinLaboral}
           />
@@ -735,6 +744,8 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             onBloquearHorario={handleBloquearHorario}
             onResizeCita={redimensionarCita}
             onVerDia={handleVerDia}
+            onEliminarBloqueo={handleEliminarBloqueo}
+            onEditarBloqueo={handleEditarBloqueo}
           />
         )}
         {vista === 'semana' && citas.length === 0 && !cargando && (
@@ -852,11 +863,13 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
           profesionalId={bloqueoProfeIdInicial}
           horaInicio={bloqueoHoraInicial}
           profesionales={profesionales}
+          bloqueoEditar={bloqueoParaEditar}
           onGuardado={() => {
             setModalBloqueoAbierto(false)
+            setBloqueoParaEditar(undefined)
             cargarCitas()
           }}
-          onCerrar={() => setModalBloqueoAbierto(false)}
+          onCerrar={() => { setModalBloqueoAbierto(false); setBloqueoParaEditar(undefined) }}
         />
       )}
 
