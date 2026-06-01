@@ -95,6 +95,8 @@ export function ModalCita({
     (citaExistente?.recurrence_kind as 'none' | 'daily' | 'weekly' | 'monthly' | undefined) ?? 'none'
   )
   const [recurrenceCount, setRecurrenceCount] = useState(8)
+  // Per-session overrides: map of index → hora override
+  const [sessionHoraOverrides, setSessionHoraOverrides] = useState<Record<number, string>>({})
   const [serieEditMode, setSerieEditMode] = useState<'single' | 'future' | 'all'>('single')
 
   const [conflicto, setConflicto] = useState<CitaConRelaciones | null>(null)
@@ -330,7 +332,12 @@ export function ModalCita({
           recurrence_rule: recurrenceKind === 'none' ? null : `FREQ=${recurrenceKind.toUpperCase()}`,
         }
         if (recurrenceKind !== 'none') {
-          resultado = await crearCitasRecurrentes(datos, recurrenceKind as 'daily' | 'weekly' | 'monthly', recurrenceCount)
+          resultado = await crearCitasRecurrentes(
+            datos,
+            recurrenceKind as 'daily' | 'weekly' | 'monthly',
+            recurrenceCount,
+            sessionHoraOverrides
+          )
         } else {
           resultado = await crearCita(datos)
         }
@@ -694,18 +701,51 @@ export function ModalCita({
                   </span>
                 </div>
                 {fecha && hora && (
-                  <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-3 py-2.5">
-                    <p className="text-[11px] font-semibold text-blue-600 mb-1.5 uppercase tracking-wide">
-                      Se agendarán {recurrenceCount} sesiones a las {hora}:
-                    </p>
-                    <div className="flex flex-wrap gap-1">
+                  <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                    <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide">
+                        {recurrenceCount} sesiones programadas
+                      </span>
+                      <span className="text-[10px] text-slate-400">Toca la hora para cambiarla</span>
+                    </div>
+                    <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto">
                       {Array.from({ length: recurrenceCount }, (_, i) => {
                         const base = parseISO(`${fecha}T12:00:00`)
                         const d = recurrenceKind === 'daily' ? addDays(base, i) : recurrenceKind === 'weekly' ? addWeeks(base, i) : addMonths(base, i)
+                        const fechaStr = format(d, 'yyyy-MM-dd')
+                        const horaSession = sessionHoraOverrides[i] ?? hora
+                        // Check conflict against existing appointments
+                        const tieneConflicto = servicioActual && citasDelProfesional.some(c => {
+                          if (!c.inicio.startsWith(fechaStr)) return false
+                          const cInicio = parseInt(c.inicio.slice(11,13))*60 + parseInt(c.inicio.slice(14,16))
+                          const cFin = parseInt(c.fin.slice(11,13))*60 + parseInt(c.fin.slice(14,16))
+                          const sInicio = parseInt(horaSession.slice(0,2))*60 + parseInt(horaSession.slice(3,5))
+                          const sFin = sInicio + servicioActual.duracion_minutos
+                          return sInicio < cFin && sFin > cInicio
+                        })
                         return (
-                          <span key={i} className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${i === 0 ? 'bg-[#2563EB] text-white' : 'bg-white border border-blue-200 text-blue-700'}`}>
-                            {format(d, "d MMM", { locale: es })}
-                          </span>
+                          <div key={i} className={`flex items-center gap-3 px-3 py-2 ${tieneConflicto ? 'bg-red-50' : i === 0 ? 'bg-blue-50/40' : ''}`}>
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                              style={{ backgroundColor: i === 0 ? '#2563EB' : '#e2e8f0', color: i === 0 ? 'white' : '#64748b' }}>
+                              {i + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[12px] font-semibold text-slate-700 capitalize">
+                                {format(d, "EEEE d 'de' MMM", { locale: es })}
+                              </span>
+                            </div>
+                            <select
+                              value={horaSession}
+                              onChange={e => setSessionHoraOverrides(prev => ({ ...prev, [i]: e.target.value }))}
+                              className={`h-7 rounded-lg border px-2 pr-6 text-[11px] font-semibold appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400/50 ${
+                                tieneConflicto ? 'border-red-300 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-[#2563EB]'
+                              }`}
+                              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%2394a3b8' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 5px center' }}
+                            >
+                              {SLOTS_HORA.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            {tieneConflicto && <span className="text-[10px] text-red-500 font-medium flex-shrink-0">Conflicto</span>}
+                          </div>
                         )
                       })}
                     </div>
