@@ -498,16 +498,24 @@ function PasoHora({
     let disponibles = buildSlotsDisponibles(horarioEfectivo, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
 
     // Filtrar slots que se solapan con bloqueos (para todos los profesionales o el específico)
+    // Comparison uses wall-clock strings to avoid timezone mismatch:
+    // - slot Date was created from local wall-clock string → getHours()/getMinutes() = wall-clock
+    // - bloqueo.inicio from Supabase is UTC ISO of the stored wall-clock → slice(0,19) = wall-clock
     if (bloqueos.length > 0) {
-      const duracionMs = servicio.duracion_minutos * 60 * 1000
+      const fechaStr = formatDateISO(fecha)
       disponibles = disponibles.filter((slot) => {
-        const slotInicioMs = slot.getTime()
-        const slotFinMs = slotInicioMs + duracionMs
+        const hh = String(slot.getHours()).padStart(2, '0')
+        const mm = String(slot.getMinutes()).padStart(2, '0')
+        const slotInicioWall = `${fechaStr}T${hh}:${mm}:00`
+        const slotFinMin = slot.getHours() * 60 + slot.getMinutes() + servicio.duracion_minutos
+        const sfh = String(Math.floor(slotFinMin / 60)).padStart(2, '0')
+        const sfm = String(slotFinMin % 60).padStart(2, '0')
+        const slotFinWall = `${fechaStr}T${sfh}:${sfm}:00`
         return !bloqueos.some((b) => {
           if (b.profesional_id !== null && b.profesional_id !== profesionalId) return false
-          const bInicioMs = new Date(b.inicio).getTime()
-          const bFinMs = new Date(b.fin).getTime()
-          return slotInicioMs < bFinMs && slotFinMs > bInicioMs
+          const bInicioWall = b.inicio.slice(0, 19)
+          const bFinWall = b.fin.slice(0, 19)
+          return slotInicioWall < bFinWall && slotFinWall > bInicioWall
         })
       })
     }
