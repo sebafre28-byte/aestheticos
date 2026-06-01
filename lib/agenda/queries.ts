@@ -508,7 +508,35 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
   }
   invalidateAgendaCache()
   await triggerCitaJobs(citaCompleta.id, 'schedule')
+
+  // Disparar notificaciones (no bloquea el flujo)
+  dispararNotificacionCita(citaCompleta as CitaConRelaciones).catch(() => {})
+
   return citaCompleta as CitaConRelaciones
+}
+
+function dispararNotificacionCita(cita: CitaConRelaciones) {
+  const base = typeof window !== 'undefined'
+    ? window.location.origin
+    : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpliclinic.vercel.app')
+  const paciente = cita.pacientes as { nombre: string; email?: string | null; telefono?: string | null } | null
+  const profesional = cita.profesionales as { nombre: string } | null
+  const servicio = cita.servicios as { nombre: string } | null
+  const clinica = { nombre: '', telefono: null, email: null, direccion: null }
+  return fetch(`${base}/api/notificar-cita`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tipo: 'nueva_cita',
+      canal: 'agenda',
+      paciente: { nombre: paciente?.nombre ?? '', email: paciente?.email, telefono: paciente?.telefono },
+      profesional: { nombre: profesional?.nombre ?? '' },
+      servicio: { nombre: servicio?.nombre ?? '' },
+      clinica,
+      inicio: cita.inicio,
+      fin: cita.fin,
+    }),
+  })
 }
 
 // ─── Crear citas recurrentes ──────────────────────────────────────────────────
