@@ -477,32 +477,44 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
 export async function crearCitasRecurrentes(
   data: NuevaCitaData,
   recurrenceKind: 'daily' | 'weekly' | 'monthly',
-  totalCitas = 8
+  totalCitas = 8,
+  horaOverrides: Record<number, string> = {}
 ): Promise<CitaConRelaciones | null> {
-  const citaPadre = await crearCita(data)
+  // Apply override for session 0 (the parent) if provided
+  const horaBase = data.inicio.slice(11, 16) // HH:mm
+  const horaParent = horaOverrides[0] ?? horaBase
+  const duracionMs = parseISO(data.fin).getTime() - parseISO(data.inicio).getTime()
+
+  let dataParent = data
+  if (horaOverrides[0] && horaOverrides[0] !== horaBase) {
+    const fechaParent = data.inicio.slice(0, 10)
+    const inicioParent = `${fechaParent}T${horaParent}:00`
+    const finParent = format(new Date(parseISO(inicioParent).getTime() + duracionMs), "yyyy-MM-dd'T'HH:mm:ss")
+    dataParent = { ...data, inicio: inicioParent, fin: finParent }
+  }
+
+  const citaPadre = await crearCita(dataParent)
   if (!citaPadre) return null
 
   const n = Math.max(1, totalCitas - 1) // padre ya cuenta como 1
 
   const ocurrencias = Array.from({ length: n }, (_, i) => {
     const idx = i + 1
-    const inicioDate =
+    const baseDate =
       recurrenceKind === 'daily'
         ? addDays(parseISO(data.inicio), idx)
         : recurrenceKind === 'weekly'
         ? addWeeks(parseISO(data.inicio), idx)
         : addMonths(parseISO(data.inicio), idx)
 
-    const finDate =
-      recurrenceKind === 'daily'
-        ? addDays(parseISO(data.fin), idx)
-        : recurrenceKind === 'weekly'
-        ? addWeeks(parseISO(data.fin), idx)
-        : addMonths(parseISO(data.fin), idx)
+    const fechaStr = format(baseDate, 'yyyy-MM-dd')
+    const horaSession = horaOverrides[idx] ?? horaBase
+    const inicioDate = parseISO(`${fechaStr}T${horaSession}:00`)
+    const finDate = new Date(inicioDate.getTime() + duracionMs)
 
     const inicioStr = format(inicioDate, "yyyy-MM-dd'T'HH:mm:ss")
     const finStr = format(finDate, "yyyy-MM-dd'T'HH:mm:ss")
-    const instanceDate = format(inicioDate, 'yyyy-MM-dd')
+    const instanceDate = fechaStr
 
     return {
       clinica_id: data.clinica_id,
