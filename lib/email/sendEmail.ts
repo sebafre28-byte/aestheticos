@@ -1,20 +1,30 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type TipoEmail = 'confirmacion_cita' | 'recordatorio_cita' | 'cancelacion_cita'
+export type TipoEmail =
+  | 'confirmacion_cita'
+  | 'nueva_reserva_admin'
+  | 'recordatorio_cita'
+  | 'cancelacion_cita'
 
 export interface DatosCita {
   paciente_nombre: string
+  paciente_telefono?: string
+  paciente_email?: string
   servicio_nombre: string
   profesional_nombre: string
-  fecha: string     // e.g. "martes 3 de junio"
-  hora: string      // e.g. "15:00"
+  fecha: string          // e.g. "martes 3 de junio"
+  hora: string           // e.g. "15:00"
+  hora_fin?: string      // e.g. "16:00"
   clinica_nombre: string
   clinica_telefono?: string
+  clinica_email?: string
+  clinica_direccion?: string
+  canal?: 'book' | 'agenda' | 'whatsapp'
 }
 
 export interface EmailPayload {
   tipo: TipoEmail
-  destinatario: string
+  destinatario: string  // email del destinatario
   datos: DatosCita
 }
 
