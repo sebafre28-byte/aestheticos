@@ -356,20 +356,26 @@ function ModalProfesional({
 
   async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !clinicaId) return
+    if (!file) return
+    if (!clinicaId) { setError("Espera un momento e intenta de nuevo."); return }
+    if (file.size > 5 * 1024 * 1024) { setError("La imagen no debe superar 5 MB."); return }
     setSubiendoFoto(true)
-    try {
-      const supabase = createClient()
-      const profId = profesionalExistente?.id ?? `temp-${Date.now()}`
-      const path = `${clinicaId}/${profId}.jpg`
-      await supabase.storage.from("profesionales").upload(path, file, { upsert: true, contentType: file.type })
-      const { data: { publicUrl } } = supabase.storage.from("profesionales").getPublicUrl(path)
-      setForm(p => ({ ...p, foto_url: `${publicUrl}?t=${Date.now()}` }))
-    } catch {
-      // Bucket no existe — continuar sin foto
-    } finally {
+    setError(null)
+    const supabase = createClient()
+    const profId = profesionalExistente?.id ?? `temp-${Date.now()}`
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+    const path = `${clinicaId}/${profId}.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from("profesionales")
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (uploadError) {
+      setError(`No se pudo subir la foto: ${uploadError.message}`)
       setSubiendoFoto(false)
+      return
     }
+    const { data: { publicUrl } } = supabase.storage.from("profesionales").getPublicUrl(path)
+    setForm(p => ({ ...p, foto_url: `${publicUrl}?t=${Date.now()}` }))
+    setSubiendoFoto(false)
   }
 
   function toggleServicio(id: string) {
