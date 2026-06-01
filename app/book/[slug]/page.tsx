@@ -17,6 +17,13 @@ type Servicio = {
   buffer_minutos: number
 }
 
+type DisponibilidadProfesional = {
+  dia_semana: number // 1=lun … 7=dom (ISO)
+  hora_inicio: string
+  hora_fin: string
+  activo: boolean
+}
+
 type Profesional = {
   id: string
   nombre: string
@@ -25,6 +32,7 @@ type Profesional = {
   foto_url?: string | null
   bio?: string | null
   servicios_ids?: string[]
+  disponibilidad?: DisponibilidadProfesional[]
 }
 
 type HorarioDia = {
@@ -294,12 +302,33 @@ function PasoProfesionalFecha({
   const monthSet = new Set(calDays.map(d => `${MESES_ES[d.getMonth()]} ${d.getFullYear()}`))
   const monthLabel = Array.from(monthSet).slice(0, 2).join(' / ')
 
+  // Convierte getDay() (0=dom) a dia_semana ISO (1=lun…7=dom)
+  function jsDayToIso(jsDay: number): number {
+    return jsDay === 0 ? 7 : jsDay
+  }
+
+  const profesionalActualObj = profesionalId ? profesionalesFiltrados.find(p => p.id === profesionalId) : null
+
   function isDiaActivo(d: Date): boolean {
     if (d < today) return false
-    if (!horarios) return true
     const nombreDia = DIAS_ES[d.getDay()]
-    const h = horarios[nombreDia]
-    return h?.activo !== false
+
+    // 1. Verificar horario de la clínica
+    if (horarios) {
+      const h = horarios[nombreDia]
+      if (h?.activo === false) return false
+    }
+
+    // 2. Verificar disponibilidad del profesional seleccionado
+    if (profesionalActualObj?.disponibilidad && profesionalActualObj.disponibilidad.length > 0) {
+      const isoDia = jsDayToIso(d.getDay())
+      const tieneEseDia = profesionalActualObj.disponibilidad.some(
+        dsp => dsp.dia_semana === isoDia && dsp.activo
+      )
+      if (!tieneEseDia) return false
+    }
+
+    return true
   }
 
   const DOW_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -403,6 +432,7 @@ function PasoHora({
   horarios,
   servicio,
   profesionalId,
+  profesional,
   clinicaId,
   onSelect,
   tz = DEFAULT_TZ,
@@ -411,6 +441,7 @@ function PasoHora({
   horarios: Record<string, HorarioDia> | undefined
   servicio: Servicio
   profesionalId: string
+  profesional?: Profesional | null
   clinicaId: string
   onSelect: (inicio: Date, fin: Date) => void
   tz?: string
@@ -438,8 +469,25 @@ function PasoHora({
     const ocupados: SlotOcupado[] = Array.isArray(data) ? data : []
 
     const nombreDia = DIAS_ES[fecha.getDay()]
-    const horarioDia = horarios?.[nombreDia]
-    if (!horarioDia || !horarioDia.activo) {
+
+    // Determinar horario efectivo: profesional tiene precedencia sobre clínica
+    let horarioEfectivo: HorarioDia | undefined
+    const profDisp = profesional?.disponibilidad
+    if (profDisp && profDisp.length > 0) {
+      // dia_semana ISO: 1=lun…7=dom; getDay(): 0=dom,1=lun…6=sab
+      const isoDia = fecha.getDay() === 0 ? 7 : fecha.getDay()
+      const dsp = profDisp.find(d => d.dia_semana === isoDia && d.activo)
+      if (dsp) {
+        horarioEfectivo = { activo: true, desde: dsp.hora_inicio, hasta: dsp.hora_fin }
+      }
+    }
+    // Fallback al horario de la clínica
+    if (!horarioEfectivo) {
+      const h = horarios?.[nombreDia]
+      horarioEfectivo = h
+    }
+
+    if (!horarioEfectivo || !horarioEfectivo.activo) {
       setSlots([])
       setCargando(false)
       return
@@ -447,7 +495,7 @@ function PasoHora({
 
     const bloqueos: Array<{ inicio: string; fin: string; profesional_id: string | null }> = Array.isArray(bloqueosData) ? bloqueosData : []
 
-    let disponibles = buildSlotsDisponibles(horarioDia, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
+    let disponibles = buildSlotsDisponibles(horarioEfectivo, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
 
     // Filtrar slots que se solapan con bloqueos (para todos los profesionales o el específico)
     if (bloqueos.length > 0) {
@@ -932,6 +980,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
               horarios={horarios}
               servicio={servicioSeleccionado}
               profesionalId={profesionalId}
+              profesional={profesional}
               clinicaId={clinica.id}
               onSelect={handleHora}
               tz={tz}
