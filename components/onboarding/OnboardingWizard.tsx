@@ -49,6 +49,26 @@ const STEPS = [
   { id: 4, title: 'Horarios',      subtitle: 'Configura tu disponibilidad',        icon: Clock },
 ] as const
 
+const HORAS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0') + ':00')
+const MEDIAS = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2)
+  const m = i % 2 === 0 ? '00' : '30'
+  return `${String(h).padStart(2, '0')}:${m}`
+})
+
+function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="h-9 rounded-lg border border-slate-200 bg-white px-2 pr-6 text-sm font-medium text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 cursor-pointer appearance-none"
+      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
+    >
+      {MEDIAS.map(h => <option key={h} value={h}>{h}</option>)}
+    </select>
+  )
+}
+
 const DIAS = [
   { key: 'lunes',     label: 'L' },
   { key: 'martes',    label: 'M' },
@@ -521,19 +541,9 @@ export function OnboardingWizard() {
                       </span>
                       {cfg.activo ? (
                         <div className="flex items-center gap-2 flex-1">
-                          <input
-                            type="time"
-                            value={cfg.desde}
-                            onChange={e => setHoraDia(dia.key, 'desde', e.target.value)}
-                            className="h-8 rounded-lg border border-slate-200 px-2 text-sm text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-[#2563EB]/20"
-                          />
-                          <span className="text-slate-400 text-xs">a</span>
-                          <input
-                            type="time"
-                            value={cfg.hasta}
-                            onChange={e => setHoraDia(dia.key, 'hasta', e.target.value)}
-                            className="h-8 rounded-lg border border-slate-200 px-2 text-sm text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-[#2563EB]/20"
-                          />
+                          <TimeSelect value={cfg.desde} onChange={v => setHoraDia(dia.key, 'desde', v)} />
+                          <span className="text-slate-400 text-xs font-medium">→</span>
+                          <TimeSelect value={cfg.hasta} onChange={v => setHoraDia(dia.key, 'hasta', v)} />
                         </div>
                       ) : (
                         <span className="text-xs text-slate-400 italic">No disponible</span>

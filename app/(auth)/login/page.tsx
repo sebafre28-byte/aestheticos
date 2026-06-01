@@ -50,7 +50,7 @@ export default function LoginPage() {
       <div className="w-full max-w-[400px]">
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <SimpliClinicLogo size={32} />
+          <SimpliClinicLogo size={32} className="justify-center" />
         </div>
 
         {/* Card */}
