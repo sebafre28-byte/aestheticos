@@ -172,7 +172,7 @@ function ColumnaDia({
         return (
           <BloqueHorario
             key={bloqueo.id}
-            titulo={bloqueo.titulo}
+            bloqueo={bloqueo}
             topPx={top}
             heightPx={height}
           />

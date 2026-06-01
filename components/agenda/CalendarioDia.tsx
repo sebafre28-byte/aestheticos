@@ -199,7 +199,7 @@ function ColumnaProfesional({
         return (
           <BloqueHorario
             key={bloqueo.id}
-            titulo={bloqueo.titulo}
+            bloqueo={bloqueo}
             topPx={top}
             heightPx={height}
             onEliminar={onEliminarBloqueo ? () => onEliminarBloqueo(bloqueo.id) : undefined}

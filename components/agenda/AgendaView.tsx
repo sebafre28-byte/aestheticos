@@ -750,7 +750,6 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
           <CalendarioMes
             fechaBase={fechaActual}
             citas={citasFiltradas}
-            bloqueos={bloqueos}
             onVerDia={handleVerDia}
             onClickCita={handleClickCita}
           />
