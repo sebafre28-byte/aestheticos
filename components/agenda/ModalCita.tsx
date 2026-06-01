@@ -22,6 +22,7 @@ import {
   getPacientesBusqueda, crearPacienteRapido, crearCita, crearCitasRecurrentes, editarCita,
   verificarConflicto, getClinicaId, getCitasDelDia, getDisponibilidadProfesional, getBloqueosRango, crearRecordatorioCita,
 } from '@/lib/agenda/queries'
+import { getClinicaConfig, type HorariosConfig } from '@/lib/onboarding/queries'
 import { useDialogA11y } from './useDialogA11y'
 
 // Slots de 08:00 a 19:45 en intervalos de 15 min
@@ -95,8 +96,9 @@ export function ModalCita({
     (citaExistente?.recurrence_kind as 'none' | 'daily' | 'weekly' | 'monthly' | undefined) ?? 'none'
   )
   const [recurrenceCount, setRecurrenceCount] = useState(8)
-  // Per-session overrides: map of index → hora override
   const [sessionHoraOverrides, setSessionHoraOverrides] = useState<Record<number, string>>({})
+  const [sessionFechaOverrides, setSessionFechaOverrides] = useState<Record<number, string>>({})
+  const [horariosClinica, setHorariosClinica] = useState<HorariosConfig | null>(null)
   const [serieEditMode, setSerieEditMode] = useState<'single' | 'future' | 'all'>('single')
 
   const [conflicto, setConflicto] = useState<CitaConRelaciones | null>(null)
@@ -135,6 +137,13 @@ export function ModalCita({
       setTimeout(() => slotSeleccionadoRef.current?.scrollIntoView({ block: 'center' }), 0)
     }
   }, [abiertoPicker])
+
+  // Cargar horarios de la clínica para filtrar días válidos en recurrencia
+  useEffect(() => {
+    getClinicaConfig().then(cfg => {
+      if (cfg.horarios) setHorariosClinica(cfg.horarios)
+    })
+  }, [])
 
   // Cargar citas del profesional para detectar slots ocupados
   useEffect(() => {
@@ -336,7 +345,8 @@ export function ModalCita({
             datos,
             recurrenceKind as 'daily' | 'weekly' | 'monthly',
             recurrenceCount,
-            sessionHoraOverrides
+            sessionHoraOverrides,
+            sessionFechaOverrides
           )
         } else {
           resultado = await crearCita(datos)
@@ -383,10 +393,10 @@ export function ModalCita({
         role="dialog"
         aria-modal="true"
         aria-label={esEdicion ? 'Editar cita' : 'Nueva cita'}
-        className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
+        {/* Header — fijo, no scrollea */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 rounded-t-2xl flex-shrink-0">
           <h2 className="text-[16px] font-semibold text-gray-900">
             {esEdicion ? 'Editar cita' : 'Nueva cita'}
           </h2>
@@ -398,7 +408,8 @@ export function ModalCita({
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        {/* Body scrollable */}
+        <div className="overflow-y-auto flex-1 p-6 space-y-5">
           {/* ── Búsqueda de paciente ── */}
           <div>
             <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
@@ -706,15 +717,19 @@ export function ModalCita({
                       <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide">
                         {recurrenceCount} sesiones programadas
                       </span>
-                      <span className="text-[10px] text-slate-400">Toca la hora para cambiarla</span>
+                      <span className="text-[10px] text-slate-400">Edita fecha u hora por sesión</span>
                     </div>
-                    <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto">
+                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
                       {Array.from({ length: recurrenceCount }, (_, i) => {
                         const base = parseISO(`${fecha}T12:00:00`)
-                        const d = recurrenceKind === 'daily' ? addDays(base, i) : recurrenceKind === 'weekly' ? addWeeks(base, i) : addMonths(base, i)
-                        const fechaStr = format(d, 'yyyy-MM-dd')
+                        const dBase = recurrenceKind === 'daily' ? addDays(base, i) : recurrenceKind === 'weekly' ? addWeeks(base, i) : addMonths(base, i)
+                        const fechaStr = sessionFechaOverrides[i] ?? format(dBase, 'yyyy-MM-dd')
+                        const d = parseISO(`${fechaStr}T12:00:00`)
                         const horaSession = sessionHoraOverrides[i] ?? hora
-                        // Check conflict against existing appointments
+                        const diaNombre = format(d, 'EEEE', { locale: es }).toLowerCase()
+                        const diaKey = diaNombre === 'miércoles' ? 'miercoles' : diaNombre
+                        const diaConfig = horariosClinica?.[diaKey]
+                        const diaNoAtiende = horariosClinica && diaConfig && !diaConfig.activo
                         const tieneConflicto = servicioActual && citasDelProfesional.some(c => {
                           if (!c.inicio.startsWith(fechaStr)) return false
                           const cInicio = parseInt(c.inicio.slice(11,13))*60 + parseInt(c.inicio.slice(14,16))
@@ -723,28 +738,31 @@ export function ModalCita({
                           const sFin = sInicio + servicioActual.duracion_minutos
                           return sInicio < cFin && sFin > cInicio
                         })
+                        const hayProblema = tieneConflicto || diaNoAtiende
                         return (
-                          <div key={i} className={`flex items-center gap-3 px-3 py-2 ${tieneConflicto ? 'bg-red-50' : i === 0 ? 'bg-blue-50/40' : ''}`}>
+                          <div key={i} className={`flex items-center gap-2 px-3 py-2 ${hayProblema ? 'bg-red-50' : i === 0 ? 'bg-blue-50/40' : ''}`}>
                             <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
                               style={{ backgroundColor: i === 0 ? '#2563EB' : '#e2e8f0', color: i === 0 ? 'white' : '#64748b' }}>
                               {i + 1}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="text-[12px] font-semibold text-slate-700 capitalize">
-                                {format(d, "EEEE d 'de' MMM", { locale: es })}
-                              </span>
-                            </div>
+                            <input
+                              type="date"
+                              value={fechaStr}
+                              onChange={e => setSessionFechaOverrides(prev => ({ ...prev, [i]: e.target.value }))}
+                              className={`h-7 rounded-lg border px-2 text-[11px] font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400/50 ${hayProblema ? 'border-red-300 text-red-700' : 'border-slate-200 text-slate-700'}`}
+                            />
                             <select
                               value={horaSession}
                               onChange={e => setSessionHoraOverrides(prev => ({ ...prev, [i]: e.target.value }))}
-                              className={`h-7 rounded-lg border px-2 pr-6 text-[11px] font-semibold appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400/50 ${
-                                tieneConflicto ? 'border-red-300 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-[#2563EB]'
+                              className={`h-7 rounded-lg border px-2 pr-5 text-[11px] font-semibold appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400/50 ${
+                                hayProblema ? 'border-red-300 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-[#2563EB]'
                               }`}
-                              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%2394a3b8' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 5px center' }}
+                              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%2394a3b8' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
                             >
                               {SLOTS_HORA.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
-                            {tieneConflicto && <span className="text-[10px] text-red-500 font-medium flex-shrink-0">Conflicto</span>}
+                            {diaNoAtiende && <span className="text-[10px] text-orange-500 font-medium flex-shrink-0">Día cerrado</span>}
+                            {tieneConflicto && !diaNoAtiende && <span className="text-[10px] text-red-500 font-medium flex-shrink-0">Conflicto</span>}
                           </div>
                         )
                       })}
@@ -863,7 +881,7 @@ export function ModalCita({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-2xl">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-white rounded-b-2xl flex-shrink-0">
           <Button variant="ghost" size="sm" onClick={onCerrar} className="text-[13px]">
             Cancelar
           </Button>
