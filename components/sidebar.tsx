@@ -92,7 +92,7 @@ export function Sidebar() {
           )}
           <div>
             <p className="text-[14px] font-bold text-white leading-tight tracking-tight">
-              {logoClinica && nombreClinica ? nombreClinica : 'SimpliClinic'}
+              {nombreClinica || 'SimpliClinic'}
             </p>
             <p className="text-[10px] leading-tight" style={{ color: '#60A5FA' }}>
               Tu clínica, más simple.
