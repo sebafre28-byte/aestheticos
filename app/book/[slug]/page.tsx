@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, use } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle2, ChevronLeft, Loader2, MapPin, Phone, Mail, Clock, DollarSign } from 'lucide-react'
-import { sendEmail } from '@/lib/email/sendEmail'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -653,9 +652,11 @@ function PasoDatos({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!form.rut.trim()) { setError('El RUT es requerido.'); return }
+    if (!validarRutChileno(form.rut)) { setError('El RUT ingresado no es válido.'); return }
     if (!form.nombre.trim()) { setError('El nombre es requerido.'); return }
     if (!form.telefono.trim()) { setError('El teléfono es requerido.'); return }
-    if (form.rut.trim() && !validarRutChileno(form.rut)) { setError('El RUT ingresado no es válido.'); return }
+    if (!form.email.trim()) { setError('El email es requerido.'); return }
     setEnviando(true)
     setError(null)
 
@@ -687,29 +688,32 @@ function PasoDatos({
       return
     }
 
-    // Send confirmation email if patient provided an email (non-critical)
-    if (form.email.trim()) {
-      const fechaLabel = inicio.toLocaleDateString('es-CL', {
-        timeZone: tz,
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      })
-      const horaLabel = formatHora(inicio, tz)
-      sendEmail({
-        tipo: 'confirmacion_cita',
-        destinatario: form.email.trim(),
-        datos: {
-          paciente_nombre: form.nombre.trim(),
-          servicio_nombre: servicio.nombre,
-          profesional_nombre: profesional?.nombre ?? 'Por asignar',
-          fecha: fechaLabel,
-          hora: horaLabel,
-          clinica_nombre: clinica.nombre,
-          clinica_telefono: clinica.telefono ?? undefined,
+    // Notify patient + clinic admin (non-critical)
+    const base = window.location.origin
+    fetch(`${base}/api/notificar-cita`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo: 'nueva_cita',
+        canal: 'book',
+        paciente: {
+          nombre: form.nombre.trim(),
+          email: form.email.trim() || null,
+          telefono: form.telefono.trim() || null,
         },
-      }).catch((err) => console.warn('[booking] sendEmail error (non-critical):', err))
-    }
+        profesional: { nombre: profesional?.nombre ?? 'Por asignar' },
+        servicio: { nombre: servicio.nombre },
+        clinica: {
+          nombre: clinica.nombre,
+          email: clinica.email,
+          telefono: clinica.telefono,
+          direccion: clinica.direccion,
+          logo_url: clinica.logo_url,
+        },
+        inicio: inicio.toISOString(),
+        fin: fin.toISOString(),
+      }),
+    }).catch((err) => console.warn('[booking] notificar-cita error (non-critical):', err))
 
     onExito(result.cita_id ?? '')
   }
@@ -731,7 +735,7 @@ function PasoDatos({
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">RUT <span className="text-gray-400 font-normal">(opcional)</span></label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">RUT <span className="text-red-400">*</span></label>
           <input
             type="text"
             value={form.rut}
@@ -764,7 +768,7 @@ function PasoDatos({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Email <span className="text-gray-400 font-normal">(opcional)</span></label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Email <span className="text-red-400">*</span></label>
           <input
             type="email"
             value={form.email}
