@@ -773,6 +773,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             onClickCelda={handleClickCelda}
             onBloquearHorario={handleBloquearHorario}
             onResizeCita={redimensionarCita}
+            onMoveCita={handleMoverCita}
             onVerDia={handleVerDia}
             onEliminarBloqueo={handleEliminarBloqueo}
             onEditarBloqueo={handleEditarBloqueo}

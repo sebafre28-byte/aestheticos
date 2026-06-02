@@ -328,6 +328,12 @@ function ModalProfesional({
   const inputRef = useRef<HTMLInputElement>(null)
   const fotoInputRef = useRef<HTMLInputElement>(null)
 
+  // Step 2: availability after creating new professional
+  const [paso, setPaso] = useState<1 | 2>(1)
+  const [nuevoProfId, setNuevoProfId] = useState<string | null>(null)
+  const [diasDisp, setDiasDisp] = useState<DiaDisponibilidad[]>(buildDisponibilidadVacia())
+  const [guardandoHorario, setGuardandoHorario] = useState(false)
+
   useEffect(() => { inputRef.current?.focus() }, [])
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose() }
@@ -447,6 +453,35 @@ function ModalProfesional({
     }
 
     setGuardando(false)
+
+    if (!esEdicion && profId) {
+      // Go to step 2 for new professionals
+      setNuevoProfId(profId)
+      setPaso(2)
+    } else {
+      onGuardado()
+      onClose()
+    }
+  }
+
+  async function handleGuardarHorario() {
+    if (!nuevoProfId) return
+    setGuardandoHorario(true)
+    const supabase = createClient()
+    await supabase.from("profesional_disponibilidad").delete().eq("profesional_id", nuevoProfId)
+    const rows = diasDisp
+      .filter(d => d.activo)
+      .map(d => ({
+        profesional_id: nuevoProfId,
+        dia_semana: d.dia_semana,
+        hora_inicio: d.hora_inicio,
+        hora_fin: d.hora_fin,
+        activo: true,
+      }))
+    if (rows.length > 0) {
+      await supabase.from("profesional_disponibilidad").insert(rows)
+    }
+    setGuardandoHorario(false)
     onGuardado()
     onClose()
   }
@@ -454,6 +489,51 @@ function ModalProfesional({
   const initials = form.nombre
     ? form.nombre.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase()
     : "?"
+
+  if (paso === 2) {
+    return (
+      <>
+        <div className="fixed inset-0 bg-black/30 z-50" onClick={onClose} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-[15px] font-semibold text-gray-900">Horario de atención</h3>
+              <button onClick={onClose} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center">
+                <X className="size-4 text-gray-400" />
+              </button>
+            </div>
+            <p className="text-[13px] text-gray-500 mb-4">Configura los días y horarios en que este profesional atiende.</p>
+            <div className="space-y-2">
+              {diasDisp.map((d) => {
+                const label = DIAS_SEMANA.find(x => x.num === d.dia_semana)?.label ?? ''
+                return (
+                  <div key={d.dia_semana} className={`bg-gray-50 rounded-xl border border-gray-100 p-3 flex items-center gap-4 transition-opacity ${!d.activo ? 'opacity-60' : ''}`}>
+                    <Toggle activo={d.activo} onChange={() => setDiasDisp(prev => prev.map(x => x.dia_semana === d.dia_semana ? { ...x, activo: !x.activo } : x))} />
+                    <span className="text-[13px] font-medium text-gray-700 w-24 shrink-0">{label}</span>
+                    <div className="flex items-center gap-2 ml-auto">
+                      <TimeSelect value={d.hora_inicio} onChange={v => setDiasDisp(prev => prev.map(x => x.dia_semana === d.dia_semana ? { ...x, hora_inicio: v } : x))} />
+                      <span className="text-[12px] text-gray-400">a</span>
+                      <TimeSelect value={d.hora_fin} onChange={v => setDiasDisp(prev => prev.map(x => x.dia_semana === d.dia_semana ? { ...x, hora_fin: v } : x))} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex gap-2 pt-4 mt-4 border-t border-gray-100">
+              <Button type="button" onClick={handleGuardarHorario} disabled={guardandoHorario} className="flex-1 h-9 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+                {guardandoHorario ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Guardar horario"}
+              </Button>
+            </div>
+            <div className="flex justify-center mt-3">
+              <button type="button" onClick={() => { onGuardado(); onClose() }} className="text-[12px] text-gray-400 hover:text-gray-600 underline">
+                Omitir por ahora
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
 
   return (
     <>

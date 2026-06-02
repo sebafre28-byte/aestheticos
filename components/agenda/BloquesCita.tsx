@@ -47,11 +47,17 @@ type Props = {
   onDragStart?: (cita: CitaConRelaciones) => void
   onResize?: (cita: CitaConRelaciones, deltaMinutos: number) => void
   onMove?: (cita: CitaConRelaciones, deltaMinutos: number) => void
+  citas?: CitaConRelaciones[]
   topPx: number
   heightPx: number
   leftPercent?: number
   widthPercent?: number
   bufferPx?: number
+}
+
+function minutosDia(iso: string): number {
+  const d = new Date(iso)
+  return d.getHours() * 60 + d.getMinutes()
 }
 
 export function BloqueCita({
@@ -60,6 +66,7 @@ export function BloqueCita({
   onDragStart,
   onResize,
   onMove,
+  citas,
   topPx,
   heightPx,
   leftPercent = 0,
@@ -68,6 +75,7 @@ export function BloqueCita({
 }: Props) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null)
   const [dragOffsetPx, setDragOffsetPx] = useState(0)
+  const [snapMin, setSnapMin] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const didDragRef = useRef(false)
   const dragStartYRef = useRef<number | null>(null)
@@ -86,7 +94,20 @@ export function BloqueCita({
   const borde = ESTADO_BORDE[cita.estado]
   const IconoEstado = ESTADO_ICONO[cita.estado]
   const iconColor = ESTADO_ICONO_COLOR[cita.estado]
-  const bgColor = esNoAsistio ? 'rgba(254,226,226,0.85)' : hexToRgba(color, 0.12)
+
+  // Conflict detection during drag
+  const citaStartMin = minutosDia(cita.inicio)
+  const duration = minutosDia(cita.fin) - citaStartMin
+  const hasConflict = isDragging && (citas ?? []).some(other => {
+    if (other.id === cita.id) return false
+    const newStartMin = citaStartMin + snapMin
+    const newEndMin = newStartMin + duration
+    return newStartMin < minutosDia(other.fin) && newEndMin > minutosDia(other.inicio)
+  })
+
+  const bgColor = isDragging && hasConflict
+    ? 'rgba(239,68,68,0.15)'
+    : esNoAsistio ? 'rgba(254,226,226,0.85)' : hexToRgba(color, 0.12)
 
   const estiloBloque: React.CSSProperties = {
     top: topPx,
@@ -117,8 +138,9 @@ export function BloqueCita({
       if (dragStartYRef.current === null) return
       const diffPx = ev.clientY - dragStartYRef.current
       if (Math.abs(diffPx) > 4) { didDragRef.current = true; setIsDragging(true) }
-      const snapMin = Math.round((diffPx / PIXEL_POR_MIN) / 15) * 15
-      setDragOffsetPx(snapMin * PIXEL_POR_MIN)
+      const snap = Math.round((diffPx / PIXEL_POR_MIN) / 15) * 15
+      setSnapMin(snap)
+      setDragOffsetPx(snap * PIXEL_POR_MIN)
     }
 
     function onMouseUp(ev: MouseEvent) {
@@ -126,10 +148,11 @@ export function BloqueCita({
       window.removeEventListener('mouseup', onMouseUp)
       if (dragStartYRef.current !== null && didDragRef.current) {
         const diffPx = ev.clientY - dragStartYRef.current
-        const snapMin = Math.round((diffPx / PIXEL_POR_MIN) / 15) * 15
-        if (snapMin !== 0) onMove!(cita, snapMin)
+        const snap = Math.round((diffPx / PIXEL_POR_MIN) / 15) * 15
+        if (snap !== 0) onMove!(cita, snap)
       }
       setDragOffsetPx(0)
+      setSnapMin(0)
       setIsDragging(false)
       dragStartYRef.current = null
     }
@@ -232,7 +255,7 @@ export function BloqueCita({
 
       {isDragging && (
         <div className="absolute inset-x-0 top-0.5 flex justify-center pointer-events-none">
-          <span className="bg-gray-900/80 text-white text-[10px] font-medium rounded px-1.5 py-0.5">{horaInicio}</span>
+          <span className={`text-white text-[10px] font-medium rounded px-1.5 py-0.5 ${hasConflict ? 'bg-red-500' : 'bg-gray-900/80'}`}>{horaInicio}</span>
         </div>
       )}
 
