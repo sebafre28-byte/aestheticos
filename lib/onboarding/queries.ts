@@ -29,10 +29,15 @@ export type RecordatorioConfig = {
   horasAntes: number
 }
 
+export type { RecordatoriosWspConfig } from '@/lib/whatsapp/recordatorio-config'
+export { TEMPLATE_RECORDATORIO_DEFAULT } from '@/lib/whatsapp/recordatorio-config'
+import type { RecordatoriosWspConfig } from '@/lib/whatsapp/recordatorio-config'
+
 export type ClinicaConfiguracion = {
   plantillas?: PlantillaWsp[]
   recordatorios?: RecordatorioConfig[]
   horarios?: HorariosConfig
+  recordatorios_wsp?: RecordatoriosWspConfig
 }
 
 const PLANTILLAS_DEFAULT: PlantillaWsp[] = [

@@ -67,6 +67,36 @@ type FormData = {
   telefono: string
   email: string
   notas: string
+  rut: string
+}
+
+// ─── RUT helpers ──────────────────────────────────────────────────────────────
+
+function limpiarRut(rut: string) {
+  return rut.replace(/\./g, '').replace(/-/g, '').toUpperCase()
+}
+
+function formatearRut(rut: string): string {
+  const clean = limpiarRut(rut)
+  if (clean.length < 2) return clean
+  const cuerpo = clean.slice(0, -1)
+  const dv = clean.slice(-1)
+  return cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + dv
+}
+
+function validarRutChileno(rut: string): boolean {
+  const clean = limpiarRut(rut)
+  if (clean.length < 2) return false
+  const cuerpo = clean.slice(0, -1)
+  const dvIngresado = clean.slice(-1).toLowerCase()
+  let suma = 0, multiplo = 2
+  for (let i = cuerpo.length - 1; i >= 0; i--) {
+    suma += parseInt(cuerpo[i]) * multiplo
+    multiplo = multiplo === 7 ? 2 : multiplo + 1
+  }
+  const dvEsperado = 11 - (suma % 11)
+  const dv = dvEsperado === 11 ? '0' : dvEsperado === 10 ? 'k' : String(dvEsperado)
+  return dvIngresado === dv
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -617,7 +647,7 @@ function PasoDatos({
   onExito: (citaId: string) => void
   tz?: string
 }) {
-  const [form, setForm] = useState<FormData>({ nombre: '', telefono: '', email: '', notas: '' })
+  const [form, setForm] = useState<FormData>({ nombre: '', telefono: '', email: '', notas: '', rut: '' })
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -625,8 +655,11 @@ function PasoDatos({
     e.preventDefault()
     if (!form.nombre.trim()) { setError('El nombre es requerido.'); return }
     if (!form.telefono.trim()) { setError('El teléfono es requerido.'); return }
+    if (form.rut.trim() && !validarRutChileno(form.rut)) { setError('El RUT ingresado no es válido.'); return }
     setEnviando(true)
     setError(null)
+
+    const rutLimpio = form.rut.trim() ? limpiarRut(form.rut) : null
 
     const supabase = createClient()
     const { data, error: rpcError } = await supabase.rpc('crear_reserva_publica', {
@@ -640,6 +673,7 @@ function PasoDatos({
       p_paciente_telefono: form.telefono.trim(),
       p_paciente_email: form.email.trim() || null,
       p_notas: form.notas.trim() || null,
+      p_paciente_rut: rutLimpio,
     })
 
     setEnviando(false)
@@ -723,6 +757,19 @@ function PasoDatos({
             value={form.email}
             onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
             placeholder="tu@email.com"
+            className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">RUT <span className="text-gray-400 font-normal">(opcional)</span></label>
+          <input
+            type="text"
+            value={form.rut}
+            onChange={(e) => {
+              const formatted = formatearRut(e.target.value)
+              setForm(p => ({ ...p, rut: formatted }))
+            }}
+            placeholder="12.345.678-9 (opcional)"
             className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
           />
         </div>

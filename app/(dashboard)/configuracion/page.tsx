@@ -17,8 +17,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
-  crearProfesional, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT,
-  type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig,
+  crearProfesional, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
+  type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig, type RecordatoriosWspConfig,
   type HorarioDia, type HorariosConfig,
 } from "@/lib/onboarding/queries"
 import {
@@ -914,42 +914,97 @@ function SeccionWhatsApp() {
 
 // ─── Sección Recordatorios ────────────────────────────────────────────────────
 
-const RECORDATORIO_LABELS: Record<string, { label: string; descripcion: string }> = {
-  r1: { label: "Recordatorio 24 h antes", descripcion: "Se envía el día anterior a la cita" },
-  r2: { label: "Recordatorio 2 h antes",  descripcion: "Aviso el mismo día, 2 horas antes" },
-  r3: { label: "Solicitar confirmación",   descripcion: "Pide SI/NO de confirmación" },
-  r4: { label: "Encuesta post-cita",       descripcion: "Se envía 1 hora después de la cita" },
+const VARIABLES_DISPONIBLES = [
+  { key: "{nombre}",      desc: "Nombre del paciente" },
+  { key: "{fecha}",       desc: "Fecha de la cita (ej: lunes 3 de junio)" },
+  { key: "{hora}",        desc: "Hora de la cita (ej: 15:00)" },
+  { key: "{servicio}",    desc: "Nombre del servicio" },
+  { key: "{profesional}", desc: "Nombre del profesional" },
+  { key: "{clinica}",     desc: "Nombre de la clínica" },
+]
+
+const EJEMPLO_PREVIEW = {
+  nombre: "María González",
+  fecha: "lunes 3 de junio",
+  hora: "15:00",
+  servicio: "Limpieza facial",
+  profesional: "Dra. Ana García",
+  clinica: "Clínica Bella",
 }
 
+function aplicarVariables(template: string, vars: typeof EJEMPLO_PREVIEW): string {
+  return template
+    .replace(/\{nombre\}/g, vars.nombre)
+    .replace(/\{fecha\}/g, vars.fecha)
+    .replace(/\{hora\}/g, vars.hora)
+    .replace(/\{servicio\}/g, vars.servicio)
+    .replace(/\{profesional\}/g, vars.profesional)
+    .replace(/\{clinica\}/g, vars.clinica)
+}
+
+const OPCIONES_MINUTOS = [
+  { label: "2 horas antes",  value: 120 },
+  { label: "24 horas antes", value: 1440 },
+  { label: "48 horas antes", value: 2880 },
+  { label: "Personalizado",  value: -1 },
+]
+
 function SeccionRecordatorios() {
-  const [recordatorios, setRecordatorios] = useState<RecordatorioConfig[]>(RECORDATORIOS_DEFAULT)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
 
+  const [activo, setActivo] = useState(true)
+  const [minutosAntes, setMinutosAntes] = useState(1440)
+  const [opcionSeleccionada, setOpcionSeleccionada] = useState(1440)
+  const [minutosCustom, setMinutosCustom] = useState(60)
+  const [template, setTemplate] = useState(TEMPLATE_RECORDATORIO_DEFAULT)
+
   useEffect(() => {
     getClinicaConfig().then((cfg) => {
-      if (cfg.recordatorios?.length) setRecordatorios(cfg.recordatorios)
+      const wsp = cfg.recordatorios_wsp
+      if (wsp) {
+        setActivo(wsp.activo)
+        setTemplate(wsp.template || TEMPLATE_RECORDATORIO_DEFAULT)
+        const opcionFija = OPCIONES_MINUTOS.find(o => o.value === wsp.minutos_antes && o.value !== -1)
+        if (opcionFija) {
+          setOpcionSeleccionada(wsp.minutos_antes)
+          setMinutosAntes(wsp.minutos_antes)
+        } else {
+          setOpcionSeleccionada(-1)
+          setMinutosCustom(wsp.minutos_antes)
+          setMinutosAntes(wsp.minutos_antes)
+        }
+      }
       setCargando(false)
     })
   }, [])
 
-  function toggleRec(id: string) {
-    setRecordatorios((prev) => prev.map((r) => r.id === id ? { ...r, activo: !r.activo } : r))
+  function handleOpcionChange(val: number) {
+    setOpcionSeleccionada(val)
+    if (val !== -1) setMinutosAntes(val)
+    else setMinutosAntes(minutosCustom)
   }
 
-  function setHoras(id: string, horasAntes: number) {
-    setRecordatorios((prev) => prev.map((r) => r.id === id ? { ...r, horasAntes } : r))
+  function handleMinutosCustomChange(val: number) {
+    setMinutosCustom(val)
+    setMinutosAntes(val)
   }
 
   async function guardar() {
     setGuardando(true)
     setFeedback(null)
+    const mins = opcionSeleccionada === -1 ? minutosCustom : opcionSeleccionada
+    const nuevaConfig: RecordatoriosWspConfig = {
+      activo,
+      minutos_antes: mins,
+      template,
+    }
     const cfg = await getClinicaConfig()
-    const ok = await actualizarClinicaConfig({ ...cfg, recordatorios })
+    const ok = await actualizarClinicaConfig({ ...cfg, recordatorios_wsp: nuevaConfig })
     setGuardando(false)
     if (ok) {
-      setFeedback({ tipo: "ok", msg: "Configuración guardada." })
+      setFeedback({ tipo: "ok", msg: "Configuración guardada correctamente." })
       setTimeout(() => setFeedback(null), 3000)
     } else {
       setFeedback({ tipo: "error", msg: "No se pudo guardar." })
@@ -958,38 +1013,103 @@ function SeccionRecordatorios() {
 
   if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
 
+  const preview = aplicarVariables(template, EJEMPLO_PREVIEW)
+
   return (
     <div>
-      <SectionHeader title="Recordatorios automáticos" subtitle="Configura cuándo se envían los mensajes automáticos" />
-      <div className="space-y-3 mb-6">
-        {recordatorios.map((rec) => {
-          const meta = RECORDATORIO_LABELS[rec.id]
-          return (
-            <div key={rec.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <p className="text-[13px] font-semibold text-gray-900">{meta?.label ?? rec.id}</p>
-                  <p className="text-[12px] text-gray-500 mt-0.5">{meta?.descripcion}</p>
-                </div>
-                <Toggle activo={rec.activo} onChange={() => toggleRec(rec.id)} />
-              </div>
-              {rec.activo && rec.horasAntes > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-3">
-                  <label className="text-[12px] text-gray-500">Enviar</label>
-                  <select value={rec.horasAntes} onChange={(e) => setHoras(rec.id, Number(e.target.value))}
-                    className="h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none">
-                    <option value={1}>1 hora</option>
-                    <option value={2}>2 horas</option>
-                    <option value={24}>24 horas</option>
-                    <option value={48}>48 horas</option>
-                  </select>
-                  <label className="text-[12px] text-gray-500">antes de la cita</label>
-                </div>
-              )}
-            </div>
-          )
-        })}
+      <SectionHeader title="Recordatorios automáticos" subtitle="Configura el mensaje que recibirán tus pacientes" />
+
+      {/* Toggle general */}
+      <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-4 flex items-center justify-between">
+        <div>
+          <p className="text-[13px] font-semibold text-gray-900">Activar recordatorios automáticos</p>
+          <p className="text-[12px] text-gray-500 mt-0.5">Envía mensajes de WhatsApp automáticamente antes de cada cita</p>
+        </div>
+        <Toggle activo={activo} onChange={() => setActivo(v => !v)} />
       </div>
+
+      {activo && (
+        <>
+          {/* Cuándo enviar */}
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-4">
+            <p className="text-[13px] font-semibold text-gray-900 mb-3">¿Cuándo enviar el recordatorio?</p>
+            <div className="flex flex-wrap gap-2">
+              {OPCIONES_MINUTOS.map((op) => (
+                <button
+                  key={op.value}
+                  type="button"
+                  onClick={() => handleOpcionChange(op.value)}
+                  className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${opcionSeleccionada === op.value ? "border-[#2563EB] bg-blue-50 text-[#2563EB]" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  {op.label}
+                </button>
+              ))}
+            </div>
+            {opcionSeleccionada === -1 && (
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  value={minutosCustom}
+                  onChange={(e) => handleMinutosCustomChange(Number(e.target.value))}
+                  className="h-8 w-24 px-2 rounded-lg border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+                />
+                <span className="text-[12px] text-gray-500">minutos antes de la cita</span>
+              </div>
+            )}
+          </div>
+
+          {/* Template + preview */}
+          <div className="mb-4">
+            <p className="text-[13px] font-semibold text-gray-900 mb-1">Mensaje de recordatorio</p>
+            <p className="text-[12px] text-gray-400 mb-3">Usa variables para personalizar el mensaje con los datos de cada cita</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Editor */}
+              <div>
+                <textarea
+                  value={template}
+                  onChange={(e) => setTemplate(e.target.value)}
+                  rows={10}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-[13px] text-gray-900 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
+                />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {VARIABLES_DISPONIBLES.map((v) => (
+                    <button
+                      key={v.key}
+                      type="button"
+                      title={v.desc}
+                      onClick={() => setTemplate(t => t + v.key)}
+                      className="h-6 px-2 rounded-md bg-blue-50 text-[11px] font-mono text-[#2563EB] border border-blue-100 hover:bg-blue-100 transition-colors"
+                    >
+                      {v.key}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTemplate(TEMPLATE_RECORDATORIO_DEFAULT)}
+                  className="mt-2 text-[11px] text-gray-400 hover:text-gray-600 underline"
+                >
+                  Restaurar plantilla por defecto
+                </button>
+              </div>
+
+              {/* Preview */}
+              <div>
+                <p className="text-[11px] font-medium text-gray-500 mb-2 uppercase tracking-wide">Vista previa</p>
+                <div className="bg-[#ECE5DD] rounded-xl p-4 min-h-[200px]">
+                  <div className="bg-white rounded-xl rounded-tl-none px-4 py-3 max-w-[85%] shadow-sm">
+                    <p className="text-[13px] text-gray-900 whitespace-pre-wrap leading-relaxed">{preview}</p>
+                    <p className="text-[10px] text-gray-400 mt-1.5 text-right">15:00 ✓✓</p>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-3 text-center">Ejemplo con datos ficticios</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       <Feedback f={feedback} />
       <div className="flex justify-end">
         <Button onClick={guardar} disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
