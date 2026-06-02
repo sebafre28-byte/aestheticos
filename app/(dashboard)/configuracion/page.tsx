@@ -9,6 +9,7 @@ import {
   ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
+import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
 import { useAcceso } from "@/components/auth/RolGuard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -390,6 +391,7 @@ function ModalProfesional({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.nombre.trim()) { setError("El nombre es requerido."); return }
+    if (serviciosSeleccionados.length === 0) { setError("Debes seleccionar al menos un servicio. Si no tienes servicios, crea uno primero en la sección Servicios."); return }
     setGuardando(true)
     setError(null)
     const supabase = createClient()
@@ -600,6 +602,9 @@ function SeccionEquipo() {
   const [eliminando, setEliminando] = useState<string | null>(null)
   const [abrirModal, setAbrirModal] = useState(false)
   const [editandoProfesional, setEditandoProfesional] = useState<ProfesionalRow | null>(null)
+  const { limite } = useSubscripcion()
+  const limiteProfesionales = limite('profesionales')
+  const alcanzadoLimite = profesionales.length >= limiteProfesionales
 
   const cargar = useCallback(async () => {
     const supabase = createClient()
@@ -638,11 +643,22 @@ function SeccionEquipo() {
     <div>
       <SectionHeader
         title="Equipo y profesionales"
-        subtitle="Administra los profesionales de tu clínica"
+        subtitle={`Administra los profesionales de tu clínica${limiteProfesionales < Infinity ? ` · ${profesionales.length}/${limiteProfesionales} en tu plan` : ''}`}
         action={
-          <Button onClick={() => setAbrirModal(true)} className="h-8 text-[13px] gap-1.5 border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
-            <Plus className="size-3.5" /> Agregar
-          </Button>
+          alcanzadoLimite ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                Límite alcanzado ({limiteProfesionales})
+              </span>
+              <Button disabled className="h-8 text-[13px] gap-1.5 opacity-50 cursor-not-allowed border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+                <Plus className="size-3.5" /> Agregar
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={() => setAbrirModal(true)} className="h-8 text-[13px] gap-1.5 border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+              <Plus className="size-3.5" /> Agregar
+            </Button>
+          )
         }
       />
 
