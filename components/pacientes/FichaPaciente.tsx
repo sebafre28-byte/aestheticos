@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { differenceInYears, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { citaWallClockTime, citaWallClockDate } from '@/lib/agenda/datetime'
 import {
   CalendarDays,
   Clock3,
@@ -48,6 +49,15 @@ function iniciales(nombre: string) {
     .slice(0, 2)
     .map((n) => n[0]?.toUpperCase() ?? '')
     .join('')
+}
+
+// Format a cita ISO string as wall-clock date+time (avoids UTC→local conversion)
+function formatCitaFecha(inicio: string, pattern: string): string {
+  // Extract wall-clock date (YYYY-MM-DD) and build a local Date for date-only formatting
+  const wallDate = citaWallClockDate(inicio) // 'YYYY-MM-DD'
+  const [y, m, d] = wallDate.split('-').map(Number)
+  const localDate = new Date(y, m - 1, d)
+  return format(localDate, pattern, { locale: es })
 }
 
 function getEdad(fechaNacimiento: string | null): string {
@@ -286,7 +296,7 @@ export function FichaPaciente({
                 {proximaCita && (
                   <div className="mt-1.5 inline-flex items-center gap-1 bg-teal-50 text-teal-700 text-[11px] font-medium px-2 py-0.5 rounded-full">
                     <CalendarDays className="size-3" />
-                    Próxima cita: {format(parseISO(proximaCita.inicio), "d MMM HH:mm", { locale: es })}
+                    Próxima cita: {formatCitaFecha(proximaCita.inicio, "d MMM")} {citaWallClockTime(proximaCita.inicio)}
                   </div>
                 )}
               </div>
@@ -392,7 +402,7 @@ export function FichaPaciente({
                 <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 mb-4">
                   <p className="text-[11px] font-semibold text-blue-600 uppercase tracking-wide mb-1">Próxima cita</p>
                   <p className="text-[13px] font-semibold text-blue-900">
-                    {format(parseISO(proximaCita.inicio), "EEEE d 'de' MMMM · HH:mm", { locale: es })}
+                    {formatCitaFecha(proximaCita.inicio, "EEEE d 'de' MMMM")} · {citaWallClockTime(proximaCita.inicio)}
                   </p>
                   <p className="text-[12px] text-blue-700 mt-0.5">{proximaCita.servicios?.nombre ?? 'Servicio'}</p>
                   <p className="text-[11px] text-blue-500 mt-0.5">{proximaCita.profesionales?.nombre ?? ''}</p>
@@ -421,7 +431,7 @@ export function FichaPaciente({
                               <div>
                                 <p className="text-[13px] font-semibold text-gray-900">{item.servicios?.nombre ?? 'Servicio'}</p>
                                 <p className="text-[11px] text-gray-400 mt-0.5">
-                                  {format(parseISO(item.inicio), "d MMM yyyy · HH:mm", { locale: es })}
+                                  {formatCitaFecha(item.inicio, "d MMM yyyy")} · {citaWallClockTime(item.inicio)}
                                 </p>
                                 <p className="text-[11px] text-gray-400">{item.profesionales?.nombre ?? ''}</p>
                               </div>
