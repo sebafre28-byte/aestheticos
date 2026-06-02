@@ -1126,7 +1126,7 @@ function SeccionPlan() {
   return (
     <div>
       <SectionHeader title="Plan y facturación" subtitle="Gestiona tu suscripción de SimpliClinic" />
-      <PlanesCard />
+      <Suspense><PlanesCard /></Suspense>
     </div>
   )
 }
