@@ -32,7 +32,7 @@ interface EmailPayload {
   datos: DatosCita
 }
 
-const SC_LOGO_URL = 'https://rkcgnnzimwemrtavtinw.supabase.co/storage/v1/object/public/assets/Logos/3.png'
+const SC_LOGO_URL = 'https://rkcgnnzimwemrtavtinw.supabase.co/storage/v1/object/public/assets/Logos/Logo%20SimpliClinic.png'
 
 const VARIANT: Record<TipoEmail, {
   heroGradient: string
@@ -114,7 +114,7 @@ function detailsCard(datos: DatosCita): string {
   const horaDisplay = datos.hora_fin ? `${datos.hora} &ndash; ${datos.hora_fin}` : datos.hora
 
   const rows = [
-    { icon: '&#128142;', iconBg: '#FDF4FF', iconBorder: '#E9D5FF', label: 'SERVICIO', value: datos.servicio_nombre },
+    { icon: '&#128137;', iconBg: '#FDF4FF', iconBorder: '#E9D5FF', label: 'SERVICIO', value: datos.servicio_nombre },
     { icon: '&#128100;', iconBg: '#F0FDFA', iconBorder: '#CCFBF1', label: 'TE ATIENDE', value: datos.profesional_nombre },
     { icon: '&#128197;', iconBg: '#EFF6FF', iconBorder: '#DBEAFE', label: 'FECHA', value: datos.fecha },
     { icon: '&#9200;',   iconBg: '#EFF6FF', iconBorder: '#DBEAFE', label: 'HORA', value: horaDisplay },
@@ -282,8 +282,8 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
               <tr>
                 <!-- SimpliClinic logo -->
                 <td style="vertical-align:middle;">
-                  <img src="${SC_LOGO_URL}" alt="SimpliClinic" height="36"
-                       style="display:block;height:36px;width:auto;border:0;" />
+                  <img src="${SC_LOGO_URL}" alt="SimpliClinic" height="48"
+                       style="display:block;height:48px;width:auto;border:0;" />
                 </td>
                 <!-- Clinic name + logo -->
                 <td align="right" style="vertical-align:middle;">
@@ -341,8 +341,8 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
           <td align="center" style="background:#F8FAFC;padding:24px 36px;border-top:1px solid #E2E8F0;text-align:center;">
 
             <!-- SimpliClinic logo footer -->
-            <img src="${SC_LOGO_URL}" alt="SimpliClinic" height="30"
-                 style="display:block;height:30px;width:auto;border:0;margin:0 auto 10px auto;" />
+            <img src="${SC_LOGO_URL}" alt="SimpliClinic" height="40"
+                 style="display:block;height:40px;width:auto;border:0;margin:0 auto 10px auto;" />
 
             <p style="margin:0 0 14px;font-size:11px;color:#94A3B8;letter-spacing:1.4px;text-transform:uppercase;">Tu cl&iacute;nica, m&aacute;s simple.</p>
             <p style="margin:0 0 8px;font-size:12px;color:#CBD5E1;">&#9993;&nbsp; hola@simpliclinic.cl &nbsp;&middot;&nbsp; &#128222;&nbsp; +56 9 0000 0000</p>
