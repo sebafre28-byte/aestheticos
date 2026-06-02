@@ -25,7 +25,7 @@ const navItems = [
   { href: "/pacientes", label: "Pacientes", icon: Users },
   { href: "/servicios", label: "Servicios", icon: Syringe },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { href: "/inbox", label: "Inbox", icon: MessageSquare },
+  // { href: "/inbox", label: "Inbox", icon: MessageSquare }, // próximamente
   { href: "/reportes", label: "Reportes", icon: BarChart2 },
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ]
