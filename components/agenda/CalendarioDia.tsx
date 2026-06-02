@@ -224,6 +224,7 @@ function ColumnaProfesional({
             onClick={onClickCita}
             onResize={onResizeCita}
             onMove={onMoveCita}
+            citas={citas}
             topPx={top + 1}
             heightPx={height - 2}
             leftPercent={col * ancho + 0.5}
