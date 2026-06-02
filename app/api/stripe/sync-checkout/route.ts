@@ -22,6 +22,15 @@ export async function POST(request: NextRequest) {
     const { clinica_id } = await request.json() as { clinica_id?: string }
     if (!clinica_id) return NextResponse.json({ error: 'clinica_id requerido' }, { status: 400 })
 
+    // Verify clinica_id belongs to the authenticated user
+    const { data: clinica } = await supabase
+      .from('clinicas')
+      .select('id')
+      .eq('id', clinica_id)
+      .eq('owner_id', user.id)
+      .maybeSingle()
+    if (!clinica) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+
     // List recent checkout sessions for this clinica
     const url = new URL(`${STRIPE_API}/checkout/sessions`)
     url.searchParams.set('limit', '5')
