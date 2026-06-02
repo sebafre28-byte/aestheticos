@@ -3,6 +3,7 @@ import {
   CalendarDays, Clock3, DollarSign, Users, TrendingUp, TrendingDown,
   RotateCcw, AlertCircle, Banknote, Plus,
 } from 'lucide-react'
+import SaludoHeader from '@/components/dashboard/SaludoHeader'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { ProximasCitas } from '@/components/dashboard/ProximasCitas'
 import { TopServicios } from '@/components/dashboard/TopServicios'
@@ -41,18 +42,13 @@ export default async function DashboardPage() {
     ? Math.min(100, Math.round((data.ingresosMes / data.ingresosMesAnterior) * 100))
     : data.ingresosMes > 0 ? 100 : 0
 
-  const today = new Date()
-  const horaStr = today.getHours() < 12 ? 'Buenos días' : today.getHours() < 19 ? 'Buenas tardes' : 'Buenas noches'
-  const fechaStr = today.toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-
   return (
     <div className="mx-auto max-w-[1280px] space-y-5 p-6" style={{ background: '#F8FAFF', minHeight: '100vh' }}>
 
       {/* Zona A — Header */}
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-[22px] font-bold text-[#0B132B]">{horaStr} 👋</h1>
-          <p className="text-[12px] text-slate-400 mt-0.5 capitalize">{fechaStr}</p>
+          <SaludoHeader />
         </div>
         <Link
           href="/agenda"
