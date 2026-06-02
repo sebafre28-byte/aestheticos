@@ -681,9 +681,9 @@ function PasoDatos({
       setError(rpcError.message || 'No se pudo crear la reserva.')
       return
     }
-    const result = data as { ok: boolean; error?: string; cita_id?: string }
-    if (!result.ok) {
-      setError(result.error || 'No se pudo crear la reserva.')
+    const result = data as { cita_id?: string; ok?: boolean; error?: string }
+    if (!result?.cita_id && !result?.ok) {
+      setError(result?.error || 'No se pudo crear la reserva.')
       return
     }
 
@@ -731,6 +731,19 @@ function PasoDatos({
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">RUT <span className="text-gray-400 font-normal">(opcional)</span></label>
+          <input
+            type="text"
+            value={form.rut}
+            onChange={(e) => {
+              const formatted = formatearRut(e.target.value)
+              setForm(p => ({ ...p, rut: formatted }))
+            }}
+            placeholder="12.345.678-9"
+            className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+          />
+        </div>
+        <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">Nombre completo <span className="text-red-400">*</span></label>
           <input
             type="text"
@@ -757,19 +770,6 @@ function PasoDatos({
             value={form.email}
             onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
             placeholder="tu@email.com"
-            className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">RUT <span className="text-gray-400 font-normal">(opcional)</span></label>
-          <input
-            type="text"
-            value={form.rut}
-            onChange={(e) => {
-              const formatted = formatearRut(e.target.value)
-              setForm(p => ({ ...p, rut: formatted }))
-            }}
-            placeholder="12.345.678-9 (opcional)"
             className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
           />
         </div>
