@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
@@ -1618,9 +1619,17 @@ function BtnCerrarSesion() {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function ConfiguracionPage() {
-  const [activa, setActiva] = useState<SeccionId>("clinica")
+function ConfiguracionInner() {
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab") as SeccionId | null
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","disponibilidad","usuarios","whatsapp","recordatorios","plan","seguridad"])
+  const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
+
+  useEffect(() => {
+    if (tabParam && VALID_TABS.has(tabParam)) setActiva(tabParam)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabParam])
 
   if (cargandoRol) return null
   if (!puede) {
@@ -1675,5 +1684,13 @@ export default function ConfiguracionPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ConfiguracionPage() {
+  return (
+    <Suspense>
+      <ConfiguracionInner />
+    </Suspense>
   )
 }
