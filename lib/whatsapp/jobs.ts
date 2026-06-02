@@ -1,3 +1,4 @@
+// Jobs de WhatsApp: envío de recordatorios, manejo de mensajes entrantes de Twilio y cron de notificaciones.
 import 'server-only'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { format } from 'date-fns'
@@ -392,7 +393,7 @@ export async function sendWhatsappReminderInternal(
 
   const rawPhone = row.pacientes?.telefono
   if (!rawPhone) {
-    console.log('[whatsapp] paciente sin telefono', { citaId, tipoMensaje, paciente: row.pacientes })
+    console.warn('[whatsapp] paciente sin telefono registrado', { citaId, tipoMensaje })
   }
   const to = toWhatsAppE164(rawPhone ?? '')
   if (!to) {

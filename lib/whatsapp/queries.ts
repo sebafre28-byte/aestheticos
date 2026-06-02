@@ -1,3 +1,4 @@
+// Queries de WhatsApp: logs de mensajes, conversaciones y estadísticas de envío.
 'use client'
 
 import { createClient } from '@/lib/supabase/client'

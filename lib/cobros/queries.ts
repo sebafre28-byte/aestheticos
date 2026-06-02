@@ -1,3 +1,4 @@
+// Queries de cobros: lectura y actualización del estado de pago de citas.
 'use client'
 
 import { createClient } from '@/lib/supabase/client'

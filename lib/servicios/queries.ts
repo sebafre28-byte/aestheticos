@@ -1,3 +1,4 @@
+// Queries de servicios: CRUD de servicios clínicos con estadísticas de uso.
 'use client'
 
 import { subDays } from 'date-fns'

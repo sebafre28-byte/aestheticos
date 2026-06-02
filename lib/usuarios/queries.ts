@@ -1,3 +1,5 @@
+// Queries de usuarios: roles, miembros de clínica e invitaciones.
+
 import { createClient } from '@/lib/supabase/client'
 
 export type RolUsuario = 'admin' | 'profesional' | 'recepcionista'

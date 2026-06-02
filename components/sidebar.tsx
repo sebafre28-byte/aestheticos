@@ -25,7 +25,7 @@ const navItems = [
   { href: "/pacientes", label: "Pacientes", icon: Users },
   { href: "/servicios", label: "Servicios", icon: Syringe },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { href: "/inbox", label: "Inbox", icon: MessageSquare },
+  { href: "/inbox", label: "Inbox", icon: MessageSquare, proximamente: true },
   { href: "/reportes", label: "Reportes", icon: BarChart2 },
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ]
@@ -106,15 +106,28 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
+          if (item.proximamente) {
+            return (
+              <div
+                key={item.href}
+                className="flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium cursor-default opacity-50"
+                style={{ color: 'rgba(255,255,255,0.70)' }}
+              >
+                <Icon className="size-[15px] shrink-0 opacity-70" />
+                {item.label}
+                <span className="ml-auto text-[9px] font-semibold bg-white/10 text-white/60 px-1.5 py-0.5 rounded-full">
+                  Pronto
+                </span>
+              </div>
+            )
+          }
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
                 "flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors group",
-                isActive
-                  ? "text-white"
-                  : "hover:bg-white/10"
+                isActive ? "text-white" : "hover:bg-white/10"
               )}
               style={
                 isActive
@@ -122,9 +135,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
                   : { color: 'rgba(255,255,255,0.70)' }
               }
             >
-              <Icon
-                className={cn("size-[15px] shrink-0", !isActive && "opacity-70")}
-              />
+              <Icon className={cn("size-[15px] shrink-0", !isActive && "opacity-70")} />
               {item.label}
             </Link>
           )

@@ -173,7 +173,7 @@ function SeccionClinica() {
     setFeedback(null)
     const supabase = createClient()
     const path = `${clinicaId}/logo.jpg`
-    console.log('[logo] subiendo a:', path, 'bucket: logos')
+    // upload iniciado
     const { error: uploadError } = await supabase.storage
       .from("logos")
       .upload(path, file, { upsert: true, contentType: file.type })
@@ -373,7 +373,7 @@ function ModalProfesional({
     const profId = profesionalExistente?.id ?? `temp-${Date.now()}`
     const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
     const path = `${clinicaId}/${profId}.${ext}`
-    console.log('[foto] subiendo a:', path, 'bucket: profesionales')
+    // upload iniciado
     const { error: uploadError } = await supabase.storage
       .from("profesionales")
       .upload(path, file, { upsert: true, contentType: file.type })
@@ -383,7 +383,7 @@ function ModalProfesional({
       setSubiendoFoto(false)
       return
     }
-    console.log('[foto] subida OK')
+    // upload completado
     const { data: { publicUrl } } = supabase.storage.from("profesionales").getPublicUrl(path)
     setForm(p => ({ ...p, foto_url: `${publicUrl}?t=${Date.now()}` }))
     setSubiendoFoto(false)

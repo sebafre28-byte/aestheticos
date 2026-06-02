@@ -1,3 +1,4 @@
+// Cliente Supabase para componentes del browser (usa anon key con RLS).
 'use client'
 
 import { createBrowserClient } from '@supabase/ssr'

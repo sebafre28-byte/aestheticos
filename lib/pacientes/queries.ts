@@ -1,3 +1,4 @@
+// Queries de pacientes: CRUD, historial de citas y notas clínicas.
 'use client'
 
 import { subDays } from 'date-fns'

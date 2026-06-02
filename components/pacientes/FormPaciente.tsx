@@ -133,6 +133,7 @@ export function FormPaciente({ open, paciente, onClose, onSubmit }: Props) {
             <Input
               type="date"
               value={data.fecha_nacimiento}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => setData((v) => ({ ...v, fecha_nacimiento: e.target.value }))}
             />
           </div>

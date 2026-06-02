@@ -1,3 +1,4 @@
+// Queries de onboarding: configuración de clínica, horarios y plantillas de WhatsApp.
 'use client'
 
 import { createClient } from '@/lib/supabase/client'

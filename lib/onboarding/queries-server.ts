@@ -1,3 +1,5 @@
+// Queries de onboarding server-side: datos de clínica y configuración usados en Server Components.
+
 import { createClient } from '@/lib/supabase/server'
 
 export type ClinicaRow = {

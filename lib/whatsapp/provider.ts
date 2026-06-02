@@ -1,3 +1,4 @@
+// Proveedores de WhatsApp: abstracción sobre Twilio y Meta Cloud API para envío de mensajes.
 import 'server-only'
 
 export type WhatsappSendPayload = {
