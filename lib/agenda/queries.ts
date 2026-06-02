@@ -141,6 +141,7 @@ export type CitaConRelaciones = {
   pacientes: PacienteRow
   profesionales: ProfesionalRow
   servicios: ServicioRow
+  clinicas?: { nombre: string; email?: string | null; telefono?: string | null; direccion?: string | null; logo_url?: string | null } | null
 }
 
 export type NuevaCitaData = {
@@ -486,19 +487,20 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
         recurrence_instance_date: data.recurrence_instance_date ?? null,
         buffer_minutos: data.buffer_minutos ?? 0,
       })
-      .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+      .select(`*, pacientes(*), profesionales(*), servicios(*), clinicas(nombre, email, telefono, direccion, logo_url)`)
       .single()
 
     if (error) {
       console.error('Error crearCita fallback:', error)
       return null
     }
+    dispararNotificacionCita(nueva as CitaConRelaciones).catch(() => {})
     return nueva as CitaConRelaciones
   }
 
   const { data: citaCompleta, error: errorSelect } = await supabase
     .from('citas')
-    .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+    .select(`*, pacientes(*), profesionales(*), servicios(*), clinicas(nombre, email, telefono, direccion, logo_url)`)
     .eq('id', citaId)
     .single()
 
@@ -522,7 +524,14 @@ function dispararNotificacionCita(cita: CitaConRelaciones) {
   const paciente = cita.pacientes as { nombre: string; email?: string | null; telefono?: string | null } | null
   const profesional = cita.profesionales as { nombre: string } | null
   const servicio = cita.servicios as { nombre: string } | null
-  const clinica = { nombre: '', telefono: null, email: null, direccion: null }
+  const clinicaRaw = cita.clinicas as { nombre: string; email?: string | null; telefono?: string | null; direccion?: string | null; logo_url?: string | null } | null
+  const clinica = {
+    nombre: clinicaRaw?.nombre ?? '',
+    telefono: clinicaRaw?.telefono ?? null,
+    email: clinicaRaw?.email ?? null,
+    direccion: clinicaRaw?.direccion ?? null,
+    logo_url: clinicaRaw?.logo_url ?? null,
+  }
   return fetch(`${base}/api/notificar-cita`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -2,7 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/email-recordatorios",
-      "schedule": "0 9 * * *"
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/recordatorios",
+      "schedule": "0 * * * *"
     }
   ]
 }

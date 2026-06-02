@@ -7,6 +7,7 @@ export type TipoEmail =
   | 'nueva_reserva_admin'
   | 'recordatorio_cita'
   | 'cancelacion_cita'
+  | 'post_cita'
 
 export interface DatosCita {
   paciente_nombre: string
@@ -256,6 +257,30 @@ function buildHtml(tipo: TipoEmail, datos: DatosCita): string {
     )
   }
 
+  if (tipo === 'post_cita') {
+    const ctaHtml = clinica_telefono
+      ? whatsappCTA(clinica_telefono, `Hola, quiero agendar una nueva cita.`)
+      : ''
+    return wrapper(
+      `¿Cómo fue tu visita a ${clinica_nombre}?`,
+      '#8B5CF6',
+      '⭐',
+      `
+        <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#0B132B;letter-spacing:-0.3px;">¿Cómo fue tu experiencia?</h1>
+        <p style="font-size:15px;color:#4B5563;margin:0 0 4px;">Hola, <strong>${paciente_nombre}</strong>.</p>
+        <p style="font-size:14px;color:#6B7280;margin:0 0 16px;">Esperamos que tu visita haya sido excelente. Tu opinión nos ayuda a mejorar.</p>
+        ${details}
+        <div style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;padding:14px 18px;margin-bottom:8px;">
+          <p style="margin:0;font-size:13px;color:#5B21B6;font-weight:600;">⭐ ¿Te gustó la atención?</p>
+          <p style="margin:6px 0 0;font-size:13px;color:#6D28D9;">Cuéntale a otros sobre tu experiencia y ayúdanos a seguir creciendo.</p>
+        </div>
+        <p style="font-size:13px;color:#6B7280;margin:16px 0 0;">¿Quieres agendar tu próxima cita? Contáctanos con gusto.</p>
+        ${ctaHtml}
+      `,
+      datos,
+    )
+  }
+
   // cancelacion_cita
   const contactLine = clinica_telefono
     ? `<a href="tel:${clinica_telefono}" style="color:#2563EB;text-decoration:none;">${clinica_telefono}</a>`
@@ -286,6 +311,7 @@ function getSubject(tipo: TipoEmail, datos: DatosCita): string {
   if (tipo === 'confirmacion_cita') return `✓ Tu cita está confirmada — ${clinica}`
   if (tipo === 'nueva_reserva_admin') return `📅 Nueva reserva: ${datos.paciente_nombre} · ${datos.fecha}`
   if (tipo === 'recordatorio_cita') return `⏰ Recordatorio: tu cita es mañana — ${clinica}`
+  if (tipo === 'post_cita') return `⭐ ¿Cómo fue tu visita? — ${clinica}`
   return `Tu cita ha sido cancelada — ${clinica}`
 }
 

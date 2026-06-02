@@ -5,7 +5,7 @@ export interface NotificarCitaPayload {
   paciente: { nombre: string; email?: string | null; telefono?: string | null }
   profesional: { nombre: string }
   servicio: { nombre: string }
-  clinica: { nombre: string; email?: string | null; telefono?: string | null; direccion?: string | null }
+  clinica: { nombre: string; email?: string | null; telefono?: string | null; direccion?: string | null; logo_url?: string | null }
   inicio: string  // wall-clock ISO "2026-06-18T15:00:00"
   fin: string
   canal?: 'book' | 'agenda' | 'whatsapp'
@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
               hora,
               hora_fin: horaFin,
               clinica_nombre: clinica.nombre,
+              clinica_logo_url: clinica.logo_url ?? undefined,
               clinica_telefono: clinica.telefono ?? undefined,
               clinica_email: clinica.email ?? undefined,
               clinica_direccion: clinica.direccion ?? undefined,
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
               hora,
               hora_fin: horaFin,
               clinica_nombre: clinica.nombre,
+              clinica_logo_url: clinica.logo_url ?? undefined,
               clinica_telefono: clinica.telefono ?? undefined,
               clinica_email: clinica.email ?? undefined,
               clinica_direccion: clinica.direccion ?? undefined,
@@ -112,6 +114,7 @@ export async function POST(req: NextRequest) {
             hora,
             hora_fin: horaFin,
             clinica_nombre: clinica.nombre,
+            clinica_logo_url: clinica.logo_url ?? undefined,
             clinica_telefono: clinica.telefono ?? undefined,
             clinica_email: clinica.email ?? undefined,
             clinica_direccion: clinica.direccion ?? undefined,
