@@ -32,7 +32,7 @@ interface EmailPayload {
   datos: DatosCita
 }
 
-// ─── Config by email type ─────────────────────────────────────────────────────
+const SC_LOGO_URL = 'https://rkcgnnzimwemrtavtinw.supabase.co/storage/v1/object/public/assets/Logos/3.png'
 
 const VARIANT: Record<TipoEmail, {
   heroGradient: string
@@ -282,21 +282,8 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
               <tr>
                 <!-- SimpliClinic logo -->
                 <td style="vertical-align:middle;">
-                  <table cellpadding="0" cellspacing="0" border="0">
-                    <tr>
-                      <td style="vertical-align:middle;padding-right:8px;">
-                        <table cellpadding="0" cellspacing="0" border="0"><tr>
-                          <td align="center" valign="middle" width="30" height="30"
-                              style="width:30px;height:30px;border-radius:7px;background:#2563EB;">
-                            <span style="font-size:13px;font-weight:900;line-height:30px;display:block;color:#ffffff;font-family:Arial,sans-serif;">SC</span>
-                          </td>
-                        </tr></table>
-                      </td>
-                      <td style="vertical-align:middle;">
-                        <span style="font-size:19px;font-weight:900;color:#0B132B;letter-spacing:-0.6px;font-family:Arial,sans-serif;">Simpli</span><span style="font-size:19px;font-weight:900;color:#2563EB;letter-spacing:-0.6px;font-family:Arial,sans-serif;">Clinic</span>
-                      </td>
-                    </tr>
-                  </table>
+                  <img src="${SC_LOGO_URL}" alt="SimpliClinic" height="36"
+                       style="display:block;height:36px;width:auto;border:0;" />
                 </td>
                 <!-- Clinic name + logo -->
                 <td align="right" style="vertical-align:middle;">
@@ -354,21 +341,8 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
           <td align="center" style="background:#F8FAFC;padding:24px 36px;border-top:1px solid #E2E8F0;text-align:center;">
 
             <!-- SimpliClinic logo footer -->
-            <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 10px auto;">
-              <tr>
-                <td style="vertical-align:middle;padding-right:8px;">
-                  <table cellpadding="0" cellspacing="0" border="0"><tr>
-                    <td align="center" valign="middle" width="24" height="24"
-                        style="width:24px;height:24px;border-radius:6px;background:#2563EB;">
-                      <span style="font-size:10px;font-weight:900;line-height:24px;display:block;color:#ffffff;font-family:Arial,sans-serif;">SC</span>
-                    </td>
-                  </tr></table>
-                </td>
-                <td style="vertical-align:middle;">
-                  <span style="font-size:17px;font-weight:900;color:#0B132B;letter-spacing:-0.5px;font-family:Arial,sans-serif;">Simpli</span><span style="font-size:17px;font-weight:900;color:#2563EB;letter-spacing:-0.5px;font-family:Arial,sans-serif;">Clinic</span>
-                </td>
-              </tr>
-            </table>
+            <img src="${SC_LOGO_URL}" alt="SimpliClinic" height="30"
+                 style="display:block;height:30px;width:auto;border:0;margin:0 auto 10px auto;" />
 
             <p style="margin:0 0 14px;font-size:11px;color:#94A3B8;letter-spacing:1.4px;text-transform:uppercase;">Tu cl&iacute;nica, m&aacute;s simple.</p>
             <p style="margin:0 0 8px;font-size:12px;color:#CBD5E1;">&#9993;&nbsp; hola@simpliclinic.cl &nbsp;&middot;&nbsp; &#128222;&nbsp; +56 9 0000 0000</p>
