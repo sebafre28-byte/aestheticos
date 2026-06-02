@@ -223,6 +223,8 @@ function whatsappBtn(tel: string, msg: string): string {
 function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
   const v = VARIANT[tipo]
   const { clinica_nombre, clinica_logo_url, clinica_telefono, clinica_email } = datos
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
+  const scLogoUrl = `${appUrl}/logo-horizontal.jpg`
 
   // Clinic logo in header: use image if available, else initial avatar
   const clinicLogoHtml = clinica_logo_url
@@ -280,25 +282,10 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
           <td style="padding:20px 36px 18px;border-bottom:1px solid #F1F5F9;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <!-- SimpliClinic logo (text-based) -->
+                <!-- SimpliClinic logo -->
                 <td style="vertical-align:middle;">
-                  <table cellpadding="0" cellspacing="0" border="0">
-                    <tr>
-                      <td style="vertical-align:middle;padding-right:9px;">
-                        <table cellpadding="0" cellspacing="0" border="0">
-                          <tr>
-                            <td align="center" valign="middle" width="30" height="30"
-                                style="width:30px;height:30px;background:linear-gradient(135deg,#2563EB 0%,#14B8A6 100%);border-radius:7px;">
-                              <span style="font-size:14px;line-height:30px;display:block;color:#ffffff;">&#10024;</span>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                      <td style="vertical-align:middle;">
-                        <span style="font-size:18px;font-weight:900;color:#0B132B;letter-spacing:-0.6px;">Simpli</span><span style="font-size:18px;font-weight:900;color:#2563EB;letter-spacing:-0.6px;">Clinic</span>
-                      </td>
-                    </tr>
-                  </table>
+                  <img src="${scLogoUrl}" alt="SimpliClinic" height="32"
+                       style="display:block;height:32px;width:auto;border:0;" />
                 </td>
                 <!-- Clinic name + logo -->
                 <td align="right" style="vertical-align:middle;">
@@ -356,23 +343,8 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
           <td align="center" style="background:#F8FAFC;padding:24px 36px;border-top:1px solid #E2E8F0;text-align:center;">
 
             <!-- SimpliClinic logo footer -->
-            <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 7px auto;">
-              <tr>
-                <td style="vertical-align:middle;padding-right:8px;">
-                  <table cellpadding="0" cellspacing="0" border="0">
-                    <tr>
-                      <td align="center" valign="middle" width="24" height="24"
-                          style="width:24px;height:24px;background:linear-gradient(135deg,#2563EB 0%,#14B8A6 100%);border-radius:6px;">
-                        <span style="font-size:11px;line-height:24px;display:block;color:#ffffff;">&#10024;</span>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-                <td style="vertical-align:middle;">
-                  <span style="font-size:17px;font-weight:900;color:#0B132B;letter-spacing:-0.5px;">Simpli</span><span style="font-size:17px;font-weight:900;color:#2563EB;letter-spacing:-0.5px;">Clinic</span>
-                </td>
-              </tr>
-            </table>
+            <img src="${scLogoUrl}" alt="SimpliClinic" height="28"
+                 style="display:block;height:28px;width:auto;border:0;margin:0 auto 10px auto;" />
 
             <p style="margin:0 0 14px;font-size:11px;color:#94A3B8;letter-spacing:1.4px;text-transform:uppercase;">Tu cl&iacute;nica, m&aacute;s simple.</p>
             <p style="margin:0 0 8px;font-size:12px;color:#CBD5E1;">&#9993;&nbsp; hola@simpliclinic.cl &nbsp;&middot;&nbsp; &#128222;&nbsp; +56 9 0000 0000</p>
