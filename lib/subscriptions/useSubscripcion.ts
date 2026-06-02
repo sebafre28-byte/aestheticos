@@ -14,6 +14,7 @@ type SubscripcionState = {
   trialVencido: boolean
   cargando: boolean
   puedeUsar: (feature: string) => boolean
+  limite: (recurso: 'profesionales' | 'pacientes') => number
 }
 
 const FEATURES: Record<string, Plan[]> = {
@@ -24,6 +25,14 @@ const FEATURES: Record<string, Plan[]> = {
   agenda_semana:           ['pro', 'clinica'],
   agenda_mes:              ['pro', 'clinica'],
   multiples_profesionales: ['pro', 'clinica'],
+}
+
+// Límites por plan. trial = mismos que pro. null = ilimitado
+const LIMITES: Record<string, Record<'profesionales' | 'pacientes', number | null>> = {
+  free:    { profesionales: 1,    pacientes: 50   },
+  pro:     { profesionales: 5,    pacientes: 500  },
+  clinica: { profesionales: null, pacientes: null },
+  trial:   { profesionales: 5,    pacientes: 500  },
 }
 
 let cache: SubscripcionState | null = null
@@ -38,6 +47,7 @@ export function useSubscripcion(): SubscripcionState {
       trialVencido: false,
       cargando: true,
       puedeUsar: () => false,
+      limite: () => Infinity,
     }
   )
 
@@ -79,6 +89,12 @@ export function useSubscripcion(): SubscripcionState {
           return requeridos.includes(plan)
         }
 
+        function limite(recurso: 'profesionales' | 'pacientes'): number {
+          const planKey = trialActivo ? 'trial' : (plan ?? 'free')
+          const val = LIMITES[planKey]?.[recurso]
+          return val ?? Infinity
+        }
+
         const next: SubscripcionState = {
           plan,
           estado,
@@ -87,6 +103,7 @@ export function useSubscripcion(): SubscripcionState {
           trialVencido,
           cargando: false,
           puedeUsar,
+          limite,
         }
         cache = next
         setState(next)
