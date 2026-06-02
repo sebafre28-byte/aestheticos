@@ -288,7 +288,7 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
                         <table cellpadding="0" cellspacing="0" border="0"><tr>
                           <td align="center" valign="middle" width="30" height="30"
                               style="width:30px;height:30px;border-radius:7px;background:#2563EB;">
-                            <span style="font-size:15px;line-height:30px;display:block;color:#ffffff;">&#10024;</span>
+                            <span style="font-size:13px;font-weight:900;line-height:30px;display:block;color:#ffffff;font-family:Arial,sans-serif;">SC</span>
                           </td>
                         </tr></table>
                       </td>
@@ -360,7 +360,7 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
                   <table cellpadding="0" cellspacing="0" border="0"><tr>
                     <td align="center" valign="middle" width="24" height="24"
                         style="width:24px;height:24px;border-radius:6px;background:#2563EB;">
-                      <span style="font-size:12px;line-height:24px;display:block;color:#ffffff;">&#10024;</span>
+                      <span style="font-size:10px;font-weight:900;line-height:24px;display:block;color:#ffffff;font-family:Arial,sans-serif;">SC</span>
                     </td>
                   </tr></table>
                 </td>
