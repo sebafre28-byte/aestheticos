@@ -19,6 +19,7 @@ import {
   toWhatsAppE164,
 } from '@/lib/whatsapp/provider'
 import * as templates from '@/lib/whatsapp/templates'
+import { type RecordatoriosWspConfig } from '@/lib/whatsapp/recordatorio-config'
 
 export const WHATSAPP_QUEUE_NAME = 'whatsapp-reminders'
 
@@ -238,8 +239,47 @@ function ctxFromCita(row: CitaWhatsAppRow): templates.RecordatorioContext {
   }
 }
 
-function bodyForTipo(row: CitaWhatsAppRow, tipo: WhatsappLogTipo): string | null {
+function applyCustomTemplate(tmpl: string, row: CitaWhatsAppRow): string {
+  const inicio = new Date(row.inicio)
+  const fecha = format(inicio, "EEEE d 'de' MMMM", { locale: es })
+  const hora = format(inicio, 'HH:mm')
+  return tmpl
+    .replace(/\{nombre\}/g, row.pacientes?.nombre ?? 'Paciente')
+    .replace(/\{fecha\}/g, fecha)
+    .replace(/\{hora\}/g, hora)
+    .replace(/\{servicio\}/g, row.servicios?.nombre ?? 'consulta')
+    .replace(/\{profesional\}/g, row.profesionales?.nombre ?? 'su profesional')
+    .replace(/\{clinica\}/g, row.clinicas?.nombre ?? 'la clínica')
+}
+
+async function fetchRecordatoriosWspConfig(
+  supabase: SupabaseClient,
+  clinicaId: string,
+): Promise<RecordatoriosWspConfig | null> {
+  const { data } = await supabase
+    .from('clinicas')
+    .select('configuracion')
+    .eq('id', clinicaId)
+    .maybeSingle()
+  if (!data?.configuracion) return null
+  const cfg = data.configuracion as Record<string, unknown>
+  return (cfg.recordatorios_wsp as RecordatoriosWspConfig) ?? null
+}
+
+function bodyForTipo(
+  row: CitaWhatsAppRow,
+  tipo: WhatsappLogTipo,
+  wspConfig?: RecordatoriosWspConfig | null,
+): string | null {
   const ctx = ctxFromCita(row)
+  // Use custom template for reminder types if configured and active
+  if (
+    wspConfig?.activo &&
+    wspConfig.template &&
+    (tipo === 'recordatorio_24h' || tipo === 'recordatorio_2h')
+  ) {
+    return applyCustomTemplate(wspConfig.template, row)
+  }
   switch (tipo) {
     case 'recordatorio_24h':
       return templates.plantillaRecordatorio24h(ctx)
@@ -367,7 +407,16 @@ export async function sendWhatsappReminderInternal(
     return { status: 'fallido', error: 'Teléfono del paciente inválido o vacío' }
   }
 
-  const body = bodyForTipo(row, tipoMensaje)
+  const wspConfig = await fetchRecordatoriosWspConfig(supabase, clinicaId)
+  // If custom config exists but is inactive, skip reminder types
+  if (
+    wspConfig &&
+    !wspConfig.activo &&
+    (tipoMensaje === 'recordatorio_24h' || tipoMensaje === 'recordatorio_2h')
+  ) {
+    return { status: 'omitido', reason: 'recordatorios desactivados en configuración' }
+  }
+  const body = bodyForTipo(row, tipoMensaje, wspConfig)
   if (!body) return { status: 'omitido', reason: 'sin plantilla' }
 
   const provider = getWhatsappProvider()
