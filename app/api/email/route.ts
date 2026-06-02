@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'SimpliClinic <noreply@simpliclinic.cl>',
+        from: process.env.EMAIL_FROM ?? 'SimpliClinic <onboarding@resend.dev>',
         to: [destinatario],
         subject,
         html,
