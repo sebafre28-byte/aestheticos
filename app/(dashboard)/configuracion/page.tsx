@@ -467,20 +467,16 @@ function ModalProfesional({
   async function handleGuardarHorario() {
     if (!nuevoProfId) return
     setGuardandoHorario(true)
-    const supabase = createClient()
-    await supabase.from("profesional_disponibilidad").delete().eq("profesional_id", nuevoProfId)
-    const rows = diasDisp
-      .filter(d => d.activo)
-      .map(d => ({
-        profesional_id: nuevoProfId,
-        dia_semana: d.dia_semana,
-        hora_inicio: d.hora_inicio,
-        hora_fin: d.hora_fin,
-        activo: true,
-      }))
-    if (rows.length > 0) {
-      await supabase.from("profesional_disponibilidad").insert(rows)
-    }
+    const rows: DisponibilidadRow[] = diasDisp.map(d => ({
+      id: '',
+      clinica_id: '',
+      profesional_id: nuevoProfId,
+      dia_semana: d.dia_semana,
+      hora_inicio: d.hora_inicio,
+      hora_fin: d.hora_fin,
+      activo: d.activo,
+    }))
+    await setDisponibilidadProfesional(nuevoProfId, rows)
     setGuardandoHorario(false)
     onGuardado()
     onClose()
