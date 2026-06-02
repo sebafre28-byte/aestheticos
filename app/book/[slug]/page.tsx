@@ -653,9 +653,11 @@ function PasoDatos({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!form.rut.trim()) { setError('El RUT es requerido.'); return }
+    if (!validarRutChileno(form.rut)) { setError('El RUT ingresado no es válido.'); return }
     if (!form.nombre.trim()) { setError('El nombre es requerido.'); return }
     if (!form.telefono.trim()) { setError('El teléfono es requerido.'); return }
-    if (form.rut.trim() && !validarRutChileno(form.rut)) { setError('El RUT ingresado no es válido.'); return }
+    if (!form.email.trim()) { setError('El email es requerido.'); return }
     setEnviando(true)
     setError(null)
 
@@ -706,7 +708,9 @@ function PasoDatos({
           fecha: fechaLabel,
           hora: horaLabel,
           clinica_nombre: clinica.nombre,
+          clinica_logo_url: clinica.logo_url ?? undefined,
           clinica_telefono: clinica.telefono ?? undefined,
+          clinica_direccion: clinica.direccion ?? undefined,
         },
       }).catch((err) => console.warn('[booking] sendEmail error (non-critical):', err))
     }
@@ -731,7 +735,7 @@ function PasoDatos({
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">RUT <span className="text-gray-400 font-normal">(opcional)</span></label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">RUT <span className="text-red-400">*</span></label>
           <input
             type="text"
             value={form.rut}
@@ -764,7 +768,7 @@ function PasoDatos({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Email <span className="text-gray-400 font-normal">(opcional)</span></label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Email <span className="text-red-400">*</span></label>
           <input
             type="email"
             value={form.email}
