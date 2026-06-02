@@ -13,10 +13,10 @@
 ## MÓDULO 0 — EMAILS (EN CURSO)
 **Objetivo**: Emails profesionales, funcionales y con diseño aprobado.
 
-- [ ] 0.1 Aprobar plantilla HTML con el usuario
-- [ ] 0.2 Implementar plantilla aprobada en `app/api/email/route.ts`
-- [ ] 0.3 Variantes: confirmación (verde), cancelación (rojo), recordatorio (azul), post-cita (morado)
-- [ ] 0.4 Conectar cron `email-recordatorios` con queries reales (día anterior + mismo día)
+- [x] 0.1 Aprobar plantilla HTML con el usuario
+- [x] 0.2 Implementar plantilla aprobada en `app/api/email/route.ts`
+- [x] 0.3 Variantes: confirmación (verde), cancelación (rojo), recordatorio (azul), post-cita (morado)
+- [x] 0.4 Conectar cron `email-recordatorios` con queries reales + deduplicación vía whatsapp_logs
 - [ ] 0.5 Probar envío real end-to-end
 
 ---
@@ -116,7 +116,7 @@
 
 ## ESTADO ACTUAL
 ```
-M0 Emails            ████████░░  80%  (falta aprobar diseño + cron)
+M0 Emails            █████████░  95%  (falta prueba end-to-end)
 M1 Seguridad         ██░░░░░░░░  20%  (solo vercel.json fix hecho)
 M2 Inbox WhatsApp    ████░░░░░░  40%  (tablas OK, UI mock)
 M3 Notas clínicas    ██░░░░░░░░  20%  (solo tabla en BD)
