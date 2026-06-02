@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
+import { PLAN_LABELS } from "@/lib/subscriptions/queries"
 import { useAcceso } from "@/components/auth/RolGuard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1694,11 +1695,12 @@ function SeccionDisponibilidad() {
 
 function ClinicaHeaderCard() {
   const [clinica, setClinica] = useState<ClinicaBasica | null>(null)
+  const { plan } = useSubscripcion()
 
   useEffect(() => { getClinicaBasica().then(setClinica) }, [])
 
   const nombre = clinica?.nombre ?? "Tu clínica"
-  const planLabel = clinica?.plan === "pro" ? "Pro" : clinica?.plan === "enterprise" ? "Enterprise" : "Starter"
+  const planLabel = plan ? (PLAN_LABELS[plan] ?? 'Starter') : 'Starter'
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 shrink-0">
