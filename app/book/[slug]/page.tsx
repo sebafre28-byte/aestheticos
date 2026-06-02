@@ -681,9 +681,9 @@ function PasoDatos({
       setError(rpcError.message || 'No se pudo crear la reserva.')
       return
     }
-    const result = data as { ok: boolean; error?: string; cita_id?: string }
-    if (!result.ok) {
-      setError(result.error || 'No se pudo crear la reserva.')
+    const result = data as { cita_id?: string; ok?: boolean; error?: string }
+    if (!result?.cita_id && !result?.ok) {
+      setError(result?.error || 'No se pudo crear la reserva.')
       return
     }
 
