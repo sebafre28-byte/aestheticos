@@ -1,6 +1,7 @@
 "use client"
 
 import { PlanGate } from '@/components/subscriptions/PlanGate'
+import { TrialFeatureBanner } from '@/components/subscriptions/TrialFeatureBanner'
 import { useState, useEffect, useCallback } from "react"
 import {
   MessageCircle, CheckCheck, Check, Clock, Send, Bell, BellOff,
@@ -91,6 +92,7 @@ export default function WhatsAppPage() {
   return (
     <PlanGate feature="whatsapp">
     <div className="p-4 sm:p-6 space-y-6 max-w-[1100px]">
+      <TrialFeatureBanner feature="whatsapp" />
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
