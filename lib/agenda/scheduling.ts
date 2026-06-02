@@ -1,3 +1,5 @@
+// Lógica de scheduling: verificación de colisiones de citas y cálculo de disponibilidad horaria.
+
 export function overlaps(startA: string, endA: string, startB: string, endB: string): boolean {
   return startA < endB && endA > startB
 }

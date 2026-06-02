@@ -1,3 +1,5 @@
+// Cliente Supabase para Server Components y API Routes (lee cookies de sesión).
+
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 

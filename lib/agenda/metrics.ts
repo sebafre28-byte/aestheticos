@@ -1,3 +1,4 @@
+// Métricas de agenda: seguimiento de interacciones del usuario en la vista de agenda.
 'use client'
 
 type AgendaMetricPayload = Record<string, string | number | boolean | null>
