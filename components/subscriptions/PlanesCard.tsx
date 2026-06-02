@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Check, Loader2, Zap, Building2, Star } from 'lucide-react'
 import {
   getSubscription,
@@ -187,13 +188,40 @@ export default function PlanesCard() {
   const [loading, setLoading]           = useState<string | null>(null)
   const [error, setError]               = useState<string | null>(null)
   const [anual, setAnual]               = useState(false)
+  const [syncing, setSyncing]           = useState(false)
+  const searchParams                    = useSearchParams()
+  const syncedRef                       = useRef(false)
 
   useEffect(() => {
     Promise.all([getSubscription(), getClinicaId()]).then(([sub, id]) => {
       setSubscription(sub)
       setClinicaId(id)
       setCargando(false)
+
+      // After checkout success, sync subscription directly from Stripe
+      if (searchParams.get('checkout') === 'success' && id && !syncedRef.current) {
+        syncedRef.current = true
+        setSyncing(true)
+        fetch('/api/stripe/sync-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clinica_id: id }),
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.synced) {
+              getSubscription().then(updated => {
+                setSubscription(updated)
+                // Clear the URL param
+                window.history.replaceState({}, '', '/configuracion?tab=plan')
+              })
+            }
+          })
+          .catch(console.error)
+          .finally(() => setSyncing(false))
+      }
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleUpgrade(plan: Plan) {
@@ -234,10 +262,11 @@ export default function PlanesCard() {
     }
   }
 
-  if (cargando) {
+  if (cargando || syncing) {
     return (
       <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
-        <Loader2 className="size-4 animate-spin" /> Cargando plan…
+        <Loader2 className="size-4 animate-spin" />
+        {syncing ? 'Confirmando pago…' : 'Cargando plan…'}
       </div>
     )
   }
