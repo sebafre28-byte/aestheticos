@@ -1,3 +1,5 @@
+// Queries de reportes: resumen mensual de citas, ingresos y top servicios (server-side).
+
 import { createClient } from '@/lib/supabase/server'
 import { montoIngresoCobrado } from '@/lib/cobros/utils'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'

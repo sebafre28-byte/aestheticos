@@ -1,3 +1,5 @@
+// Utilidades de cobros: cálculo de montos y formateo de moneda CLP.
+
 export type PagoEstado = 'pendiente' | 'pagado' | 'parcial'
 
 export function montoIngresoCobrado(pago_estado: PagoEstado, pago_monto: number): number {

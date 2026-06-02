@@ -1,3 +1,5 @@
+// Plantillas de mensajes WhatsApp: interpolación de variables para recordatorios y confirmaciones.
+
 export type RecordatorioContext = {
   pacienteNombre: string
   clinicaNombre: string

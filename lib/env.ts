@@ -22,6 +22,10 @@ const RECOMMENDED = [
   'TWILIO_AUTH_TOKEN',
   'TWILIO_WHATSAPP_FROM',
   'CRON_SECRET',
+  // Meta WhatsApp Cloud API (alternativa a Twilio)
+  // 'META_ACCESS_TOKEN', 'META_APP_SECRET', 'META_WEBHOOK_VERIFY_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID'
+  // Stripe (suscripciones)
+  // 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'
 ] as const
 
 let validated = false

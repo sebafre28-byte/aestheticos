@@ -1,3 +1,5 @@
+// Queries del dashboard: métricas de citas, ingresos, top servicios y ocupación semanal.
+
 import { montoIngresoCobrado } from '@/lib/cobros/utils'
 import { createClient } from '@/lib/supabase/server'
 import { endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subMonths } from 'date-fns'
