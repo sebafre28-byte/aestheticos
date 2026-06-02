@@ -24,6 +24,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Plan inválido' }, { status: 400 })
     }
 
+    // Verify clinica_id belongs to the authenticated user
+    const { data: clinica } = await supabase
+      .from('clinicas')
+      .select('id')
+      .eq('id', clinica_id)
+      .eq('owner_id', user.id)
+      .maybeSingle()
+    if (!clinica) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
+
     const returnUrl = `${request.nextUrl.origin}/configuracion`
     const { url } = await createCheckoutSession(clinica_id, plan, returnUrl)
 
