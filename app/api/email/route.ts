@@ -49,9 +49,9 @@ const VARIANT: Record<TipoEmail, {
   confirmacion_cita: {
     heroGradient: 'linear-gradient(135deg,#059669 0%,#10B981 100%)',
     heroIcon: '&#10003;',
-    heroChipBg: 'rgba(255,255,255,0.2)',
-    heroChipBorder: 'rgba(255,255,255,0.4)',
-    heroChipColor: '#ffffff',
+    heroChipBg: '#ffffff',
+    heroChipBorder: '#ffffff',
+    heroChipColor: '#065F46',
     heroChipText: '&#10003;&nbsp; RESERVA CONFIRMADA',
     alertBg: '#ECFDF5',
     alertBorder: '#6EE7B7',
@@ -61,9 +61,9 @@ const VARIANT: Record<TipoEmail, {
   nueva_reserva_admin: {
     heroGradient: 'linear-gradient(135deg,#2563EB 0%,#1D4ED8 100%)',
     heroIcon: '&#128276;',
-    heroChipBg: 'rgba(255,255,255,0.2)',
-    heroChipBorder: 'rgba(255,255,255,0.4)',
-    heroChipColor: '#ffffff',
+    heroChipBg: '#ffffff',
+    heroChipBorder: '#ffffff',
+    heroChipColor: '#1D4ED8',
     heroChipText: 'NUEVA RESERVA',
     alertBg: '#EFF6FF',
     alertBorder: '#BFDBFE',
@@ -73,9 +73,9 @@ const VARIANT: Record<TipoEmail, {
   recordatorio_cita: {
     heroGradient: 'linear-gradient(135deg,#2563EB 0%,#1D4ED8 100%)',
     heroIcon: '&#128197;',
-    heroChipBg: 'rgba(255,255,255,0.2)',
-    heroChipBorder: 'rgba(255,255,255,0.4)',
-    heroChipColor: '#ffffff',
+    heroChipBg: '#ffffff',
+    heroChipBorder: '#ffffff',
+    heroChipColor: '#1D4ED8',
     heroChipText: 'RECORDATORIO',
     alertBg: '#EFF6FF',
     alertBorder: '#BFDBFE',
@@ -85,9 +85,9 @@ const VARIANT: Record<TipoEmail, {
   cancelacion_cita: {
     heroGradient: 'linear-gradient(135deg,#EF4444 0%,#DC2626 100%)',
     heroIcon: '&#10007;',
-    heroChipBg: 'rgba(255,255,255,0.2)',
-    heroChipBorder: 'rgba(255,255,255,0.4)',
-    heroChipColor: '#ffffff',
+    heroChipBg: '#ffffff',
+    heroChipBorder: '#ffffff',
+    heroChipColor: '#991B1B',
     heroChipText: 'CITA CANCELADA',
     alertBg: '#FEF2F2',
     alertBorder: '#FECACA',
@@ -97,9 +97,9 @@ const VARIANT: Record<TipoEmail, {
   post_cita: {
     heroGradient: 'linear-gradient(135deg,#7C3AED 0%,#6D28D9 100%)',
     heroIcon: '&#11088;',
-    heroChipBg: 'rgba(255,255,255,0.2)',
-    heroChipBorder: 'rgba(255,255,255,0.4)',
-    heroChipColor: '#ffffff',
+    heroChipBg: '#ffffff',
+    heroChipBorder: '#ffffff',
+    heroChipColor: '#5B21B6',
     heroChipText: 'POST VISITA',
     alertBg: '#F5F3FF',
     alertBorder: '#C4B5FD',
@@ -223,8 +223,6 @@ function whatsappBtn(tel: string, msg: string): string {
 function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
   const v = VARIANT[tipo]
   const { clinica_nombre, clinica_logo_url, clinica_telefono, clinica_email } = datos
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
-  const scLogoUrl = `${appUrl}/logo-horizontal.jpg`
 
   // Clinic logo in header: use image if available, else initial avatar
   const clinicLogoHtml = clinica_logo_url
@@ -284,8 +282,21 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
               <tr>
                 <!-- SimpliClinic logo -->
                 <td style="vertical-align:middle;">
-                  <img src="${scLogoUrl}" alt="SimpliClinic" height="32"
-                       style="display:block;height:32px;width:auto;border:0;" />
+                  <table cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td style="vertical-align:middle;padding-right:8px;">
+                        <table cellpadding="0" cellspacing="0" border="0"><tr>
+                          <td align="center" valign="middle" width="30" height="30"
+                              style="width:30px;height:30px;border-radius:7px;background:#2563EB;">
+                            <span style="font-size:15px;line-height:30px;display:block;color:#ffffff;">&#10024;</span>
+                          </td>
+                        </tr></table>
+                      </td>
+                      <td style="vertical-align:middle;">
+                        <span style="font-size:19px;font-weight:900;color:#0B132B;letter-spacing:-0.6px;font-family:Arial,sans-serif;">Simpli</span><span style="font-size:19px;font-weight:900;color:#2563EB;letter-spacing:-0.6px;font-family:Arial,sans-serif;">Clinic</span>
+                      </td>
+                    </tr>
+                  </table>
                 </td>
                 <!-- Clinic name + logo -->
                 <td align="right" style="vertical-align:middle;">
@@ -343,8 +354,21 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
           <td align="center" style="background:#F8FAFC;padding:24px 36px;border-top:1px solid #E2E8F0;text-align:center;">
 
             <!-- SimpliClinic logo footer -->
-            <img src="${scLogoUrl}" alt="SimpliClinic" height="28"
-                 style="display:block;height:28px;width:auto;border:0;margin:0 auto 10px auto;" />
+            <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 10px auto;">
+              <tr>
+                <td style="vertical-align:middle;padding-right:8px;">
+                  <table cellpadding="0" cellspacing="0" border="0"><tr>
+                    <td align="center" valign="middle" width="24" height="24"
+                        style="width:24px;height:24px;border-radius:6px;background:#2563EB;">
+                      <span style="font-size:12px;line-height:24px;display:block;color:#ffffff;">&#10024;</span>
+                    </td>
+                  </tr></table>
+                </td>
+                <td style="vertical-align:middle;">
+                  <span style="font-size:17px;font-weight:900;color:#0B132B;letter-spacing:-0.5px;font-family:Arial,sans-serif;">Simpli</span><span style="font-size:17px;font-weight:900;color:#2563EB;letter-spacing:-0.5px;font-family:Arial,sans-serif;">Clinic</span>
+                </td>
+              </tr>
+            </table>
 
             <p style="margin:0 0 14px;font-size:11px;color:#94A3B8;letter-spacing:1.4px;text-transform:uppercase;">Tu cl&iacute;nica, m&aacute;s simple.</p>
             <p style="margin:0 0 8px;font-size:12px;color:#CBD5E1;">&#9993;&nbsp; hola@simpliclinic.cl &nbsp;&middot;&nbsp; &#128222;&nbsp; +56 9 0000 0000</p>
