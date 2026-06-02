@@ -14,10 +14,11 @@ export interface DatosCita {
   paciente_email?: string
   servicio_nombre: string
   profesional_nombre: string
-  fecha: string          // "martes 18 de junio"
-  hora: string           // "15:00"
-  hora_fin?: string      // "16:00"
+  fecha: string
+  hora: string
+  hora_fin?: string
   clinica_nombre: string
+  clinica_logo_url?: string
   clinica_telefono?: string
   clinica_email?: string
   clinica_direccion?: string
@@ -32,7 +33,25 @@ interface EmailPayload {
 
 // ─── HTML builders ────────────────────────────────────────────────────────────
 
-function wrapper(title: string, headerColor: string, headerIcon: string, body: string, clinicaNombre: string): string {
+function wrapper(title: string, accentColor: string, headerIcon: string, body: string, datos: DatosCita): string {
+  const { clinica_nombre, clinica_logo_url, clinica_direccion, clinica_telefono } = datos
+  const logoHtml = clinica_logo_url
+    ? `<img src="${clinica_logo_url}" width="40" height="40" style="border-radius:10px;object-fit:cover;display:block;" alt="${clinica_nombre}" />`
+    : `<div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#2563EB,#10B981);display:inline-block;text-align:center;line-height:40px;font-size:18px;font-weight:700;color:#fff;">${clinica_nombre.charAt(0).toUpperCase()}</div>`
+
+  const direccionHtml = clinica_direccion ? `
+    <tr><td style="padding:10px 32px;background:#F0F4FF;border-top:1px solid #E0E8FF;">
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+        <tr>
+          <td style="font-size:12px;color:#4B5563;">
+            <span style="font-weight:600;color:#1D4ED8;">📍 Cómo llegar</span><br/>
+            <span style="margin-top:2px;display:inline-block;">${clinica_direccion}</span>
+            ${clinica_telefono ? `&nbsp;·&nbsp;<a href="tel:${clinica_telefono}" style="color:#2563EB;text-decoration:none;">${clinica_telefono}</a>` : ''}
+          </td>
+        </tr>
+      </table>
+    </td></tr>` : ''
+
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -40,34 +59,50 @@ function wrapper(title: string, headerColor: string, headerIcon: string, body: s
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>${title}</title>
 </head>
-<body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
-  <table cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#F3F4F6;">
-    <tr><td align="center" style="padding:40px 16px;">
+<body style="margin:0;padding:0;background:#EEF2FF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
+  <table cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#EEF2FF;">
+    <tr><td align="center" style="padding:36px 16px;">
       <table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;">
-        <!-- Header -->
-        <tr><td style="background:#0B132B;padding:28px 32px;border-radius:16px 16px 0 0;">
+
+        <!-- Clinic header -->
+        <tr><td style="background:#0B132B;padding:24px 32px;border-radius:16px 16px 0 0;">
           <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
             <tr>
-              <td>
-                <p style="margin:0;font-size:20px;font-weight:700;color:#FFFFFF;letter-spacing:-0.3px;">SimpliClinic</p>
-                <p style="margin:4px 0 0;font-size:13px;color:#94A3B8;">${clinicaNombre}</p>
+              <td style="vertical-align:middle;">${logoHtml}</td>
+              <td style="padding-left:14px;vertical-align:middle;">
+                <p style="margin:0;font-size:17px;font-weight:700;color:#FFFFFF;letter-spacing:-0.2px;">${clinica_nombre}</p>
+                <p style="margin:3px 0 0;font-size:12px;color:#94A3B8;">Reserva confirmada</p>
               </td>
-              <td align="right">
-                <div style="background:${headerColor};border-radius:50%;width:42px;height:42px;display:inline-block;text-align:center;line-height:42px;font-size:20px;">${headerIcon}</div>
+              <td align="right" style="vertical-align:middle;">
+                <div style="background:${accentColor};border-radius:50%;width:38px;height:38px;display:inline-block;text-align:center;line-height:38px;font-size:18px;">${headerIcon}</div>
               </td>
             </tr>
           </table>
         </td></tr>
+
         <!-- Body -->
-        <tr><td style="background:#FFFFFF;padding:32px 32px 28px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <tr><td style="background:#FFFFFF;padding:32px 32px 24px;">
           ${body}
         </td></tr>
-        <!-- Footer -->
-        <tr><td style="background:#F9FAFB;padding:18px 32px;border-top:1px solid #E5E7EB;border-radius:0 0 16px 16px;">
-          <p style="margin:0;font-size:11px;color:#9CA3AF;text-align:center;line-height:1.5;">
-            Este es un correo automático generado por <strong>SimpliClinic</strong>. Por favor no respondas a este mensaje.
-          </p>
+
+        <!-- Directions -->
+        ${direccionHtml}
+
+        <!-- Footer SimpliClinic -->
+        <tr><td style="background:#F8FAFF;padding:16px 32px;border-top:1px solid #E5E7EB;border-radius:0 0 16px 16px;">
+          <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+            <tr>
+              <td style="font-size:11px;color:#9CA3AF;">
+                Correo automático — no responder
+              </td>
+              <td align="right">
+                <span style="font-size:11px;font-weight:700;color:#2563EB;letter-spacing:-0.2px;">SimpliClinic</span>
+                <span style="font-size:10px;color:#9CA3AF;margin-left:3px;">· Tu clínica, más simple.</span>
+              </td>
+            </tr>
+          </table>
         </td></tr>
+
       </table>
     </td></tr>
   </table>
@@ -165,7 +200,7 @@ function buildHtml(tipo: TipoEmail, datos: DatosCita): string {
         <p style="font-size:13px;color:#6B7280;margin:16px 0 0;">Si necesitas cancelar o modificar tu cita, avísanos con anticipación.</p>
         ${ctaHtml}
       `,
-      clinica_nombre,
+      datos,
     )
   }
 
@@ -193,7 +228,7 @@ function buildHtml(tipo: TipoEmail, datos: DatosCita): string {
         ${primaryCTA('Ver en agenda →', agendaUrl)}
         <p style="font-size:12px;color:#9CA3AF;margin:16px 0 0;">Este es un aviso automático de SimpliClinic.</p>
       `,
-      clinica_nombre,
+      datos,
     )
   }
 
@@ -217,7 +252,7 @@ function buildHtml(tipo: TipoEmail, datos: DatosCita): string {
         </div>
         ${ctaHtml}
       `,
-      clinica_nombre,
+      datos,
     )
   }
 
@@ -242,7 +277,7 @@ function buildHtml(tipo: TipoEmail, datos: DatosCita): string {
         <p style="margin:6px 0 0;font-size:13px;color:#DC2626;">Si fue un error o deseas reagendar, contáctanos: ${contactLine}</p>
       </div>
     `,
-    clinica_nombre,
+    datos,
   )
 }
 
