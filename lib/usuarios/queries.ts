@@ -13,15 +13,16 @@ export type UsuarioClinica = {
   email: string | null
   activo: boolean
   created_at: string
+  profesional_id: string | null
+}
+
+export const ROL_LABELS: Record<RolUsuario, string> = {
+  admin: 'Administrador',
+  profesional: 'Profesional',
+  recepcionista: 'Coordinador/a',
 }
 
 export type RolActual = RolUsuario | null
-
-const ROL_LABELS: Record<RolUsuario, string> = {
-  admin: 'Administrador',
-  profesional: 'Profesional',
-  recepcionista: 'Recepcionista',
-}
 
 export function rolLabel(rol: RolUsuario): string {
   return ROL_LABELS[rol]
@@ -46,6 +47,7 @@ export async function invitarUsuario(input: {
   nombre: string
   email: string
   rol: RolUsuario
+  profesional_id?: string
 }): Promise<{ ok: boolean; error?: string }> {
   const supabase = createClient()
 
@@ -60,6 +62,7 @@ export async function invitarUsuario(input: {
       email: input.email,
       rol: input.rol,
       clinica_id: clinicaId,
+      profesional_id: input.profesional_id ?? null,
     }),
   })
 

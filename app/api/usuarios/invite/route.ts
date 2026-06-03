@@ -8,7 +8,7 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { nombre, email, rol, clinica_id } = await request.json()
+    const { nombre, email, rol, clinica_id, profesional_id } = await request.json()
 
     if (!nombre || !email || !rol || !clinica_id) {
       return NextResponse.json({ ok: false, error: 'Faltan campos requeridos' }, { status: 400 })
@@ -61,15 +61,12 @@ export async function POST(request: NextRequest) {
     })
 
     // Insert into usuarios_clinica
+    const row: Record<string, unknown> = { clinica_id, nombre, email, rol, activo: true }
+    if (profesional_id) row.profesional_id = profesional_id
+
     const { error: insertError } = await supabaseAdmin
       .from('usuarios_clinica')
-      .insert({
-        clinica_id,
-        nombre,
-        email,
-        rol,
-        activo: true,
-      })
+      .insert(row)
 
     if (insertError) {
       return NextResponse.json({ ok: false, error: insertError.message })

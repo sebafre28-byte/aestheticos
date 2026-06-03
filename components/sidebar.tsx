@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { getClinicaBasica } from "@/lib/onboarding/queries"
 import { useRol, puedeAcceder } from "@/lib/auth/useRol"
+import { rolLabel } from "@/lib/usuarios/queries"
 
 const navItems: { href: string; label: string; icon: React.ElementType; modulo: string; proximamente?: boolean }[] = [
   { href: "/dashboard",     label: "Dashboard",     icon: LayoutDashboard, modulo: "dashboard" },
@@ -41,7 +42,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
   const { rol } = useRol()
   const [nombreUsuario, setNombreUsuario] = useState('')
   const [inicialesUsuario, setInicialesUsuario] = useState('')
-  const [rolUsuario, setRolUsuario] = useState('')
+  const rolUsuario = rol ? rolLabel(rol) : ''
   const [logoClinica, setLogoClinica] = useState('')
   const [nombreClinica, setNombreClinica] = useState('')
 
@@ -65,7 +66,6 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       setInicialesUsuario(
         display.split(' ').filter(Boolean).slice(0, 2).map((n: string) => n[0]?.toUpperCase() ?? '').join('')
       )
-      setRolUsuario(user.user_metadata?.rol ?? 'Administrador')
     })
     cargarClinica()
     window.addEventListener('clinica-updated', cargarClinica)
