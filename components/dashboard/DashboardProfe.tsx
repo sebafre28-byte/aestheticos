@@ -1,4 +1,4 @@
-import { CalendarDays, DollarSign, Users, Clock3 } from 'lucide-react'
+import { CalendarDays, Users, Clock3 } from 'lucide-react'
 import SaludoHeader from '@/components/dashboard/SaludoHeader'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { ProximasCitas } from '@/components/dashboard/ProximasCitas'
@@ -17,7 +17,7 @@ export function DashboardProfe({ data }: { data: DashboardProfeData }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <MetricCard
           title="Citas hoy"
           value={String(data.citasHoy.total)}
@@ -26,13 +26,7 @@ export function DashboardProfe({ data }: { data: DashboardProfeData }) {
           accent="primary"
         />
         <MetricCard
-          title="Ingresos del mes"
-          value={formatCLP(data.ingresosMes)}
-          icon={DollarSign}
-          accent="teal"
-        />
-        <MetricCard
-          title="Citas del mes"
+          title="Citas este mes"
           value={String(data.citasMes)}
           icon={Clock3}
           accent="navy"
@@ -40,7 +34,7 @@ export function DashboardProfe({ data }: { data: DashboardProfeData }) {
         <MetricCard
           title="Pacientes únicos"
           value={String(data.pacientesUnicos)}
-          subtitle="Este mes"
+          detail="Este mes"
           icon={Users}
           accent="primary"
         />

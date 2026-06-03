@@ -13,7 +13,10 @@ export type DashboardProfeData = {
   proximasCitas: ProximaCitaItem[]
 }
 
-export async function getDashboardDataProfe(profesionalId: string): Promise<DashboardProfeData> {
+export async function getDashboardDataProfe(profesionalId: string | null): Promise<DashboardProfeData> {
+  if (!profesionalId) {
+    return { citasHoy: { total: 0, confirmadas: 0, pendientes: 0, completadas: 0 }, ingresosMes: 0, citasMes: 0, pacientesUnicos: 0, proximasCitas: [] }
+  }
   const supabase = await createClient()
   const now = new Date()
   const startHoy = new Date(now); startHoy.setHours(0, 0, 0, 0)
