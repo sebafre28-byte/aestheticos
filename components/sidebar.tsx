@@ -18,16 +18,17 @@ import {
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { getClinicaBasica } from "@/lib/onboarding/queries"
+import { useRol, puedeAcceder } from "@/lib/auth/useRol"
 
-const navItems: { href: string; label: string; icon: React.ElementType; proximamente?: boolean }[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/agenda", label: "Agenda", icon: Calendar },
-  { href: "/pacientes", label: "Pacientes", icon: Users },
-  { href: "/servicios", label: "Servicios", icon: Syringe },
-  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { href: "/inbox", label: "Inbox", icon: MessageSquare },
-  { href: "/reportes", label: "Reportes", icon: BarChart2 },
-  { href: "/configuracion", label: "Configuración", icon: Settings },
+const navItems: { href: string; label: string; icon: React.ElementType; modulo: string; proximamente?: boolean }[] = [
+  { href: "/dashboard",     label: "Dashboard",     icon: LayoutDashboard, modulo: "dashboard" },
+  { href: "/agenda",        label: "Agenda",        icon: Calendar,        modulo: "agenda" },
+  { href: "/pacientes",     label: "Pacientes",     icon: Users,           modulo: "pacientes" },
+  { href: "/servicios",     label: "Servicios",     icon: Syringe,         modulo: "servicios" },
+  { href: "/whatsapp",      label: "WhatsApp",      icon: MessageCircle,   modulo: "whatsapp" },
+  { href: "/inbox",         label: "Inbox",         icon: MessageSquare,   modulo: "inbox" },
+  { href: "/reportes",      label: "Reportes",      icon: BarChart2,       modulo: "reportes" },
+  { href: "/configuracion", label: "Configuración", icon: Settings,        modulo: "configuracion" },
 ]
 
 function LogoIcon() {
@@ -37,6 +38,7 @@ function LogoIcon() {
 export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
   const pathname = usePathname()
   const router = useRouter()
+  const { rol } = useRol()
   const [nombreUsuario, setNombreUsuario] = useState('')
   const [inicialesUsuario, setInicialesUsuario] = useState('')
   const [rolUsuario, setRolUsuario] = useState('')
@@ -103,7 +105,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-3 space-y-0.5">
-        {navItems.map((item) => {
+        {navItems.filter(item => puedeAcceder(rol, item.modulo)).map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
           if (item.proximamente) {
