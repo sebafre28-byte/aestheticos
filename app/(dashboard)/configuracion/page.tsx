@@ -348,8 +348,8 @@ function ModalProfesional({
     // Cargar clinicaId
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
-      const { data } = await supabase.from("clinicas").select("id").eq("owner_id", user.id).single()
-      if (data) setClinicaId(data.id)
+      const { data } = await supabase.rpc("auth_clinica_id")
+      if (data) setClinicaId(data as string)
     })
     // Cargar servicios activos
     supabase.from("servicios").select("id, nombre, duracion_minutos, precio").eq("activo", true).order("nombre").then(({ data }) => {

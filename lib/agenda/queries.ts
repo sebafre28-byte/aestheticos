@@ -961,18 +961,9 @@ export async function eliminarBloqueo(id: string): Promise<boolean> {
 
 export async function getClinicaId(): Promise<string | null> {
   const supabase = createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data, error } = await supabase
-    .from('clinicas')
-    .select('id')
-    .eq('owner_id', user.id)
-    .single()
-
+  const { data, error } = await supabase.rpc('auth_clinica_id')
   if (error) return null
-  return data?.id ?? null
+  return (data as string | null) ?? null
 }
 
 export async function getCitasFuturasPaciente(pacienteId: string): Promise<CitaConRelaciones[]> {
