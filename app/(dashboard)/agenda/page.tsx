@@ -9,11 +9,16 @@ export default async function AgendaPage() {
   ])
 
   const esProfe = rol === 'profesional'
+  // Si es profesional pero sin profesional_id vinculado, usamos un UUID imposible
+  // para que solo vea una agenda vacía (no la de todos)
+  const profesionalPropio = esProfe
+    ? (profesionalId as string | null) ?? '00000000-0000-0000-0000-000000000000'
+    : undefined
 
   return (
     <AgendaView
       isVistaProfe={esProfe}
-      profesionalPropio={esProfe && profesionalId ? profesionalId : undefined}
+      profesionalPropio={profesionalPropio}
     />
   )
 }
