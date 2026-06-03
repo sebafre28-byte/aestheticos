@@ -7,6 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { SimpliClinicLogo } from '@/components/ui/SimpliClinicLogo'
 
+// Single shared Supabase instance so setSession and updateUser use the same client
+const supabase = createClient()
+
 export default function InviteAcceptPage() {
   const router = useRouter()
   const [ready, setReady] = useState(false)
@@ -19,15 +22,29 @@ export default function InviteAcceptPage() {
   const [clinicaNombre, setClinicaNombre] = useState('')
 
   useEffect(() => {
-    const supabase = createClient()
-    // When Supabase processes the invite token it fires SIGNED_IN with user_metadata
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setNombre(user.user_metadata?.nombre ?? '')
-        setClinicaNombre('')
-        setReady(true)
-      }
-    })
+    // Parse hash params and set session manually if access_token is present
+    const hash = window.location.hash.substring(1)
+    const params = new URLSearchParams(hash)
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+
+    if (accessToken && refreshToken) {
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ data }) => {
+        if (data.user) {
+          setNombre(data.user.user_metadata?.nombre ?? '')
+          setReady(true)
+        }
+      })
+    } else {
+      // Fallback: already signed in
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          setNombre(user.user_metadata?.nombre ?? '')
+          setReady(true)
+        }
+      })
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setNombre(session.user.user_metadata?.nombre ?? '')
@@ -55,7 +72,6 @@ export default function InviteAcceptPage() {
     }
 
     setLoading(true)
-    const supabase = createClient()
     const { error: updateError } = await supabase.auth.updateUser({ password })
 
     if (updateError) {
@@ -68,7 +84,7 @@ export default function InviteAcceptPage() {
     await fetch('/api/usuarios/activate', { method: 'POST' })
 
     setDone(true)
-    setTimeout(() => router.push('/dashboard'), 2500)
+    setTimeout(() => { window.location.href = '/dashboard' }, 2500)
   }
 
   if (done) {

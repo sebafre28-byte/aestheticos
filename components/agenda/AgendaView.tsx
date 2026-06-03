@@ -146,9 +146,11 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
       const fechaStr = format(fechaActual, 'yyyy-MM-dd')
 
+      const profeFilter = isVistaProfe && profesionalPropio ? profesionalPropio : undefined
+
       if (vista === 'dia' || vista === 'lista') {
         const [citasDia, bloquesDia] = await Promise.all([
-          getCitasDelDia(fechaStr),
+          getCitasDelDia(fechaStr, profeFilter),
           getBloqueos(fechaStr),
         ])
         datos = citasDia
@@ -159,7 +161,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
         const lunesStr = format(lunes, 'yyyy-MM-dd')
         const domingoStr = format(domingo, 'yyyy-MM-dd')
         const [citasSemana, bloquesSemana] = await Promise.all([
-          getCitasDeSemana(lunesStr, domingoStr),
+          getCitasDeSemana(lunesStr, domingoStr, profeFilter),
           getBloqueosRango(`${lunesStr}T00:00:00`, `${domingoStr}T23:59:59`),
         ])
         datos = citasSemana
@@ -171,15 +173,11 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
         const inicioStr = format(inicioMes, 'yyyy-MM-dd')
         const finStr = format(finMes, 'yyyy-MM-dd')
         const [citasMes, bloquesMes] = await Promise.all([
-          getCitasDelMes(inicioStr, finStr),
+          getCitasDelMes(inicioStr, finStr, profeFilter),
           getBloqueosRango(`${inicioStr}T00:00:00`, `${finStr}T23:59:59`),
         ])
         datos = citasMes
         setBloqueos(bloquesMes as BloqueoProfesional[])
-      }
-
-      if (isVistaProfe && profesionalPropio) {
-        datos = datos.filter((c) => c.profesional_id === profesionalPropio)
       }
 
       setCitas(datos)

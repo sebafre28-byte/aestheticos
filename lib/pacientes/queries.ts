@@ -51,6 +51,7 @@ type PacientesParams = {
   filtro?: 'todos' | 'activos' | 'nuevos'
   page?: number
   pageSize?: number
+  profesionalId?: string
 }
 
 export async function getClinicaId(): Promise<string | null> {
@@ -73,11 +74,56 @@ export async function getPacientes({
   filtro = 'todos',
   page = 1,
   pageSize = 20,
+  profesionalId,
 }: PacientesParams): Promise<{ items: PacienteListaItem[]; total: number }> {
   const supabase = createClient()
   const termino = busqueda.trim()
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
+
+  // Profesional scope: only patients with a cita assigned to them
+  if (profesionalId) {
+    const { data: citasIds } = await supabase
+      .from('citas')
+      .select('paciente_id')
+      .eq('profesional_id', profesionalId)
+    const ids = [...new Set((citasIds ?? []).map((c: { paciente_id: string }) => c.paciente_id))]
+    if (ids.length === 0) return { items: [], total: 0 }
+
+    let query = supabase
+      .from('pacientes')
+      .select('*', { count: 'exact' })
+      .in('id', ids)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    if (termino) query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${termino}%`)
+    if (filtro === 'activos') query = query.eq('activo', true)
+    if (filtro === 'nuevos') query = query.gte('created_at', subDays(new Date(), 30).toISOString())
+
+    const { data, error, count } = await query
+    if (error) return { items: [], total: 0 }
+    const pacientes = (data ?? []) as PacienteRow[]
+    if (pacientes.length === 0) return { items: [], total: count ?? 0 }
+
+    const pacienteIds = pacientes.map((p) => p.id)
+    const { data: citasData } = await supabase.from('citas').select('paciente_id, inicio').in('paciente_id', pacienteIds).order('inicio', { ascending: false })
+    const statsPorPaciente = new Map<string, { total: number; ultima: string | null }>()
+    for (const p of pacientes) statsPorPaciente.set(p.id, { total: 0, ultima: null })
+    for (const cita of citasData ?? []) {
+      const prev = statsPorPaciente.get(cita.paciente_id)
+      if (!prev) continue
+      prev.total += 1
+      if (!prev.ultima || cita.inicio > prev.ultima) prev.ultima = cita.inicio
+    }
+    return {
+      items: pacientes.map((p) => {
+        const stats = statsPorPaciente.get(p.id)
+        return { ...p, totalCitas: stats?.total ?? 0, ultimaCita: stats?.ultima ?? null }
+      }),
+      total: count ?? 0,
+    }
+  }
 
   let query = supabase
     .from('pacientes')
