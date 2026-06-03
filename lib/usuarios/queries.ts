@@ -86,10 +86,11 @@ export async function toggleActivoUsuario(id: string, activo: boolean): Promise<
 }
 
 export async function eliminarUsuario(id: string): Promise<boolean> {
-  const supabase = createClient()
-  const { error } = await supabase
-    .from('usuarios_clinica')
-    .delete()
-    .eq('id', id)
-  return !error
+  const res = await fetch('/api/usuarios/delete', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  })
+  const json = await res.json()
+  return json.ok === true
 }
