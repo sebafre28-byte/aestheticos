@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     // Generate invite link (does not send email automatically)
     const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
-    const redirectTo = `${base}/api/auth/callback?next=/invite/accept`
+    const redirectTo = `${base}/invite/accept`
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'invite',
       email,
