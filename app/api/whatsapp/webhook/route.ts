@@ -26,8 +26,8 @@ function twilioEmptyOk() {
 function verifyMetaSignature(rawBody: Buffer, signature: string | null): boolean {
   const secret = process.env.META_APP_SECRET
   if (!secret) {
-    console.warn('[whatsapp/webhook] META_APP_SECRET no configurado, saltando verificación de firma')
-    return true
+    console.error('[whatsapp/webhook] META_APP_SECRET no configurado — rechazando petición')
+    return false
   }
   if (!signature?.startsWith('sha256=')) return false
   const expected = createHmac('sha256', secret).update(rawBody).digest('hex')

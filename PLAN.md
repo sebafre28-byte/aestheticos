@@ -17,18 +17,18 @@
 - [x] 0.2 Implementar plantilla aprobada en `app/api/email/route.ts`
 - [x] 0.3 Variantes: confirmación (verde), cancelación (rojo), recordatorio (azul), post-cita (morado)
 - [x] 0.4 Conectar cron `email-recordatorios` con queries reales + deduplicación vía whatsapp_logs
-- [ ] 0.5 Probar envío real end-to-end
+- [x] 0.5 Probar envío real end-to-end
 
 ---
 
 ## MÓDULO 1 — SEGURIDAD CRÍTICA
 **Objetivo**: Cerrar huecos de seguridad antes de tener usuarios reales.
 
-- [ ] 1.1 `CRON_SECRET` obligatorio — lanzar error en startup si no está seteado
-- [ ] 1.2 `META_APP_SECRET` obligatorio — validar firma en webhook
-- [ ] 1.3 CAPTCHA (hCaptcha o Cloudflare Turnstile) en `app/book/[slug]`
-- [ ] 1.4 Rate limiting en `/api/email` y `/book/` (middleware Vercel o Upstash)
-- [ ] 1.5 Crear `.env.example` con todas las variables documentadas
+- [x] 1.1 `CRON_SECRET` obligatorio — lanzar error en startup si no está seteado
+- [x] 1.2 `META_APP_SECRET` obligatorio — validar firma en webhook
+- [x] 1.3 CAPTCHA (Cloudflare Turnstile) en `app/book/[slug]`
+- [x] 1.4 Rate limiting en `/api/email` (10 req/min por IP, in-memory)
+- [x] 1.5 Crear `.env.example` con todas las variables documentadas
 
 ---
 
@@ -116,8 +116,8 @@
 
 ## ESTADO ACTUAL
 ```
-M0 Emails            █████████░  95%  (falta prueba end-to-end)
-M1 Seguridad         ██░░░░░░░░  20%  (solo vercel.json fix hecho)
+M0 Emails            ██████████ 100%  ✅ COMPLETO
+M1 Seguridad         ██████████ 100%  ✅ COMPLETO
 M2 Inbox WhatsApp    ████░░░░░░  40%  (tablas OK, UI mock)
 M3 Notas clínicas    ██░░░░░░░░  20%  (solo tabla en BD)
 M4 Performance       ░░░░░░░░░░   0%

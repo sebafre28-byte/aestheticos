@@ -1,5 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// ─── Rate limiter ─────────────────────────────────────────────────────────────
+
+// Simple in-memory rate limiter — resets on cold start (acceptable for serverless)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT = 10       // max requests
+const RATE_WINDOW = 60_000  // per 60 seconds
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW })
+    return true
+  }
+  if (entry.count >= RATE_LIMIT) return false
+  entry.count++
+  return true
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type TipoEmail =
@@ -528,6 +547,11 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     return NextResponse.json({ ok: false, reason: 'RESEND_API_KEY not configured' }, { status: 200 })
+  }
+
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json({ ok: false, reason: 'Too many requests' }, { status: 429 })
   }
 
   let payload: EmailPayload
