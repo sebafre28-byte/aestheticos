@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
+import { usePresenceOnline } from "@/lib/auth/usePresence"
 import { PLAN_LABELS } from "@/lib/subscriptions/queries"
 import { useAcceso } from "@/components/auth/RolGuard"
 import { Button } from "@/components/ui/button"
@@ -1329,6 +1330,7 @@ function SeccionUsuarios() {
   const [showModal, setShowModal] = useState(false)
   const [confirmEliminar, setConfirmEliminar] = useState<UsuarioClinica | null>(null)
   const [procesando, setProcesando] = useState<string | null>(null)
+  const onlineIds = usePresenceOnline()
 
   async function handleReenviar(u: UsuarioClinica) {
     if (!u.email) return
@@ -1405,9 +1407,14 @@ function SeccionUsuarios() {
         <div className="space-y-2">
           {usuarios.map((u) => (
             <div key={u.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${u.activo ? "border-gray-100 bg-gray-50" : "border-gray-100 bg-gray-50 opacity-60"}`}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold"
-                style={{ background: u.activo ? "linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)" : "#94A3B8" }}>
-                {u.nombre[0]?.toUpperCase() ?? "?"}
+              <div className="relative shrink-0">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold"
+                  style={{ background: u.activo ? "linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)" : "#94A3B8" }}>
+                  {u.nombre[0]?.toUpperCase() ?? "?"}
+                </div>
+                {u.user_id && (
+                  <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${onlineIds.has(u.user_id) ? 'bg-emerald-400' : 'bg-gray-300'}`} />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
