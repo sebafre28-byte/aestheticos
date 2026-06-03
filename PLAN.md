@@ -17,7 +17,7 @@
 - [x] 0.2 Implementar plantilla aprobada en `app/api/email/route.ts`
 - [x] 0.3 Variantes: confirmación (verde), cancelación (rojo), recordatorio (azul), post-cita (morado)
 - [x] 0.4 Conectar cron `email-recordatorios` con queries reales + deduplicación vía whatsapp_logs
-- [ ] 0.5 Probar envío real end-to-end
+- [x] 0.5 Probar envío real end-to-end
 
 ---
 
@@ -116,8 +116,9 @@
 
 ## ESTADO ACTUAL
 ```
-M0 Emails            █████████░  95%  (falta prueba end-to-end)
-M1 Seguridad         ██░░░░░░░░  20%  (solo vercel.json fix hecho)
+M0 Emails            ██████████ 100%  ✅ COMPLETO
+M1 Seguridad         ░░░░░░░░░░   0%  ← EN CURSO
+M1 Seguridad         ░░░░░░░░░░   0%  ← EN CURSO
 M2 Inbox WhatsApp    ████░░░░░░  40%  (tablas OK, UI mock)
 M3 Notas clínicas    ██░░░░░░░░  20%  (solo tabla en BD)
 M4 Performance       ░░░░░░░░░░   0%
