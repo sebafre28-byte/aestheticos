@@ -24,11 +24,11 @@
 ## MÓDULO 1 — SEGURIDAD CRÍTICA
 **Objetivo**: Cerrar huecos de seguridad antes de tener usuarios reales.
 
-- [x] 1.1 `CRON_SECRET` obligatorio — lanzar error en startup si no está seteado
-- [x] 1.2 `META_APP_SECRET` obligatorio — validar firma en webhook
-- [x] 1.3 CAPTCHA (Cloudflare Turnstile) en `app/book/[slug]`
-- [x] 1.4 Rate limiting en `/api/email` (10 req/min por IP, in-memory)
-- [x] 1.5 Crear `.env.example` con todas las variables documentadas
+- [ ] 1.1 `CRON_SECRET` obligatorio — lanzar error en startup si no está seteado
+- [ ] 1.2 `META_APP_SECRET` obligatorio — validar firma en webhook
+- [ ] 1.3 CAPTCHA (hCaptcha o Cloudflare Turnstile) en `app/book/[slug]`
+- [ ] 1.4 Rate limiting en `/api/email` y `/book/` (middleware Vercel o Upstash)
+- [ ] 1.5 Crear `.env.example` con todas las variables documentadas
 
 ---
 
@@ -117,7 +117,8 @@
 ## ESTADO ACTUAL
 ```
 M0 Emails            ██████████ 100%  ✅ COMPLETO
-M1 Seguridad         ██████████ 100%  ✅ COMPLETO
+M1 Seguridad         ░░░░░░░░░░   0%  ← EN CURSO
+M1 Seguridad         ░░░░░░░░░░   0%  ← EN CURSO
 M2 Inbox WhatsApp    ████░░░░░░  40%  (tablas OK, UI mock)
 M3 Notas clínicas    ██░░░░░░░░  20%  (solo tabla en BD)
 M4 Performance       ░░░░░░░░░░   0%
