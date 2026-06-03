@@ -84,7 +84,7 @@ export default function InviteAcceptPage() {
     await fetch('/api/usuarios/activate', { method: 'POST' })
 
     setDone(true)
-    setTimeout(() => router.push('/dashboard'), 2500)
+    setTimeout(() => { window.location.href = '/dashboard' }, 2500)
   }
 
   if (done) {
