@@ -21,12 +21,22 @@ function checkRateLimit(ip: string): boolean {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type TipoEmail =
+export type TipoEmailCita =
   | 'confirmacion_cita'
   | 'nueva_reserva_admin'
   | 'recordatorio_cita'
   | 'cancelacion_cita'
   | 'post_cita'
+
+export type TipoEmail = TipoEmailCita | 'invitacion_equipo'
+
+export interface DatosInvitacion {
+  nombre_invitado: string
+  rol: string
+  clinica_nombre: string
+  clinica_logo_url?: string
+  invite_url: string
+}
 
 export interface DatosCita {
   paciente_nombre: string
@@ -45,15 +55,10 @@ export interface DatosCita {
   canal?: 'book' | 'agenda' | 'whatsapp'
 }
 
-interface EmailPayload {
-  tipo: TipoEmail
-  destinatario: string
-  datos: DatosCita
-}
 
 const SC_LOGO_URL = 'https://rkcgnnzimwemrtavtinw.supabase.co/storage/v1/object/public/assets/Logos/Logo%20SimpliClinic.png'
 
-const VARIANT: Record<TipoEmail, {
+const VARIANT: Record<TipoEmailCita, {
   heroGradient: string
   heroIcon: string
   heroChipBg: string
@@ -239,7 +244,7 @@ function whatsappBtn(tel: string, msg: string): string {
 
 // ─── Full email wrapper ────────────────────────────────────────────────────────
 
-function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
+function buildEmail(tipo: TipoEmailCita, datos: DatosCita, body: string): string {
   const v = VARIANT[tipo]
   const { clinica_nombre, clinica_logo_url, clinica_telefono, clinica_email } = datos
 
@@ -385,7 +390,7 @@ function buildEmail(tipo: TipoEmail, datos: DatosCita, body: string): string {
 
 // ─── Email body per type ──────────────────────────────────────────────────────
 
-function buildBody(tipo: TipoEmail, datos: DatosCita): string {
+function buildBody(tipo: TipoEmailCita, datos: DatosCita): string {
   const v = VARIANT[tipo]
   const card = detailsCard(datos)
   const { paciente_nombre, clinica_nombre, clinica_telefono, clinica_email } = datos
@@ -532,13 +537,46 @@ function buildBody(tipo: TipoEmail, datos: DatosCita): string {
 
 // ─── Subject lines ────────────────────────────────────────────────────────────
 
-function getSubject(tipo: TipoEmail, datos: DatosCita): string {
+function getSubject(tipo: TipoEmailCita, datos: DatosCita): string {
   const c = datos.clinica_nombre
   if (tipo === 'confirmacion_cita')   return `Tu cita está confirmada — ${datos.fecha} ${datos.hora} · ${c}`
   if (tipo === 'nueva_reserva_admin') return `Nueva reserva: ${datos.paciente_nombre} · ${datos.fecha} ${datos.hora}`
   if (tipo === 'recordatorio_cita')   return `Recuerda tu cita el ${datos.fecha} a las ${datos.hora} · ${c}`
   if (tipo === 'post_cita')           return `¿Cómo fue tu visita? · ${c}`
   return `Tu cita fue cancelada · ${c}`
+}
+
+// ─── Invite email ─────────────────────────────────────────────────────────────
+
+function buildInviteEmail(d: DatosInvitacion): { subject: string; html: string } {
+  const rolLabel: Record<string, string> = { admin: 'Administrador', profesional: 'Profesional', recepcionista: 'Recepcionista' }
+  const subject = `Te invitaron a ${d.clinica_nombre} en SimpliClinic`
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${subject}</title></head><body style="margin:0;padding:0;background:#F1F5F9;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F1F5F9;padding:32px 0;">
+  <tr><td align="center">
+    <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+      <tr><td style="background:linear-gradient(135deg,#2563EB 0%,#14B8A6 100%);padding:40px 40px 32px;text-align:center;">
+        ${d.clinica_logo_url ? `<img src="${d.clinica_logo_url}" width="52" height="52" style="border-radius:12px;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;" alt="Logo">` : ''}
+        <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">¡Tienes una invitación!</h1>
+        <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.85);">${d.clinica_nombre} te invita a unirte a su equipo</p>
+      </td></tr>
+      <tr><td style="padding:36px 40px;">
+        <p style="margin:0 0 12px;font-size:15px;color:#1E293B;">Hola <strong>${d.nombre_invitado}</strong>,</p>
+        <p style="margin:0 0 24px;font-size:14px;color:#475569;line-height:1.6;">Has sido invitado/a a unirte a <strong>${d.clinica_nombre}</strong> como <strong>${rolLabel[d.rol] ?? d.rol}</strong> en SimpliClinic. Haz clic en el botón para crear tu cuenta y empezar.</p>
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;"><tr><td style="background:linear-gradient(135deg,#2563EB 0%,#1D4ED8 100%);border-radius:10px;">
+          <a href="${d.invite_url}" style="display:inline-block;padding:14px 32px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">Aceptar invitación →</a>
+        </td></tr></table>
+        <p style="margin:0;font-size:12px;color:#94A3B8;text-align:center;">Este enlace expira en 24 horas. Si no esperabas esta invitación, puedes ignorar este mensaje.</p>
+      </td></tr>
+      <tr><td style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:20px 40px;text-align:center;">
+        <img src="${SC_LOGO_URL}" width="100" alt="SimpliClinic" style="opacity:0.5;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;">
+        <p style="margin:0;font-size:11px;color:#94A3B8;">Tu clínica, más simple.</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`
+  return { subject, html }
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
@@ -554,7 +592,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: 'Too many requests' }, { status: 429 })
   }
 
-  let payload: EmailPayload
+  let payload: { tipo: string; destinatario: string; datos: DatosCita | DatosInvitacion }
   try {
     payload = await req.json()
   } catch {
@@ -566,8 +604,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: 'Missing required fields' }, { status: 400 })
   }
 
-  const html = buildEmail(tipo, datos, buildBody(tipo, datos))
-  const subject = getSubject(tipo, datos)
+  let html: string
+  let subject: string
+
+  if (tipo === 'invitacion_equipo') {
+    const inv = buildInviteEmail(datos as DatosInvitacion)
+    html = inv.html
+    subject = inv.subject
+  } else {
+    const t = tipo as TipoEmailCita
+    html = buildEmail(t, datos as DatosCita, buildBody(t, datos as DatosCita))
+    subject = getSubject(t, datos as DatosCita)
+  }
 
   try {
     const res = await fetch('https://api.resend.com/emails', {

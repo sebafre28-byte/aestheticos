@@ -1348,7 +1348,12 @@ function SeccionUsuarios() {
                 {u.nombre[0]?.toUpperCase() ?? "?"}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-gray-900 leading-tight truncate">{u.nombre}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[13px] font-semibold text-gray-900 leading-tight truncate">{u.nombre}</p>
+                  {!u.user_id && (
+                    <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">Pendiente</span>
+                  )}
+                </div>
                 <p className="text-[11px] text-gray-400 truncate">{u.email ?? "Sin email"}</p>
               </div>
               <div className="shrink-0">
