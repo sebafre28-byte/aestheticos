@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { getClinicaBasica } from "@/lib/onboarding/queries"
 
-const navItems = [
+const navItems: { href: string; label: string; icon: React.ElementType; proximamente?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agenda", label: "Agenda", icon: Calendar },
   { href: "/pacientes", label: "Pacientes", icon: Users },
