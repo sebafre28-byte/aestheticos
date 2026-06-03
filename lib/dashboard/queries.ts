@@ -5,6 +5,80 @@ import { createClient } from '@/lib/supabase/server'
 import { endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 
+export type DashboardProfeData = {
+  citasHoy: { total: number; confirmadas: number; pendientes: number; completadas: number }
+  ingresosMes: number
+  citasMes: number
+  pacientesUnicos: number
+  proximasCitas: ProximaCitaItem[]
+}
+
+export async function getDashboardDataProfe(profesionalId: string): Promise<DashboardProfeData> {
+  const supabase = await createClient()
+  const now = new Date()
+  const startHoy = new Date(now); startHoy.setHours(0, 0, 0, 0)
+  const endHoy = new Date(now); endHoy.setHours(23, 59, 59, 999)
+  const monthStart = startOfMonth(now)
+  const monthEnd = endOfMonth(now)
+
+  const [citasHoyResult, citasMesResult] = await Promise.all([
+    supabase.from('citas')
+      .select('id, estado, pago_monto, pago_estado, inicio, pacientes(nombre), servicios(nombre, precio)')
+      .eq('profesional_id', profesionalId)
+      .gte('inicio', startHoy.toISOString())
+      .lte('inicio', endHoy.toISOString())
+      .order('inicio', { ascending: true }),
+    supabase.from('citas')
+      .select('id, estado, pago_monto, pago_estado, paciente_id')
+      .eq('profesional_id', profesionalId)
+      .gte('inicio', monthStart.toISOString())
+      .lte('inicio', monthEnd.toISOString()),
+  ])
+
+  const citasHoy = (citasHoyResult.data ?? []) as unknown as Array<{
+    id: string; estado: string; pago_monto: number; pago_estado: string; inicio: string;
+    pacientes: { nombre: string } | { nombre: string }[] | null; servicios: { nombre: string; precio: number } | { nombre: string; precio: number }[] | null
+  }>
+  const citasMes = (citasMesResult.data ?? []) as Array<{
+    id: string; estado: string; pago_monto: number; pago_estado: string; paciente_id: string
+  }>
+
+  const ingresosMes = citasMes
+    .filter(c => c.estado !== 'cancelada' && c.estado !== 'no_asistio')
+    .reduce((acc, c) => acc + montoIngresoCobrado(c.pago_estado as 'pendiente' | 'pagado' | 'parcial', c.pago_monto ?? 0), 0)
+
+  const pacientesUnicos = new Set(citasMes.filter(c => c.estado !== 'cancelada').map(c => c.paciente_id)).size
+
+  const proximas = citasHoy
+    .filter(c => c.estado !== 'cancelada' && c.estado !== 'no_asistio' && new Date(c.inicio) >= now)
+    .slice(0, 5)
+    .map(c => {
+      const pac = Array.isArray(c.pacientes) ? c.pacientes[0] : c.pacientes
+      const serv = Array.isArray(c.servicios) ? c.servicios[0] : c.servicios
+      return {
+        id: c.id,
+        hora: format(new Date(c.inicio), 'HH:mm'),
+        paciente: pac?.nombre ?? '—',
+        servicio: serv?.nombre ?? '—',
+        profesional: '',
+        estado: c.estado as 'pendiente' | 'confirmada' | 'completada' | 'cancelada' | 'no_asistio',
+      }
+    })
+
+  return {
+    citasHoy: {
+      total: citasHoy.length,
+      confirmadas: citasHoy.filter(c => c.estado === 'confirmada').length,
+      pendientes: citasHoy.filter(c => c.estado === 'pendiente').length,
+      completadas: citasHoy.filter(c => c.estado === 'completada').length,
+    },
+    ingresosMes,
+    citasMes: citasMes.filter(c => c.estado !== 'cancelada' && c.estado !== 'no_asistio').length,
+    pacientesUnicos,
+    proximasCitas: proximas,
+  }
+}
+
 type EstadoCita = 'pendiente' | 'confirmada' | 'completada' | 'cancelada' | 'no_asistio'
 type PagoEstado = 'pendiente' | 'pagado' | 'parcial'
 
