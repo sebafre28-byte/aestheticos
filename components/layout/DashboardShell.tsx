@@ -4,9 +4,11 @@ import { useState } from 'react'
 import { Sidebar } from '@/components/sidebar'
 import { MobileHeader } from '@/components/layout/MobileHeader'
 import { TrialBanner } from '@/components/subscriptions/TrialBanner'
+import { usePresenceBroadcast } from '@/lib/auth/usePresence'
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  usePresenceBroadcast()
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
