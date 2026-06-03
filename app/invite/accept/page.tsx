@@ -20,14 +20,30 @@ export default function InviteAcceptPage() {
 
   useEffect(() => {
     const supabase = createClient()
-    // When Supabase processes the invite token it fires SIGNED_IN with user_metadata
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setNombre(user.user_metadata?.nombre ?? '')
-        setClinicaNombre('')
-        setReady(true)
-      }
-    })
+
+    // Parse hash params and set session manually if access_token is present
+    const hash = window.location.hash.substring(1)
+    const params = new URLSearchParams(hash)
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+
+    if (accessToken && refreshToken) {
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ data }) => {
+        if (data.user) {
+          setNombre(data.user.user_metadata?.nombre ?? '')
+          setReady(true)
+        }
+      })
+    } else {
+      // Fallback: already signed in
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          setNombre(user.user_metadata?.nombre ?? '')
+          setReady(true)
+        }
+      })
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setNombre(session.user.user_metadata?.nombre ?? '')
