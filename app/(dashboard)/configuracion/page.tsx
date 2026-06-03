@@ -1413,7 +1413,7 @@ function SeccionUsuarios() {
                 </div>
                 {u.user_id && (() => {
                   const { color } = formatLastSeen(u.last_seen_at)
-                  return <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${color}`} title={formatLastSeen(u.last_seen_at).label} />
+                  return <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${color}`} title={formatLastSeen(u.last_seen_at).label} />
                 })()}
               </div>
               <div className="flex-1 min-w-0">

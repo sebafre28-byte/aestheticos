@@ -19,7 +19,7 @@ export function usePresenceBroadcast() {
 }
 
 export function formatLastSeen(lastSeen: string | null | undefined): { label: string; color: string } {
-  if (!lastSeen) return { label: 'Nunca', color: 'bg-gray-300' }
+  if (!lastSeen) return { label: 'Sin actividad', color: 'bg-gray-400' }
   const diff = Date.now() - new Date(lastSeen).getTime()
   const min = Math.floor(diff / 60000)
   const hrs = Math.floor(diff / 3600000)
