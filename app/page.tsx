@@ -1,7 +1,8 @@
 "use client"
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   CalendarDays, Users, MessageCircle, BarChart2, Clock, CheckCircle,
   ArrowRight, Star, Zap, Shield, ChevronRight, Bot, Menu, X,
@@ -749,9 +750,24 @@ function Footer() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+function InviteRedirectHandler() {
+  const router = useRouter()
+  const handled = useRef(false)
+  useEffect(() => {
+    if (handled.current) return
+    const hash = window.location.hash
+    if (hash.includes('access_token') && hash.includes('type=invite')) {
+      handled.current = true
+      router.replace('/invite/accept' + hash)
+    }
+  }, [router])
+  return null
+}
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
+      <InviteRedirectHandler />
       <NavBar />
       <main>
         <Hero />
