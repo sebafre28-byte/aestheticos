@@ -15,10 +15,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate invite link (does not send email automatically)
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
+    const redirectTo = `${base}/api/auth/callback?next=/invite/accept`
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'invite',
       email,
-      options: { data: { nombre, rol, clinica_id } },
+      options: { data: { nombre, rol, clinica_id }, redirectTo },
     })
 
     if (linkError) {
@@ -42,7 +44,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     // Send branded invite email via Resend
-    const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
     await fetch(`${base}/api/email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
