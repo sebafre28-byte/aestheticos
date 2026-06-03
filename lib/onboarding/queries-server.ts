@@ -37,6 +37,15 @@ export async function needsOnboarding(): Promise<boolean> {
   } = await supabase.auth.getUser()
   if (!user) return false
 
+  // Usuarios invitados (no owners) nunca necesitan onboarding
+  const { data: clinicaPropia } = await supabase
+    .from('clinicas')
+    .select('id')
+    .eq('owner_id', user.id)
+    .maybeSingle()
+
+  if (!clinicaPropia) return false
+
   const [profesionales, servicios] = await Promise.all([
     supabase.from('profesionales').select('id', { count: 'exact', head: true }).eq('activo', true),
     supabase.from('servicios').select('id', { count: 'exact', head: true }).eq('activo', true),
