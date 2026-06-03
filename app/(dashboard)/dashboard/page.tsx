@@ -9,7 +9,9 @@ import { ProximasCitas } from '@/components/dashboard/ProximasCitas'
 import { TopServicios } from '@/components/dashboard/TopServicios'
 import { GraficoVentas } from '@/components/dashboard/GraficoVentas'
 import { GraficoCitasSemana } from '@/components/dashboard/GraficoCitasSemana'
-import { getDashboardData } from '@/lib/dashboard/queries'
+import { getDashboardData, getDashboardDataProfe } from '@/lib/dashboard/queries'
+import { createClient } from '@/lib/supabase/server'
+import { DashboardProfe } from '@/components/dashboard/DashboardProfe'
 
 function formatCLP(value: number) {
   return new Intl.NumberFormat('es-CL', {
@@ -32,6 +34,17 @@ function OcupacionColor({ tasa }: { tasa: number }) {
 }
 
 export default async function DashboardPage() {
+  const supabase = await createClient()
+  const [{ data: rol }, { data: profesionalId }] = await Promise.all([
+    supabase.rpc('auth_rol_usuario'),
+    supabase.rpc('auth_profesional_id'),
+  ])
+
+  if (rol === 'profesional' && profesionalId) {
+    const profeData = await getDashboardDataProfe(profesionalId)
+    return <DashboardProfe data={profeData} />
+  }
+
   const data = await getDashboardData()
 
   const varIngresos = variacionPct(data.ingresosMes, data.ingresosMesAnterior)

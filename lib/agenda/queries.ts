@@ -195,23 +195,19 @@ export type AuditLogRow = {
 
 // ─── Citas del día con joins completos ────────────────────────────────────────
 
-export async function getCitasDelDia(fecha: string): Promise<CitaConRelaciones[]> {
-  return withCache(`citas-dia:${fecha}`, 20_000, async () => {
+export async function getCitasDelDia(fecha: string, profesionalId?: string): Promise<CitaConRelaciones[]> {
+  return withCache(`citas-dia:${fecha}:${profesionalId ?? 'all'}`, 20_000, async () => {
     const supabase = createClient()
-    const { data, error } = await withRetry<SupabaseListResult<CitaConRelaciones>>(() =>
-      supabase
-        .from('citas')
-        .select(`
-          *,
-          pacientes(*),
-          profesionales(*),
-          servicios(*)
-        `)
-        .gte('inicio', `${fecha}T00:00:00`)
-        .lte('inicio', `${fecha}T23:59:59`)
-        .order('inicio', { ascending: true })
-    )
+    let query = supabase
+      .from('citas')
+      .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+      .gte('inicio', `${fecha}T00:00:00`)
+      .lte('inicio', `${fecha}T23:59:59`)
+      .order('inicio', { ascending: true })
 
+    if (profesionalId) query = query.eq('profesional_id', profesionalId)
+
+    const { data, error } = await withRetry<SupabaseListResult<CitaConRelaciones>>(() => query)
     if (error) {
       console.error('Error getCitasDelDia:', error)
       return []
@@ -255,19 +251,22 @@ export async function getCitasDeSemana(
 }
 
 export async function getCitasDelMes(
-  fechaInicio: string,  // 'yyyy-MM-dd' first day of month
-  fechaFin: string,     // 'yyyy-MM-dd' last day of month
+  fechaInicio: string,
+  fechaFin: string,
+  profesionalId?: string,
 ): Promise<CitaConRelaciones[]> {
-  return withCache(`citas-mes:${fechaInicio}:${fechaFin}`, 30_000, async () => {
+  return withCache(`citas-mes:${fechaInicio}:${fechaFin}:${profesionalId ?? 'all'}`, 30_000, async () => {
     const supabase = createClient()
-    const { data, error } = await withRetry<SupabaseListResult<CitaConRelaciones>>(() =>
-      supabase
-        .from('citas')
-        .select(`*, pacientes(*), profesionales(*), servicios(*)`)
-        .gte('inicio', `${fechaInicio}T00:00:00`)
-        .lte('inicio', `${fechaFin}T23:59:59`)
-        .order('inicio', { ascending: true })
-    )
+    let query = supabase
+      .from('citas')
+      .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+      .gte('inicio', `${fechaInicio}T00:00:00`)
+      .lte('inicio', `${fechaFin}T23:59:59`)
+      .order('inicio', { ascending: true })
+
+    if (profesionalId) query = query.eq('profesional_id', profesionalId)
+
+    const { data, error } = await withRetry<SupabaseListResult<CitaConRelaciones>>(() => query)
     if (error) {
       console.error('Error getCitasDelMes:', error)
       return []

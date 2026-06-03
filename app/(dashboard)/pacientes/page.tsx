@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useRol } from '@/lib/auth/useRol'
+import { useProfesionalId } from '@/lib/auth/useProfesionalId'
 import { FichaPaciente } from '@/components/pacientes/FichaPaciente'
 import { FormPaciente } from '@/components/pacientes/FormPaciente'
 import { ListaPacientes } from '@/components/pacientes/ListaPacientes'
@@ -24,6 +26,9 @@ type ModalConfirm = {
 
 export default function PacientesPage() {
   const router = useRouter()
+  const { rol } = useRol()
+  const profesionalId = useProfesionalId()
+  const profesionalFilter = rol === 'profesional' ? (profesionalId ?? undefined) : undefined
   const [pacientes, setPacientes] = useState<PacienteListaItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -46,18 +51,18 @@ export default function PacientesPage() {
   useEffect(() => {
     let active = true
     ;(async () => {
-      const res = await getPacientes({ busqueda, filtro, page, pageSize: 20 })
+      const res = await getPacientes({ busqueda, filtro, page, pageSize: 20, profesionalId: profesionalFilter })
       if (!active) return
       setPacientes(res.items)
       setTotal(res.total)
       setLoading(false)
     })()
     return () => { active = false }
-  }, [page, busqueda, filtro])
+  }, [page, busqueda, filtro, profesionalFilter])
 
   async function recargar() {
     setLoading(true)
-    const res = await getPacientes({ busqueda, filtro, page, pageSize: 20 })
+    const res = await getPacientes({ busqueda, filtro, page, pageSize: 20, profesionalId: profesionalFilter })
     setPacientes(res.items)
     setTotal(res.total)
     setLoading(false)
