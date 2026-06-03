@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
-import { usePresenceOnline } from "@/lib/auth/usePresence"
+import { formatLastSeen } from "@/lib/auth/usePresence"
 import { PLAN_LABELS } from "@/lib/subscriptions/queries"
 import { useAcceso } from "@/components/auth/RolGuard"
 import { Button } from "@/components/ui/button"
@@ -1330,7 +1330,6 @@ function SeccionUsuarios() {
   const [showModal, setShowModal] = useState(false)
   const [confirmEliminar, setConfirmEliminar] = useState<UsuarioClinica | null>(null)
   const [procesando, setProcesando] = useState<string | null>(null)
-  const onlineIds = usePresenceOnline()
 
   async function handleReenviar(u: UsuarioClinica) {
     if (!u.email) return
@@ -1412,9 +1411,10 @@ function SeccionUsuarios() {
                   style={{ background: u.activo ? "linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)" : "#94A3B8" }}>
                   {u.nombre[0]?.toUpperCase() ?? "?"}
                 </div>
-                {u.user_id && (
-                  <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${onlineIds.has(u.user_id) ? 'bg-emerald-400' : 'bg-gray-300'}`} />
-                )}
+                {u.user_id && (() => {
+                  const { color } = formatLastSeen(u.last_seen_at)
+                  return <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${color}`} title={formatLastSeen(u.last_seen_at).label} />
+                })()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
