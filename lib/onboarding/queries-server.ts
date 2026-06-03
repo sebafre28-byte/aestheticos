@@ -12,15 +12,13 @@ export type ClinicaRow = {
 
 export async function getClinicaActual(): Promise<ClinicaRow | null> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
+  const { data: clinicaId, error: rpcError } = await supabase.rpc('auth_clinica_id')
+  if (rpcError || !clinicaId) return null
 
   const { data, error } = await supabase
     .from('clinicas')
     .select('id, nombre, telefono, direccion, email')
-    .eq('owner_id', user.id)
+    .eq('id', clinicaId)
     .maybeSingle()
 
   if (error) {
@@ -41,7 +39,7 @@ export async function needsOnboarding(): Promise<boolean> {
   const rolMetadata = user.user_metadata?.rol as string | undefined
   if (rolMetadata && rolMetadata !== 'admin') return false
 
-  // Owners de otra clínica que no tienen clínica propia tampoco
+  // Solo owners necesitan onboarding — verificar si tiene clínica propia
   const { data: clinicaPropia } = await supabase
     .from('clinicas')
     .select('id')
