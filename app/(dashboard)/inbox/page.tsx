@@ -1,8 +1,9 @@
 'use client'
 
 import { PlanGate } from '@/components/subscriptions/PlanGate'
-import { useState } from 'react'
-import { MessageSquare, Send, Phone, MoreVertical, Search, Archive, UserCheck } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { MessageSquare, Send, Phone, MoreVertical, Search, Archive, UserCheck, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ type Mensaje = {
   direccion: 'entrante' | 'saliente'
   contenido: string
   created_at: string
-  enviado_por_nombre?: string
+  estado_whatsapp?: string
 }
 
 type Conversacion = {
@@ -22,65 +23,7 @@ type Conversacion = {
   no_leidos: number
   ultimo_mensaje_at: string
   ultimo_mensaje: string
-  mensajes: Mensaje[]
 }
-
-// ─── Mock data ────────────────────────────────────────────────
-
-const MOCK_CONVERSACIONES: Conversacion[] = [
-  {
-    id: '1',
-    telefono: '+56912345678',
-    paciente_nombre: 'Valentina Morales',
-    estado: 'activa',
-    no_leidos: 2,
-    ultimo_mensaje_at: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
-    ultimo_mensaje: 'Perfecto, nos vemos el martes entonces 😊',
-    mensajes: [
-      { id: 'm1', direccion: 'saliente', contenido: 'Hola Valentina 👋 Te recordamos que tienes una cita mañana martes 3 de junio a las 15:00 para tu tratamiento de hidratación facial. ¿Confirmas tu asistencia?', created_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString() },
-      { id: 'm2', direccion: 'entrante', contenido: 'Hola! Sí, confirmo. Aunque quisiera saber si pueden cambiarla a las 16:00?', created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'm3', direccion: 'saliente', contenido: 'Claro, te confirmo que cambiamos tu cita a las 16:00. ¡Te esperamos! 💆‍♀️', created_at: new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString() },
-      { id: 'm4', direccion: 'entrante', contenido: 'Perfecto, nos vemos el martes entonces 😊', created_at: new Date(Date.now() - 4 * 60 * 1000).toISOString() },
-    ],
-  },
-  {
-    id: '2',
-    telefono: '+56987654321',
-    paciente_nombre: 'Camila Reyes',
-    estado: 'activa',
-    no_leidos: 0,
-    ultimo_mensaje_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    ultimo_mensaje: '¿Tienen disponibilidad para este viernes?',
-    mensajes: [
-      { id: 'm5', direccion: 'entrante', contenido: 'Hola! ¿Tienen disponibilidad para este viernes?', created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-    ],
-  },
-  {
-    id: '3',
-    telefono: '+56911223344',
-    paciente_nombre: 'Andrea Fuentes',
-    estado: 'activa',
-    no_leidos: 1,
-    ultimo_mensaje_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    ultimo_mensaje: 'Me cancelaron la cita y quiero reagendar',
-    mensajes: [
-      { id: 'm6', direccion: 'saliente', contenido: 'Hola Andrea, te recordamos tu cita de mañana a las 11:00 para depilación láser. ¿Confirmas?', created_at: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString() },
-      { id: 'm7', direccion: 'entrante', contenido: 'Me cancelaron la cita y quiero reagendar', created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
-    ],
-  },
-  {
-    id: '4',
-    telefono: '+56955443322',
-    paciente_nombre: null,
-    estado: 'activa',
-    no_leidos: 0,
-    ultimo_mensaje_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    ultimo_mensaje: 'Hola quería consultar por precios de botox',
-    mensajes: [
-      { id: 'm8', direccion: 'entrante', contenido: 'Hola quería consultar por precios de botox', created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
-    ],
-  },
-]
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -177,11 +120,145 @@ function BurbujaMensaje({ msg }: { msg: Mensaje }) {
 // ─── Page ─────────────────────────────────────────────────────
 
 export default function InboxPage() {
-  const [conversaciones] = useState<Conversacion[]>(MOCK_CONVERSACIONES)
-  const [seleccionada, setSeleccionada] = useState<Conversacion | null>(MOCK_CONVERSACIONES[0])
+  const [conversaciones, setConversaciones] = useState<Conversacion[]>([])
+  const [seleccionada, setSeleccionada] = useState<Conversacion | null>(null)
+  const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [texto, setTexto] = useState('')
   const [mostrarChat, setMostrarChat] = useState(false)
+  const [cargandoConvs, setCargandoConvs] = useState(true)
+  const [cargandoMsgs, setCargandoMsgs] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [mensajes])
+
+  // Load conversations
+  const cargarConversaciones = useCallback(async () => {
+    const res = await fetch('/api/inbox/conversaciones')
+    if (!res.ok) return
+    const data = await res.json() as Conversacion[]
+    setConversaciones(data)
+    setCargandoConvs(false)
+  }, [])
+
+  useEffect(() => {
+    cargarConversaciones()
+  }, [cargarConversaciones])
+
+  // Load messages when conversation selected
+  const seleccionarConversacion = useCallback(async (conv: Conversacion) => {
+    setSeleccionada(conv)
+    setMostrarChat(true)
+    setCargandoMsgs(true)
+    setMensajes([])
+
+    const [msgsRes] = await Promise.all([
+      fetch(`/api/inbox/mensajes?conversacion_id=${conv.id}`),
+      // Mark as read
+      conv.no_leidos > 0
+        ? fetch('/api/inbox/leido', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conversacion_id: conv.id }),
+          })
+        : Promise.resolve(),
+    ])
+
+    if (msgsRes.ok) {
+      const data = await msgsRes.json() as Mensaje[]
+      setMensajes(data)
+    }
+    setCargandoMsgs(false)
+
+    // Update local no_leidos count
+    setConversaciones(prev => prev.map(c => c.id === conv.id ? { ...c, no_leidos: 0 } : c))
+  }, [])
+
+  // Realtime subscription for new messages
+  useEffect(() => {
+    const supabase = createClient()
+
+    const channel = supabase
+      .channel('inbox-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mensajes_inbox',
+        },
+        (payload) => {
+          const nuevo = payload.new as Mensaje & { conversacion_id: string }
+
+          // Add to current chat if it belongs to selected conversation
+          setSeleccionada(prev => {
+            if (prev?.id === nuevo.conversacion_id) {
+              setMensajes(msgs => {
+                // Avoid duplicates (optimistic insert already added it)
+                if (msgs.some(m => m.id === nuevo.id)) return msgs
+                return [...msgs, nuevo]
+              })
+            }
+            return prev
+          })
+
+          // Update conversation list: bump ultimo_mensaje_at and no_leidos
+          setConversaciones(prev => {
+            const updated = prev.map(c => {
+              if (c.id !== nuevo.conversacion_id) return c
+              return {
+                ...c,
+                ultimo_mensaje: nuevo.contenido,
+                ultimo_mensaje_at: nuevo.created_at,
+                no_leidos: nuevo.direccion === 'entrante' ? c.no_leidos + 1 : c.no_leidos,
+              }
+            })
+            // Sort by ultimo_mensaje_at desc
+            return [...updated].sort((a, b) =>
+              new Date(b.ultimo_mensaje_at).getTime() - new Date(a.ultimo_mensaje_at).getTime()
+            )
+          })
+        },
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
+  async function handleEnviar() {
+    if (!texto.trim() || !seleccionada || enviando) return
+    const contenido = texto.trim()
+    setTexto('')
+    setEnviando(true)
+
+    // Optimistic insert
+    const tempMsg: Mensaje = {
+      id: `temp-${Date.now()}`,
+      direccion: 'saliente',
+      contenido,
+      created_at: new Date().toISOString(),
+      estado_whatsapp: 'pendiente',
+    }
+    setMensajes(prev => [...prev, tempMsg])
+
+    const res = await fetch('/api/inbox/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversacion_id: seleccionada.id, contenido }),
+    })
+    const json = await res.json() as { ok: boolean; mensaje?: Mensaje }
+
+    // Replace temp with real message
+    if (json.mensaje) {
+      setMensajes(prev => prev.map(m => m.id === tempMsg.id ? json.mensaje! : m))
+    }
+
+    setEnviando(false)
+  }
 
   const filtradas = conversaciones.filter(c => {
     if (!busqueda) return true
@@ -192,12 +269,6 @@ export default function InboxPage() {
       c.ultimo_mensaje.toLowerCase().includes(q)
     )
   })
-
-  function handleEnviar() {
-    if (!texto.trim() || !seleccionada) return
-    // TODO: POST to /api/inbox/send when Supabase Realtime connected
-    setTexto('')
-  }
 
   const avatarColor = seleccionada ? colorAvatar(seleccionada.telefono) : 'bg-gray-400'
   const inicial = seleccionada ? iniciales(seleccionada.paciente_nombre, seleccionada.telefono) : ''
@@ -224,10 +295,15 @@ export default function InboxPage() {
 
         {/* Lista */}
         <div className="flex-1 overflow-y-auto">
-          {filtradas.length === 0 ? (
+          {cargandoConvs ? (
+            <div className="flex items-center justify-center h-40 text-gray-400 gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm">Cargando...</span>
+            </div>
+          ) : filtradas.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2">
               <MessageSquare className="w-8 h-8" />
-              <span>Sin conversaciones</span>
+              <span>{busqueda ? 'Sin resultados' : 'Sin conversaciones'}</span>
             </div>
           ) : (
             filtradas.map(conv => (
@@ -235,7 +311,7 @@ export default function InboxPage() {
                 key={conv.id}
                 conv={conv}
                 selected={seleccionada?.id === conv.id}
-                onClick={() => { setSeleccionada(conv); setMostrarChat(true) }}
+                onClick={() => seleccionarConversacion(conv)}
               />
             ))
           )}
@@ -279,9 +355,20 @@ export default function InboxPage() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-50">
-            {seleccionada.mensajes.map(msg => (
-              <BurbujaMensaje key={msg.id} msg={msg} />
-            ))}
+            {cargandoMsgs ? (
+              <div className="flex items-center justify-center h-32 text-gray-400 gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">Cargando mensajes...</span>
+              </div>
+            ) : mensajes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-gray-400 text-sm gap-2">
+                <MessageSquare className="w-8 h-8" />
+                <span>Sin mensajes aún</span>
+              </div>
+            ) : (
+              mensajes.map(msg => <BurbujaMensaje key={msg.id} msg={msg} />)
+            )}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Input */}
@@ -303,10 +390,10 @@ export default function InboxPage() {
               />
               <button
                 onClick={handleEnviar}
-                disabled={!texto.trim()}
+                disabled={!texto.trim() || enviando}
                 className="flex-shrink-0 bg-[#2563EB] text-white p-2.5 rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                <Send className="w-4 h-4" />
+                {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
             </div>
             <p className="text-xs text-gray-400 mt-1.5">Enter para enviar · Shift+Enter para nueva línea</p>
