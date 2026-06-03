@@ -1239,8 +1239,16 @@ function ModalInvitarUsuario({ onClose, onCreado }: { onClose: () => void; onCre
       profesional_id: form.rol === "profesional" ? form.profesional_id : undefined,
     })
     setGuardando(false)
-    if (result.ok) { onCreado(); onClose() }
-    else setError(result.error ?? "No se pudo agregar el usuario.")
+    if (result.ok) {
+      onCreado()
+      onClose()
+      // Toast de confirmación
+      const t = document.createElement('div')
+      t.textContent = '✉️ Invitación enviada por email'
+      t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0B132B;color:white;padding:10px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2)'
+      document.body.appendChild(t)
+      setTimeout(() => t.remove(), 3500)
+    } else setError(result.error ?? "No se pudo agregar el usuario.")
   }
 
   return (
@@ -1322,6 +1330,27 @@ function SeccionUsuarios() {
   const [confirmEliminar, setConfirmEliminar] = useState<UsuarioClinica | null>(null)
   const [procesando, setProcesando] = useState<string | null>(null)
 
+  async function handleReenviar(u: UsuarioClinica) {
+    if (!u.email) return
+    setProcesando(u.id)
+    const res = await fetch('/api/usuarios/invite/resend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: u.email }),
+    })
+    setProcesando(null)
+    const t = document.createElement('div')
+    if (res.ok) {
+      t.textContent = '✉️ Invitación reenviada'
+      t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0B132B;color:white;padding:10px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2)'
+    } else {
+      t.textContent = '⚠️ No se pudo reenviar'
+      t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#DC2626;color:white;padding:10px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999'
+    }
+    document.body.appendChild(t)
+    setTimeout(() => t.remove(), 3000)
+  }
+
   const cargar = useCallback(() => {
     setCargando(true)
     getUsuariosClinica().then((data) => { setUsuarios(data); setCargando(false) })
@@ -1383,8 +1412,12 @@ function SeccionUsuarios() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-[13px] font-semibold text-gray-900 leading-tight truncate">{u.nombre}</p>
-                  {!u.user_id && (
+                  {!u.user_id ? (
                     <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">Pendiente</span>
+                  ) : u.activo ? (
+                    <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">Activo</span>
+                  ) : (
+                    <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 border border-gray-200">Inactivo</span>
                   )}
                 </div>
                 <p className="text-[11px] text-gray-400 truncate">{u.email ?? "Sin email"}</p>
@@ -1404,6 +1437,12 @@ function SeccionUsuarios() {
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                {!u.user_id && (
+                  <button onClick={() => handleReenviar(u)} disabled={procesando === u.id}
+                    className="h-7 px-2.5 rounded-lg text-[11px] font-medium text-blue-600 hover:bg-blue-50 transition-colors">
+                    Reenviar
+                  </button>
+                )}
                 <button onClick={() => handleToggleActivo(u)} disabled={procesando === u.id}
                   className={`h-7 px-2.5 rounded-lg text-[11px] font-medium transition-colors ${u.activo ? "text-gray-500 hover:bg-gray-200" : "text-emerald-600 hover:bg-emerald-50"}`}>
                   {u.activo ? "Desactivar" : "Activar"}
