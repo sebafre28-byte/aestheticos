@@ -1206,9 +1206,10 @@ const ROL_COLORS: Record<RolUsuario, string> = {
 }
 
 function ModalInvitarUsuario({ onClose, onCreado }: { onClose: () => void; onCreado: () => void }) {
-  const [form, setForm] = useState({ nombre: "", email: "", rol: "recepcionista" as RolUsuario })
+  const [form, setForm] = useState({ nombre: "", email: "", rol: "recepcionista" as RolUsuario, profesional_id: "" })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [profesionales, setProfesionales] = useState<ProfesionalRow[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
@@ -1218,13 +1219,25 @@ function ModalInvitarUsuario({ onClose, onCreado }: { onClose: () => void; onCre
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
 
+  useEffect(() => {
+    getProfesionales().then(setProfesionales)
+  }, [])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.nombre.trim()) { setError("El nombre es requerido."); return }
     if (!form.email.trim()) { setError("El email es requerido."); return }
+    if (form.rol === "profesional" && !form.profesional_id) {
+      setError("Debes seleccionar a qué profesional corresponde este usuario."); return
+    }
     setGuardando(true)
     setError(null)
-    const result = await invitarUsuario(form)
+    const result = await invitarUsuario({
+      nombre: form.nombre,
+      email: form.email,
+      rol: form.rol,
+      profesional_id: form.rol === "profesional" ? form.profesional_id : undefined,
+    })
     setGuardando(false)
     if (result.ok) { onCreado(); onClose() }
     else setError(result.error ?? "No se pudo agregar el usuario.")
@@ -1255,15 +1268,35 @@ function ModalInvitarUsuario({ onClose, onCreado }: { onClose: () => void; onCre
             <div>
               <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Rol</Label>
               <div className="relative">
-                <select value={form.rol} onChange={(e) => setForm(p => ({ ...p, rol: e.target.value as RolUsuario }))}
+                <select value={form.rol} onChange={(e) => setForm(p => ({ ...p, rol: e.target.value as RolUsuario, profesional_id: "" }))}
                   className="w-full h-9 rounded-md border border-gray-200 bg-white px-3 pr-8 text-[13px] text-gray-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]">
                   <option value="admin">Administrador — acceso total</option>
-                  <option value="profesional">Profesional — agenda y pacientes</option>
-                  <option value="recepcionista">Recepcionista — agenda y cobros</option>
+                  <option value="profesional">Profesional — su agenda y pacientes</option>
+                  <option value="recepcionista">Coordinador/a — agenda y comunicaciones</option>
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 pointer-events-none" />
               </div>
             </div>
+
+            {form.rol === "profesional" && (
+              <div>
+                <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">
+                  ¿A qué profesional corresponde? <span className="text-red-400">*</span>
+                </Label>
+                <div className="relative">
+                  <select value={form.profesional_id} onChange={(e) => setForm(p => ({ ...p, profesional_id: e.target.value }))}
+                    className="w-full h-9 rounded-md border border-gray-200 bg-white px-3 pr-8 text-[13px] text-gray-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]">
+                    <option value="">Selecciona un profesional…</option>
+                    {profesionales.map(p => (
+                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 pointer-events-none" />
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">Este usuario solo verá su propia agenda y pacientes.</p>
+              </div>
+            )}
+
             {error && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-[12px]">
                 <AlertCircle className="size-3.5 shrink-0" />{error}
@@ -1390,7 +1423,7 @@ function SeccionUsuarios() {
         <ul className="text-[11px] text-blue-600 mt-1 space-y-0.5">
           <li>• <strong>Administrador</strong>: acceso total, configuración, reportes</li>
           <li>• <strong>Profesional</strong>: agenda propia, pacientes, sin configuración</li>
-          <li>• <strong>Recepcionista</strong>: agenda completa, cobros, sin configuración</li>
+          <li>• <strong>Coordinador/a</strong>: agenda completa, comunicaciones, sin configuración</li>
         </ul>
       </div>
 
