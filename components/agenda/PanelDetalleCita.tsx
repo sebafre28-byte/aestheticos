@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale'
 import {
   X, Edit2, MessageCircle, CheckCircle, CheckCircle2, Clock,
   User, Scissors, Calendar, FileText, History, Phone, ClipboardEdit, Loader2,
-  XCircle, UserX, CalendarClock, Mail, Repeat2, Banknote, Star, CalendarCheck,
+  XCircle, UserX, CalendarClock, Mail, Repeat2, Banknote, Star, CalendarCheck, Trash2, Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
@@ -14,6 +14,8 @@ import { actualizarEstadoCita, getHistorialPaciente, editarCita, getAuditCita, g
 import type { PagoCitaFields } from '@/lib/cobros/queries'
 import { SeccionCobroCita } from './SeccionCobroCita'
 import { useDialogA11y } from './useDialogA11y'
+import { useRol } from '@/lib/auth/useRol'
+import { getNotasClinicas, crearNotaClinica, eliminarNotaClinica, type NotaClinica } from '@/lib/pacientes/queries'
 
 // Configuración visual del badge prominente de estado
 const estadoConfig: Record<EstadoCita, {
@@ -171,10 +173,12 @@ export function PanelDetalleCita({
   const [audit, setAudit] = useState<AuditLogRow[]>([])
 
   const [mostrarNota, setMostrarNota] = useState(false)
-  const [textoNota, setTextoNota] = useState(cita.notas ?? '')
+  const [textoNota, setTextoNota] = useState('')
   const [guardandoNota, setGuardandoNota] = useState(false)
-  const [notaGuardada, setNotaGuardada] = useState(false)
+  const [notasClinicas, setNotasClinicas] = useState<NotaClinica[]>([])
   const [confirmarCambio, setConfirmarCambio] = useState<AccionEstado | null>(null)
+  const { rol } = useRol()
+  const puedeEscribirNotas = rol === 'admin' || rol === 'profesional'
 
   const paciente = cita.pacientes
   const profesional = cita.profesionales
@@ -205,6 +209,11 @@ export function PanelDetalleCita({
   useEffect(() => {
     getAuditCita(cita.id).then(setAudit)
   }, [cita.id])
+
+  useEffect(() => {
+    if (!paciente?.id) return
+    getNotasClinicas(paciente.id).then(setNotasClinicas)
+  }, [paciente?.id])
 
   // Métricas del paciente derivadas del historial
   const totalVisitas = historial.length + 1 // +1 la actual
@@ -242,13 +251,25 @@ export function PanelDetalleCita({
   }
 
   async function guardarNota() {
+    if (!textoNota.trim() || !paciente?.id) return
     setGuardandoNota(true)
-    const resultado = await editarCita(cita.id, { notas: textoNota || undefined })
-    setGuardandoNota(false)
-    if (resultado) {
-      setNotaGuardada(true)
-      setTimeout(() => setNotaGuardada(false), 2000)
+    const ok = await crearNotaClinica({
+      paciente_id: paciente.id,
+      contenido: textoNota.trim(),
+      cita_id: cita.id,
+    })
+    if (ok) {
+      setTextoNota('')
+      setMostrarNota(false)
+      getNotasClinicas(paciente.id).then(setNotasClinicas)
     }
+    setGuardandoNota(false)
+  }
+
+  async function borrarNota(id: string) {
+    if (!paciente?.id) return
+    await eliminarNotaClinica(id)
+    setNotasClinicas(prev => prev.filter(n => n.id !== id))
   }
 
   function abrirWhatsApp() {
@@ -446,60 +467,84 @@ export function PanelDetalleCita({
                 value={`Serie ${cita.recurrence_kind}`}
               />
             )}
-            <DetalleItem
-              icon={<FileText className="size-3.5 text-gray-400" />}
-              label="Notas"
-              value={cita.notas ?? 'Sin notas'}
-              multiline
-              muted={!cita.notas}
-            />
           </div>
 
           {!isVistaProfe && onPagoActualizado && (
             <SeccionCobroCita cita={cita} onPagoActualizado={onPagoActualizado} />
           )}
 
-          {/* ── Nota clínica (admin y profesional) ── */}
+          {/* ── Notas clínicas ── */}
           <div className="px-5 py-4 border-b border-gray-50">
-            {!mostrarNota ? (
-              <button
-                onClick={() => setMostrarNota(true)}
-                className="flex items-center gap-2 text-[13px] font-medium text-[#2563EB] hover:text-blue-700 transition-colors"
-              >
-                <ClipboardEdit className="size-4" />
-                {cita.notas ? 'Editar nota clínica' : 'Agregar nota clínica'}
-              </button>
-            ) : (
-              <div className="space-y-2">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ClipboardEdit className="size-3.5 text-blue-500" />
                 <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
-                  Nota clínica
+                  Notas clínicas
                 </p>
+              </div>
+              {puedeEscribirNotas && !mostrarNota && (
+                <button
+                  onClick={() => setMostrarNota(true)}
+                  className="flex items-center gap-1 text-[11px] font-medium text-[#2563EB] hover:text-blue-700 transition-colors"
+                >
+                  <Plus className="size-3" />
+                  Agregar
+                </button>
+              )}
+            </div>
+
+            {mostrarNota && puedeEscribirNotas && (
+              <div className="space-y-2 mb-3">
                 <textarea
                   value={textoNota}
                   onChange={(e) => setTextoNota(e.target.value)}
                   placeholder="Evolución, observaciones, tratamiento aplicado..."
-                  rows={4}
+                  rows={3}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30 placeholder:text-gray-400"
                 />
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
                     onClick={guardarNota}
-                    disabled={guardandoNota}
+                    disabled={guardandoNota || !textoNota.trim()}
                     className="text-[12px] text-white bg-[#2563EB] hover:bg-blue-700 border-0"
                   >
                     {guardandoNota && <Loader2 className="size-3 animate-spin mr-1" />}
-                    {notaGuardada ? '¡Guardado!' : 'Guardar nota'}
+                    Guardar nota
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setMostrarNota(false)}
-                    className="text-[12px]"
-                  >
+                  <Button size="sm" variant="ghost" onClick={() => { setMostrarNota(false); setTextoNota('') }} className="text-[12px]">
                     Cancelar
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {notasClinicas.length === 0 ? (
+              <p className="text-[12px] text-gray-400 italic">Sin notas clínicas</p>
+            ) : (
+              <div className="space-y-2">
+                {notasClinicas.map((nota) => (
+                  <article key={nota.id} className="border border-gray-100 rounded-lg p-3 group">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[10px] text-gray-400">
+                        {nota.profesionales?.nombre && `${nota.profesionales.nombre} · `}
+                        {format(parseISO(nota.created_at), "d MMM yyyy · HH:mm", { locale: es })}
+                        {nota.cita_id === cita.id && (
+                          <span className="ml-1 text-blue-400 font-medium">· esta cita</span>
+                        )}
+                      </span>
+                      {puedeEscribirNotas && (
+                        <button
+                          onClick={() => borrarNota(nota.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 flex-shrink-0"
+                        >
+                          <Trash2 className="size-3 text-red-400" />
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-gray-700 whitespace-pre-wrap mt-1">{nota.contenido}</p>
+                  </article>
+                ))}
               </div>
             )}
           </div>
