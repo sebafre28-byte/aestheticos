@@ -7,6 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { SimpliClinicLogo } from '@/components/ui/SimpliClinicLogo'
 
+// Single shared Supabase instance so setSession and updateUser use the same client
+const supabase = createClient()
+
 export default function InviteAcceptPage() {
   const router = useRouter()
   const [ready, setReady] = useState(false)
@@ -19,8 +22,6 @@ export default function InviteAcceptPage() {
   const [clinicaNombre, setClinicaNombre] = useState('')
 
   useEffect(() => {
-    const supabase = createClient()
-
     // Parse hash params and set session manually if access_token is present
     const hash = window.location.hash.substring(1)
     const params = new URLSearchParams(hash)
@@ -71,7 +72,6 @@ export default function InviteAcceptPage() {
     }
 
     setLoading(true)
-    const supabase = createClient()
     const { error: updateError } = await supabase.auth.updateUser({ password })
 
     if (updateError) {
