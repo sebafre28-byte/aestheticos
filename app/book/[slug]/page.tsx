@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, use } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle2, ChevronLeft, Loader2, MapPin, Phone, Mail, Clock, DollarSign } from 'lucide-react'
+import { Turnstile } from '@marsidev/react-turnstile'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -649,6 +650,7 @@ function PasoDatos({
   const [form, setForm] = useState<FormData>({ nombre: '', telefono: '', email: '', notas: '', rut: '' })
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -657,8 +659,29 @@ function PasoDatos({
     if (!form.nombre.trim()) { setError('El nombre es requerido.'); return }
     if (!form.telefono.trim()) { setError('El teléfono es requerido.'); return }
     if (!form.email.trim()) { setError('El email es requerido.'); return }
+
+    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    if (siteKey && !captchaToken) {
+      setError('Por favor completa la verificación de seguridad.')
+      return
+    }
+
     setEnviando(true)
     setError(null)
+
+    if (siteKey && captchaToken) {
+      const base = window.location.origin
+      const captchaRes = await fetch(`${base}/api/captcha/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: captchaToken }),
+      })
+      if (!captchaRes.ok) {
+        setError('Verificación de seguridad fallida. Intenta de nuevo.')
+        setEnviando(false)
+        return
+      }
+    }
 
     const rutLimpio = form.rut.trim() ? limpiarRut(form.rut) : null
 
@@ -787,6 +810,16 @@ function PasoDatos({
             className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
           />
         </div>
+
+        {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+          <Turnstile
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+            onSuccess={(token) => setCaptchaToken(token)}
+            onError={() => setCaptchaToken(null)}
+            onExpire={() => setCaptchaToken(null)}
+            options={{ theme: 'light', size: 'normal' }}
+          />
+        )}
 
         {error && (
           <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600">
