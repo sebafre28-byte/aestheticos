@@ -1,6 +1,5 @@
 'use client'
 
-import { PlanGate } from '@/components/subscriptions/PlanGate'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MessageSquare, Send, Phone, MoreVertical, Search, Archive, UserCheck, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -274,7 +273,6 @@ export default function InboxPage() {
   const inicial = seleccionada ? iniciales(seleccionada.paciente_nombre, seleccionada.telefono) : ''
 
   return (
-    <PlanGate feature="inbox">
     <div className="relative flex h-[calc(100vh-0px)] bg-white overflow-hidden">
       {/* ── Left: conversation list ── */}
       <div className={`${mostrarChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-shrink-0 border-r border-gray-200 flex-col`}>
@@ -406,6 +404,5 @@ export default function InboxPage() {
         </div>
       )}
     </div>
-    </PlanGate>
   )
 }
