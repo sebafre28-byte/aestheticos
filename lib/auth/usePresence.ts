@@ -1,60 +1,33 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+// Actualiza last_seen_at una vez al cargar el dashboard.
 export function usePresenceBroadcast() {
   useEffect(() => {
     const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-
-    async function init() {
-      const { data: clinicaId } = await supabase.rpc('auth_clinica_id')
-      if (!clinicaId) return
-      const { data: { user } } = await supabase.auth.getUser()
+    supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-
-      channel = supabase.channel(`presence:${clinicaId}`, {
-        config: { presence: { key: user.id } },
-      })
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel!.track({ user_id: user.id })
-        }
-      })
-    }
-
-    init()
-    return () => { channel?.unsubscribe() }
+      supabase
+        .from('usuarios_clinica')
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .then(() => {})
+    })
   }, [])
 }
 
-export function usePresenceOnline(): Set<string> {
-  const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set())
-  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+export function formatLastSeen(lastSeen: string | null | undefined): { label: string; color: string } {
+  if (!lastSeen) return { label: 'Nunca', color: 'bg-gray-300' }
+  const diff = Date.now() - new Date(lastSeen).getTime()
+  const min = Math.floor(diff / 60000)
+  const hrs = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
 
-  useEffect(() => {
-    const supabase = createClient()
-
-    async function init() {
-      const { data: clinicaId } = await supabase.rpc('auth_clinica_id')
-      if (!clinicaId) return
-
-      const channel = supabase.channel(`presence:${clinicaId}`)
-      channelRef.current = channel
-
-      channel.on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState<{ user_id: string }>()
-        const ids = new Set(Object.values(state).flat().map((p) => p.user_id))
-        setOnlineIds(ids)
-      })
-
-      channel.subscribe()
-    }
-
-    init()
-    return () => { channelRef.current?.unsubscribe() }
-  }, [])
-
-  return onlineIds
+  if (min < 5)  return { label: 'Ahora',        color: 'bg-emerald-400' }
+  if (min < 60) return { label: `hace ${min}m`,  color: 'bg-emerald-300' }
+  if (hrs < 24) return { label: `hace ${hrs}h`,  color: 'bg-amber-400'  }
+  if (days < 7) return { label: `hace ${days}d`, color: 'bg-gray-400'   }
+  return              { label: 'Inactivo',        color: 'bg-gray-300'   }
 }

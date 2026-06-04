@@ -14,6 +14,7 @@ export type UsuarioClinica = {
   activo: boolean
   created_at: string
   profesional_id: string | null
+  last_seen_at: string | null
 }
 
 export const ROL_LABELS: Record<RolUsuario, string> = {
