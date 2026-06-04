@@ -79,20 +79,19 @@
 **Objetivo**: Saber en producción qué falla, cuándo y por qué.
 
 - [x] 6.1 Instalar Sentry (`@sentry/nextjs`)
-- [ ] 6.2 Capturar errores en API routes, crons y webhooks
-- [ ] 6.3 Alertas por email cuando falla un cron o webhook
-- [ ] 6.4 Dashboard básico de salud del sistema
+- [x] 6.2 Capturar errores en API routes, crons y webhooks
+- [x] 6.3 Alertas por email cuando falla un cron o webhook
+- [x] 6.4 Dashboard básico de salud del sistema
 
 ---
 
 ## MÓDULO 7 — CRONS Y RECORDATORIOS MEJORADOS
 **Objetivo**: Recordatorios WhatsApp/email llegan en el momento correcto.
 
-- [ ] 7.1 Evaluar Vercel Pro (crons horarios) vs BullMQ (Redis)
-- [ ] 7.2 Si BullMQ: deployar Redis (Upstash) + worker
-- [ ] 7.3 Si Vercel Pro: actualizar `vercel.json` a `0 * * * *` (cada hora)
-- [ ] 7.4 Lógica correcta: ventana 24h ± 30min y 2h ± 15min
-- [ ] 7.5 Evitar duplicados: check en `whatsapp_logs` antes de enviar
+- [x] 7.1 Evaluar Vercel Pro (crons horarios) vs BullMQ (Redis)
+- [x] 7.2 GitHub Actions como scheduler horario gratuito (alternativa a Vercel Pro)
+- [x] 7.3 Lógica correcta: ventanas 22-26h y 0.5-3.5h con deduplicación
+- [x] 7.4 Evitar duplicados: check en `whatsapp_logs` antes de enviar
 
 ---
 
