@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-
+import * as Sentry from '@sentry/nextjs'
 import { runHourlyRecordatorios } from '@/lib/whatsapp/jobs'
 
 export const runtime = 'nodejs'
@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const stats = await runHourlyRecordatorios()
     return NextResponse.json(stats)
   } catch (e) {
+    Sentry.captureException(e, { tags: { cron: 'recordatorios' } })
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[cron/recordatorios]', e)
     return NextResponse.json({ error: msg }, { status: 500 })

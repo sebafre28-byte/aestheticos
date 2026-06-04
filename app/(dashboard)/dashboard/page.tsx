@@ -12,6 +12,7 @@ import { GraficoCitasSemana } from '@/components/dashboard/GraficoCitasSemana'
 import { getDashboardData, getDashboardDataProfe } from '@/lib/dashboard/queries'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardProfe } from '@/components/dashboard/DashboardProfe'
+import { DashboardCoord } from '@/components/dashboard/DashboardCoord'
 
 function formatCLP(value: number) {
   return new Intl.NumberFormat('es-CL', {
@@ -40,12 +41,16 @@ export default async function DashboardPage() {
     supabase.rpc('auth_profesional_id'),
   ])
 
-  if (rol === 'profesional' && profesionalId) {
-    const profeData = await getDashboardDataProfe(profesionalId)
+  if (rol === 'profesional') {
+    const profeData = await getDashboardDataProfe(profesionalId as string | null)
     return <DashboardProfe data={profeData} />
   }
 
   const data = await getDashboardData()
+
+  if (rol === 'recepcionista') {
+    return <DashboardCoord data={data} />
+  }
 
   const varIngresos = variacionPct(data.ingresosMes, data.ingresosMesAnterior)
   const ticketPromedio = data.citasMes.completadas > 0

@@ -55,28 +55,20 @@ const RECORDATORIOS_DEFAULT: RecordatorioConfig[] = [
 
 export async function getClinicaId(): Promise<string | null> {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data, error } = await supabase
-    .from('clinicas')
-    .select('id')
-    .eq('owner_id', user.id)
-    .single()
-
+  const { data, error } = await supabase.rpc('auth_clinica_id')
   if (error) return null
-  return data?.id ?? null
+  return (data as string | null) ?? null
 }
 
 export async function getClinicaBasica(): Promise<ClinicaBasica | null> {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return null
 
   const { data, error } = await supabase
     .from('clinicas')
     .select('id, nombre, email, telefono, direccion, sitio_web, logo_url, slug')
-    .eq('owner_id', user.id)
+    .eq('id', clinicaId)
     .single()
 
   if (error) {

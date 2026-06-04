@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
@@ -221,6 +222,12 @@ export async function GET(request: Request) {
     }
   }
 
+  if (stats.errores > 0) {
+    Sentry.captureException(
+      new Error(`[cron/email-recordatorios] ${stats.errores} emails fallaron`),
+      { tags: { cron: 'email-recordatorios' }, extra: stats },
+    )
+  }
   console.log('[email-recordatorios]', stats)
   return NextResponse.json({ ok: true, ...stats })
 }
