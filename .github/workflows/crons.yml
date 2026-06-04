@@ -1,0 +1,25 @@
+name: Crons horarios
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # cada hora
+  workflow_dispatch:      # permite correr manualmente desde GitHub
+
+jobs:
+  recordatorios-whatsapp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar recordatorios WhatsApp
+        run: |
+          curl -f -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://app.simpliclinic.cl/api/cron/recordatorios
+
+  recordatorios-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar recordatorios email
+        run: |
+          curl -f -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://app.simpliclinic.cl/api/cron/email-recordatorios
