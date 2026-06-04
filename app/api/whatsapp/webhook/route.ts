@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
-
+import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { handleInboundTwilioMessage } from '@/lib/whatsapp/jobs'
 
@@ -181,6 +181,7 @@ export async function POST(request: NextRequest) {
   try {
     supabase = createAdminClient()
   } catch (e) {
+    Sentry.captureException(e, { tags: { webhook: 'whatsapp' } })
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[whatsapp/webhook]', msg)
     return twilioEmptyOk()
