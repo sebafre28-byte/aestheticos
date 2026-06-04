@@ -66,17 +66,19 @@
 ## MÓDULO 5 — INVITACIÓN DE EQUIPO
 **Objetivo**: El flujo de invitar miembros al equipo funciona end-to-end.
 
-- [ ] 5.1 UI en `/configuracion?tab=equipo` para generar links de invitación
-- [ ] 5.2 Email de invitación con link mágico
-- [ ] 5.3 Página de aceptación de invitación (`/invite/[token]`)
-- [ ] 5.4 Activar/desactivar miembros desde el panel
+- [x] 5.1 UI en `/configuracion` → Usuarios y roles: invitar, pills Pendiente/Activo/Inactivo, botón Reenviar
+- [x] 5.2 Email de invitación con link mágico (Supabase Auth + plantilla branded)
+- [x] 5.3 Flujo de aceptación vía link de Supabase (redirect a dashboard)
+- [x] 5.4 Activar/desactivar miembros desde el panel
+- [x] 5.5 Dashboards por rol: admin (completo), profesional (agenda propia), coordinador (sin financiero)
+- [x] 5.6 Indicador de actividad last_seen_at — punto verde/gris con tooltip
 
 ---
 
 ## MÓDULO 6 — MONITOREO Y OBSERVABILIDAD
 **Objetivo**: Saber en producción qué falla, cuándo y por qué.
 
-- [ ] 6.1 Instalar Sentry (`@sentry/nextjs`)
+- [x] 6.1 Instalar Sentry (`@sentry/nextjs`)
 - [ ] 6.2 Capturar errores en API routes, crons y webhooks
 - [ ] 6.3 Alertas por email cuando falla un cron o webhook
 - [ ] 6.4 Dashboard básico de salud del sistema
