@@ -69,7 +69,7 @@ export function ModalCita({
   const [resultadosBusqueda, setResultadosBusqueda] = useState<PacienteRow[]>([])
   const [buscando, setBuscando] = useState(false)
   const [mostrarCrearPaciente, setMostrarCrearPaciente] = useState(false)
-  const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', telefono: '', email: '' })
+  const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', telefono: '', email: '', rut: '' })
   const [creandoPaciente, setCreandoPaciente] = useState(false)
 
   const [profesionalId, setProfesionalId] = useState(
@@ -278,16 +278,16 @@ export function ModalCita({
   }
 
   async function handleCrearPaciente() {
-    if (!nuevoPaciente.nombre.trim()) return
+    if (!nuevoPaciente.nombre.trim() || !nuevoPaciente.email.trim() || !nuevoPaciente.telefono.trim() || !nuevoPaciente.rut.trim()) return
     setCreandoPaciente(true)
     const clinicaId = await getClinicaId()
     if (!clinicaId) { setCreandoPaciente(false); return }
-    const paciente = await crearPacienteRapido(nuevoPaciente.nombre, nuevoPaciente.telefono, clinicaId, nuevoPaciente.email || undefined)
+    const paciente = await crearPacienteRapido(nuevoPaciente.nombre, nuevoPaciente.telefono, clinicaId, nuevoPaciente.email, nuevoPaciente.rut)
     setCreandoPaciente(false)
     if (paciente) {
       seleccionarPaciente(paciente)
       setMostrarCrearPaciente(false)
-      setNuevoPaciente({ nombre: '', telefono: '', email: '' })
+      setNuevoPaciente({ nombre: '', telefono: '', email: '', rut: '' })
     }
   }
 
@@ -497,27 +497,33 @@ export function ModalCita({
                 <Input
                   value={nuevoPaciente.nombre}
                   onChange={(e) => setNuevoPaciente((p) => ({ ...p, nombre: e.target.value }))}
-                  placeholder="Nombre completo"
+                  placeholder="Nombre completo *"
                   className="text-[12px] bg-white"
                 />
                 <input
                   type="email"
                   value={nuevoPaciente.email}
                   onChange={(e) => setNuevoPaciente((p) => ({ ...p, email: e.target.value }))}
-                  placeholder="Email (opcional)"
+                  placeholder="Email *"
                   className="w-full h-8 px-2.5 text-[12px] rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-400/50"
                 />
                 <Input
                   value={nuevoPaciente.telefono}
                   onChange={(e) => setNuevoPaciente((p) => ({ ...p, telefono: e.target.value }))}
-                  placeholder="Teléfono (opcional)"
+                  placeholder="Teléfono *"
+                  className="text-[12px] bg-white"
+                />
+                <Input
+                  value={nuevoPaciente.rut}
+                  onChange={(e) => setNuevoPaciente((p) => ({ ...p, rut: e.target.value }))}
+                  placeholder="RUT *"
                   className="text-[12px] bg-white"
                 />
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     onClick={handleCrearPaciente}
-                    disabled={creandoPaciente || !nuevoPaciente.nombre.trim()}
+                    disabled={creandoPaciente || !nuevoPaciente.nombre.trim() || !nuevoPaciente.email.trim() || !nuevoPaciente.telefono.trim() || !nuevoPaciente.rut.trim()}
                     className="text-[12px] bg-[#2563EB] hover:bg-blue-700 text-white"
                   >
                     {creandoPaciente && <Loader2 className="size-3 animate-spin mr-1" />}
