@@ -519,7 +519,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
 function dispararNotificacionCita(cita: CitaConRelaciones) {
   const base = typeof window !== 'undefined'
     ? window.location.origin
-    : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpliclinic.vercel.app')
+    : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl')
   const paciente = cita.pacientes as { nombre: string; email?: string | null; telefono?: string | null } | null
   const profesional = cita.profesionales as { nombre: string } | null
   const servicio = cita.servicios as { nombre: string } | null
