@@ -114,8 +114,11 @@ function buildDatos(cita: CitaRow, tipo: string) {
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'CRON_SECRET no configurado' }, { status: 500 })
+  }
+  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -144,11 +147,25 @@ export async function GET(request: Request) {
     .lt('inicio', `${mananaStr}T23:59:59`)
     .in('estado', ['pendiente', 'confirmada'])
 
-  for (const cita of (citasManana ?? []) as unknown as CitaRow[]) {
+  // Batch fetch already-sent logs to avoid N+1 queries
+  async function batchYaEnviados(citaIds: string[], tipo: TipoEmailLog): Promise<Set<string>> {
+    if (citaIds.length === 0) return new Set()
+    const { data } = await supabase
+      .from('whatsapp_logs')
+      .select('cita_id')
+      .in('cita_id', citaIds)
+      .eq('tipo_mensaje', tipo)
+    return new Set((data ?? []).map((r: { cita_id: string }) => r.cita_id))
+  }
+
+  const rowsManana = (citasManana ?? []) as unknown as CitaRow[]
+  const sentManana = await batchYaEnviados(rowsManana.map(c => c.id), 'email_recordatorio_manana')
+
+  for (const cita of rowsManana) {
     if (!cita.pacientes?.email) continue
     if (!cita.clinicas?.id) continue
 
-    if (await yaEnviado(supabase, cita.id, 'email_recordatorio_manana')) {
+    if (sentManana.has(cita.id)) {
       stats.omitidos++
       continue
     }
@@ -173,11 +190,14 @@ export async function GET(request: Request) {
     .lt('inicio', `${hoyStr}T23:59:59`)
     .in('estado', ['pendiente', 'confirmada'])
 
-  for (const cita of (citasHoy ?? []) as unknown as CitaRow[]) {
+  const rowsHoy = (citasHoy ?? []) as unknown as CitaRow[]
+  const sentHoy = await batchYaEnviados(rowsHoy.map(c => c.id), 'email_recordatorio_hoy')
+
+  for (const cita of rowsHoy) {
     if (!cita.pacientes?.email) continue
     if (!cita.clinicas?.id) continue
 
-    if (await yaEnviado(supabase, cita.id, 'email_recordatorio_hoy')) {
+    if (sentHoy.has(cita.id)) {
       stats.omitidos++
       continue
     }
@@ -203,11 +223,14 @@ export async function GET(request: Request) {
     .gte('fin', postDesde)
     .lte('fin', postHasta)
 
-  for (const cita of (citasPost ?? []) as unknown as CitaRow[]) {
+  const rowsPost = (citasPost ?? []) as unknown as CitaRow[]
+  const sentPost = await batchYaEnviados(rowsPost.map(c => c.id), 'email_post_cita')
+
+  for (const cita of rowsPost) {
     if (!cita.pacientes?.email) continue
     if (!cita.clinicas?.id) continue
 
-    if (await yaEnviado(supabase, cita.id, 'email_post_cita')) {
+    if (sentPost.has(cita.id)) {
       stats.omitidos++
       continue
     }

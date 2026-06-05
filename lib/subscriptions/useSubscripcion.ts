@@ -61,7 +61,7 @@ export function useSubscripcion(): SubscripcionState {
     supabase
       .from('subscriptions')
       .select('*')
-      .single()
+      .maybeSingle()
       .then(({ data }) => {
         const plan = (data?.plan ?? null) as Plan | null
         const estado = (data?.estado ?? null) as Estado | null
@@ -84,6 +84,7 @@ export function useSubscripcion(): SubscripcionState {
         function puedeUsar(feature: string): boolean {
           if (trialActivo) return true
           if (!plan) return false
+          if (estado === 'pausada' || estado === 'cancelada') return false
           const requeridos = FEATURES[feature]
           if (!requeridos) return true
           return requeridos.includes(plan)

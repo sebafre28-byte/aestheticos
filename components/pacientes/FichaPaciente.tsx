@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRol } from '@/lib/auth/useRol'
 import { differenceInYears, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { citaWallClockTime, citaWallClockDate } from '@/lib/agenda/datetime'
@@ -164,6 +165,8 @@ export function FichaPaciente({
   const [condiciones, setCondiciones] = useState('')
   const [guardandoSalud, setGuardandoSalud] = useState(false)
   const [saludGuardada, setSaludGuardada] = useState(false)
+  const { rol } = useRol()
+  const puedeEscribirNotas = rol === 'admin' || rol === 'profesional'
 
   useEffect(() => {
     let active = true
@@ -502,21 +505,25 @@ export function FichaPaciente({
           {/* ---- NOTAS CLÍNICAS ---- */}
           {tab === 'notas' && (
             <div className="space-y-3">
-              <textarea
-                value={nuevaNota}
-                onChange={(e) => setNuevaNota(e.target.value)}
-                rows={3}
-                placeholder="Escribe una nota clínica..."
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30"
-              />
-              <Button
-                onClick={agregarNota}
-                disabled={guardandoNota || !nuevaNota.trim()}
-                className="text-white"
-                style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
-              >
-                {guardandoNota ? 'Guardando...' : 'Agregar nota'}
-              </Button>
+              {puedeEscribirNotas && (
+                <>
+                  <textarea
+                    value={nuevaNota}
+                    onChange={(e) => setNuevaNota(e.target.value)}
+                    rows={3}
+                    placeholder="Escribe una nota clínica..."
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+                  />
+                  <Button
+                    onClick={agregarNota}
+                    disabled={guardandoNota || !nuevaNota.trim()}
+                    className="text-white"
+                    style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
+                  >
+                    {guardandoNota ? 'Guardando...' : 'Agregar nota'}
+                  </Button>
+                </>
+              )}
 
               <div className="pt-1">
                 {notasClinicas.length === 0 ? (
@@ -542,12 +549,14 @@ export function FichaPaciente({
                               {format(parseISO(nota.created_at), "d 'de' MMMM, yyyy · HH:mm", { locale: es })}
                             </span>
                           </div>
-                          <button
-                            onClick={() => borrarNota(nota.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50"
-                          >
-                            <Trash2 className="size-3.5 text-red-400" />
-                          </button>
+                          {puedeEscribirNotas && (
+                            <button
+                              onClick={() => borrarNota(nota.id)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50"
+                            >
+                              <Trash2 className="size-3.5 text-red-400" />
+                            </button>
+                          )}
                         </div>
                         <p className="text-[13px] text-gray-700 whitespace-pre-wrap mt-2">{nota.contenido}</p>
                       </article>

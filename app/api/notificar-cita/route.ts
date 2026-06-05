@@ -13,6 +13,21 @@ export interface NotificarCitaPayload {
 }
 
 export async function POST(req: NextRequest) {
+  // Internal-only endpoint: require either a session cookie or the CRON_SECRET header
+  const authHeader = req.headers.get('x-internal-secret')
+  const cronSecret = process.env.CRON_SECRET
+  const isInternalCall = cronSecret && authHeader === cronSecret
+
+  if (!isInternalCall) {
+    // Fall back to checking if the caller has a valid session
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ ok: false, reason: 'No autorizado' }, { status: 401 })
+    }
+  }
+
   let body: NotificarCitaPayload
   try {
     body = await req.json()

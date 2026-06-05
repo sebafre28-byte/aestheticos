@@ -133,7 +133,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
     const channel = supabase
       .channel('agenda-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_citas' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'citas' }, () => {
         clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => cargarCitas(), 800)
       })

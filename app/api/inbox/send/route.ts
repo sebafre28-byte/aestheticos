@@ -12,7 +12,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400 })
   }
 
+  if (contenido.length > 4096) {
+    return NextResponse.json({ error: 'Mensaje demasiado largo' }, { status: 400 })
+  }
+
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   // Fetch conversation to get phone number and clinic_id
   const { data: conv, error: convErr } = await supabase

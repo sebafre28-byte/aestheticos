@@ -9,6 +9,9 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient()
 
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
   const { error } = await supabase
     .from('conversaciones')
     .update({ no_leidos: 0 })

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const supabaseAdmin = createClient(
@@ -8,10 +9,47 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth guard — only authenticated admin/owner can invite
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 401 })
+
     const { nombre, email, rol, clinica_id, profesional_id } = await request.json()
 
     if (!nombre || !email || !rol || !clinica_id) {
       return NextResponse.json({ ok: false, error: 'Faltan campos requeridos' }, { status: 400 })
+    }
+
+    // Verify caller belongs to this clinic and is admin/owner
+    const { data: membership } = await supabase
+      .from('usuarios_clinica')
+      .select('rol, clinica_id')
+      .eq('user_id', user.id)
+      .eq('clinica_id', clinica_id)
+      .maybeSingle()
+
+    const { data: ownedClinic } = await supabase
+      .from('clinicas')
+      .select('id')
+      .eq('id', clinica_id)
+      .eq('owner_id', user.id)
+      .maybeSingle()
+
+    const isAdmin = membership?.rol === 'admin' || !!ownedClinic
+    if (!isAdmin) {
+      return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 })
+    }
+
+    // Check for duplicate invite within this clinic
+    const { data: existing } = await supabaseAdmin
+      .from('usuarios_clinica')
+      .select('id')
+      .eq('clinica_id', clinica_id)
+      .eq('email', email)
+      .maybeSingle()
+
+    if (existing) {
+      return NextResponse.json({ ok: false, error: 'Este email ya pertenece a esta clínica.' })
     }
 
     // Generate invite link (does not send email automatically)
@@ -43,6 +81,18 @@ export async function POST(request: NextRequest) {
       .eq('id', clinica_id)
       .single()
 
+    // Insert into usuarios_clinica FIRST — if it fails, don't send the email
+    const row: Record<string, unknown> = { clinica_id, nombre, email, rol, activo: true }
+    if (profesional_id) row.profesional_id = profesional_id
+
+    const { error: insertError } = await supabaseAdmin
+      .from('usuarios_clinica')
+      .insert(row)
+
+    if (insertError) {
+      return NextResponse.json({ ok: false, error: insertError.message })
+    }
+
     // Send branded invite email via Resend
     await fetch(`${base}/api/email`, {
       method: 'POST',
@@ -59,18 +109,6 @@ export async function POST(request: NextRequest) {
         },
       }),
     })
-
-    // Insert into usuarios_clinica
-    const row: Record<string, unknown> = { clinica_id, nombre, email, rol, activo: true }
-    if (profesional_id) row.profesional_id = profesional_id
-
-    const { error: insertError } = await supabaseAdmin
-      .from('usuarios_clinica')
-      .insert(row)
-
-    if (insertError) {
-      return NextResponse.json({ ok: false, error: insertError.message })
-    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {
