@@ -768,11 +768,10 @@ export function ModalCita({
                               style={{ backgroundColor: i === 0 ? '#2563EB' : '#e2e8f0', color: i === 0 ? 'white' : '#64748b' }}>
                               {i + 1}
                             </div>
-                            <input
-                              type="date"
+                            <DatePicker
                               value={fechaStr}
-                              onChange={e => setSessionFechaOverrides(prev => ({ ...prev, [i]: e.target.value }))}
-                              className={`h-7 rounded-lg border px-2 text-[11px] font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400/50 ${hayProblema ? 'border-red-300 text-red-700' : 'border-slate-200 text-slate-700'}`}
+                              onChange={v => setSessionFechaOverrides(prev => ({ ...prev, [i]: v }))}
+                              className={`flex-1 ${hayProblema ? '[&_button]:border-red-300 [&_button]:text-red-700' : ''}`}
                             />
                             <select
                               value={horaSession}
