@@ -180,14 +180,19 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── 2. Recordatorio mismo día ─────────────────────────────────────────────────
-  const hoyStr = now.toISOString().slice(0, 10)
+  // ── 2. Recordatorio mismo día (ventana +1h a +3h desde ahora, hora chilena) ───
+  // inicio está guardado como wall-clock (hora local de Chile, no UTC).
+  // Convertimos now a hora chilena restando el offset (Chile = UTC-4 en invierno).
+  const CHILE_OFFSET_MS = 4 * 60 * 60 * 1000 // UTC-4 (invierno); en verano sería UTC-3
+  const nowChile = new Date(now.getTime() - CHILE_OFFSET_MS)
+  const windowFrom = new Date(nowChile.getTime() + 1 * 60 * 60 * 1000).toISOString().slice(0, 19)
+  const windowTo   = new Date(nowChile.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 19)
 
   const { data: citasHoy } = await supabase
     .from('citas')
     .select(commonSelect)
-    .gte('inicio', `${hoyStr}T10:00:00`)
-    .lt('inicio', `${hoyStr}T23:59:59`)
+    .gte('inicio', windowFrom)
+    .lte('inicio', windowTo)
     .in('estado', ['pendiente', 'confirmada'])
 
   const rowsHoy = (citasHoy ?? []) as unknown as CitaRow[]
@@ -212,9 +217,9 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── 3. Post-cita (completadas hace 1–3 horas) ─────────────────────────────────
-  const postDesde = new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString()
-  const postHasta = new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString()
+  // ── 3. Post-cita (fin entre 1h y 3h atrás, hora chilena) ────────────────────
+  const postDesde = new Date(nowChile.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 19)
+  const postHasta = new Date(nowChile.getTime() - 1 * 60 * 60 * 1000).toISOString().slice(0, 19)
 
   const { data: citasPost } = await supabase
     .from('citas')
