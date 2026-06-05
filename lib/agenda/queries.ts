@@ -379,10 +379,11 @@ export async function crearPacienteRapido(
   rut?: string
 ): Promise<PacienteRow | null> {
   const supabase = createClient()
+  const { normalizarRut } = await import('@/lib/utils/rut')
 
   const insertData: Record<string, string> = { nombre: nombre.trim(), telefono: telefono.trim(), clinica_id: clinicaId }
   if (email?.trim()) insertData.email = email.trim()
-  if (rut?.trim()) insertData.rut = rut.trim()
+  if (rut?.trim()) insertData.rut = normalizarRut(rut.trim())
 
   const { data, error } = await supabase
     .from('pacientes')

@@ -3,6 +3,7 @@
 
 import { subDays } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { normalizarRut } from '@/lib/utils/rut'
 
 export type PacienteRow = {
   id: string
@@ -226,12 +227,13 @@ export async function crearPaciente(input: PacienteInput): Promise<PacienteRow |
   if (!clinicaId) return null
 
   const supabase = createClient()
+  const rawRut = input.rut?.trim()
   const payload = {
     clinica_id: clinicaId,
     nombre: input.nombre.trim(),
     telefono: input.telefono.trim(),
     email: input.email?.trim() || null,
-    rut: input.rut?.trim() || null,
+    rut: rawRut ? normalizarRut(rawRut) : null,
     fecha_nacimiento: input.fecha_nacimiento || null,
     genero: input.genero?.trim() || null,
     direccion: input.direccion?.trim() || null,
@@ -248,11 +250,12 @@ export async function crearPaciente(input: PacienteInput): Promise<PacienteRow |
 
 export async function actualizarPaciente(pacienteId: string, input: PacienteInput): Promise<PacienteRow | null> {
   const supabase = createClient()
+  const rawRut = input.rut?.trim()
   const payload = {
     nombre: input.nombre.trim(),
     telefono: input.telefono.trim(),
     email: input.email?.trim() || null,
-    rut: input.rut?.trim() || null,
+    rut: rawRut ? normalizarRut(rawRut) : null,
     fecha_nacimiento: input.fecha_nacimiento || null,
     genero: input.genero?.trim() || null,
     direccion: input.direccion?.trim() || null,
@@ -300,6 +303,15 @@ export async function toggleActivoPaciente(pacienteId: string, activo: boolean):
     return false
   }
   return true
+}
+
+export async function contarCitasPaciente(pacienteId: string): Promise<number> {
+  const supabase = createClient()
+  const { count } = await supabase
+    .from('citas')
+    .select('id', { count: 'exact', head: true })
+    .eq('paciente_id', pacienteId)
+  return count ?? 0
 }
 
 export async function eliminarPaciente(pacienteId: string): Promise<boolean> {

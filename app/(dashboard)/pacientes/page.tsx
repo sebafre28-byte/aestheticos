@@ -9,6 +9,7 @@ import { FormPaciente } from '@/components/pacientes/FormPaciente'
 import { ListaPacientes } from '@/components/pacientes/ListaPacientes'
 import {
   actualizarPaciente,
+  contarCitasPaciente,
   crearPaciente,
   eliminarPaciente,
   getPacientes,
@@ -42,6 +43,7 @@ export default function PacientesPage() {
   const [pacienteSeleccionadoId, setPacienteSeleccionadoId] = useState<string | null>(null)
   const [modalConfirm, setModalConfirm] = useState<ModalConfirm | null>(null)
   const [procesando, setProcesando] = useState(false)
+  const [citasAEliminar, setCitasAEliminar] = useState(0)
 
   useEffect(() => {
     const timeout = setTimeout(() => setBusqueda(busquedaInput), 250)
@@ -77,11 +79,15 @@ export default function PacientesPage() {
     genero: string
     direccion: string
   }) {
+    let ok: boolean
     if (pacienteEditando) {
-      await actualizarPaciente(pacienteEditando.id, data)
+      const result = await actualizarPaciente(pacienteEditando.id, data)
+      ok = !!result
     } else {
-      await crearPaciente(data)
+      const result = await crearPaciente(data)
+      ok = !!result
     }
+    if (!ok) return // FormPaciente should surface errors; don't close on failure
     setOpenForm(false)
     setPacienteEditando(null)
     await recargar()
@@ -126,7 +132,11 @@ export default function PacientesPage() {
         onSelectPaciente={(p) => setPacienteSeleccionadoId(p.id)}
         onEditar={(p) => { setPacienteSeleccionadoId(null); setPacienteEditando(p as PacienteRow); setOpenForm(true) }}
         onToggleActivo={(p) => setModalConfirm({ tipo: 'toggle', paciente: p })}
-        onEliminar={(p) => setModalConfirm({ tipo: 'eliminar', paciente: p })}
+        onEliminar={async (p) => {
+          const count = await contarCitasPaciente(p.id)
+          setCitasAEliminar(count)
+          setModalConfirm({ tipo: 'eliminar', paciente: p })
+        }}
       />
 
       {openForm && (
@@ -162,7 +172,16 @@ export default function PacientesPage() {
               </h3>
               <p className="text-[13px] text-gray-500 mb-5">
                 {modalConfirm.tipo === 'eliminar'
-                  ? <>¿Eliminar a <strong>{modalConfirm.paciente.nombre}</strong>? Esta acción no se puede deshacer.</>
+                  ? (
+                    <>
+                      ¿Eliminar a <strong>{modalConfirm.paciente.nombre}</strong>? Esta acción no se puede deshacer.
+                      {citasAEliminar > 0 && (
+                        <span className="block mt-2 text-red-600 font-medium">
+                          ⚠️ Se eliminarán también {citasAEliminar} cita{citasAEliminar !== 1 ? 's' : ''}, pagos y notas clínicas asociadas.
+                        </span>
+                      )}
+                    </>
+                  )
                   : modalConfirm.paciente.activo
                   ? <>¿Desactivar a <strong>{modalConfirm.paciente.nombre}</strong>? Seguirá en el sistema pero no aparecerá en filtros activos.</>
                   : <>¿Activar nuevamente a <strong>{modalConfirm.paciente.nombre}</strong>?</>}
