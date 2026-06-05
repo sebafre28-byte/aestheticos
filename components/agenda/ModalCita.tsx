@@ -7,6 +7,7 @@ import { X, Search, Plus, AlertTriangle, Loader2, User, Clock, ChevronDown } fro
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { DatePicker } from '@/components/ui/DatePicker'
 import type {
   CitaConRelaciones, ProfesionalRow, ServicioRow, PacienteRow, NuevaCitaData,
 } from '@/lib/agenda/queries'
@@ -607,12 +608,10 @@ export function ModalCita({
               <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
                 Fecha
               </Label>
-              <input
-                type="date"
+              <DatePicker
                 value={fecha}
+                onChange={setFecha}
                 min={format(new Date(), 'yyyy-MM-dd')}
-                onChange={(e) => setFecha(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl border border-gray-200 text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 bg-white"
               />
             </div>
 
