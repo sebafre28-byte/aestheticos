@@ -729,7 +729,7 @@ function PasoDatos({
 
     // Notify patient + clinic admin (non-critical)
     const base = window.location.origin
-    fetch(`${base}/api/notificar-cita`, {
+    fetch(`${base}/api/book/notificar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
