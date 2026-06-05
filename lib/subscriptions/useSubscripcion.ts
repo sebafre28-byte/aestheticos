@@ -37,6 +37,10 @@ const LIMITES: Record<string, Record<'profesionales' | 'pacientes', number | nul
 
 let cache: SubscripcionState | null = null
 
+export function clearSubscripcionCache() {
+  cache = null
+}
+
 export function useSubscripcion(): SubscripcionState {
   const [state, setState] = useState<SubscripcionState>(
     cache ?? {
