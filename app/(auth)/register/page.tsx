@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { ArrowRight, CheckCircle, Eye, EyeOff, Mail } from "lucide-react"
 import { SimpliClinicLogo } from '@/components/ui/SimpliClinicLogo'
@@ -26,6 +27,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -55,6 +57,14 @@ export default function RegisterPage() {
       return
     }
 
+    // Si confirm email está desactivado en Supabase, la sesión ya existe → ir directo al dashboard
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      router.push('/dashboard')
+      return
+    }
+
+    // Si requiere confirmación, mostrar pantalla "Revisa tu email"
     setSuccess(true)
     setLoading(false)
   }
