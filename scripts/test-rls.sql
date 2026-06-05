@@ -6,21 +6,29 @@ DO $$
 DECLARE
   v_clinica_a uuid;
   v_clinica_b uuid;
-  v_user_a uuid := gen_random_uuid();
-  v_user_b uuid := gen_random_uuid();
+  v_user_a uuid;
+  v_user_b uuid;
   v_paciente_a uuid;
   v_cita_a uuid;
   v_count int;
   v_errores int := 0;
 BEGIN
 
+  -- Tomar dos usuarios reales de auth.users para evitar FK violation
+  SELECT id INTO v_user_a FROM auth.users ORDER BY created_at ASC LIMIT 1;
+  SELECT id INTO v_user_b FROM auth.users ORDER BY created_at DESC LIMIT 1;
+
+  IF v_user_a IS NULL OR v_user_b IS NULL OR v_user_a = v_user_b THEN
+    RAISE EXCEPTION 'Se necesitan al menos 2 usuarios en auth.users para correr este test';
+  END IF;
+
   -- ── Setup: crear dos clínicas de prueba ──────────────────────────────────────
   INSERT INTO clinicas (nombre, slug, owner_id)
-  VALUES ('Test Clínica A', 'test-rls-clinica-a-' || extract(epoch from now())::int, v_user_a)
+  VALUES ('Test Clínica A', 'test-rls-a-' || extract(epoch from now())::int, v_user_a)
   RETURNING id INTO v_clinica_a;
 
   INSERT INTO clinicas (nombre, slug, owner_id)
-  VALUES ('Test Clínica B', 'test-rls-clinica-b-' || extract(epoch from now())::int, v_user_b)
+  VALUES ('Test Clínica B', 'test-rls-b-' || extract(epoch from now())::int, v_user_b)
   RETURNING id INTO v_clinica_b;
 
   -- Crear paciente en clínica A
@@ -33,10 +41,9 @@ BEGIN
   VALUES (v_clinica_a, v_paciente_a, now() + interval '1 day', now() + interval '1 day 1 hour', 'pendiente')
   RETURNING id INTO v_cita_a;
 
-  RAISE NOTICE '✅ Setup: clínica A=%, clínica B=%', v_clinica_a, v_clinica_b;
+  RAISE NOTICE '✅ Setup: clínica A=%, clínica B=%, user_a=%, user_b=%', v_clinica_a, v_clinica_b, v_user_a, v_user_b;
 
   -- ── Test 1: usuario B NO puede ver pacientes de A ────────────────────────────
-  -- Simular contexto de usuario B seteando claim en sesión
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user_b::text, 'role', 'authenticated')::text, true);
 
   SELECT count(*) INTO v_count
@@ -94,7 +101,6 @@ BEGIN
   BEGIN
     INSERT INTO pacientes (clinica_id, nombre, telefono)
     VALUES (v_clinica_a, 'Intruso', '+56900000099');
-    -- Si llegó acá, RLS no bloqueó
     RAISE WARNING '❌ TEST 5 FALLO: usuario B pudo insertar paciente en clínica A';
     v_errores := v_errores + 1;
   EXCEPTION WHEN others THEN
@@ -103,24 +109,18 @@ BEGIN
 
   -- ── Resultado final ───────────────────────────────────────────────────────────
   IF v_errores = 0 THEN
-    RAISE NOTICE '';
     RAISE NOTICE '✅✅✅ TODOS LOS TESTS PASARON — aislamiento RLS correcto';
   ELSE
     RAISE WARNING '❌ % TEST(S) FALLARON — revisar políticas RLS', v_errores;
   END IF;
 
-  -- ── Cleanup: eliminar datos de prueba ─────────────────────────────────────────
-  -- Restaurar contexto de postgres para poder limpiar
-  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user_a::text, 'role', 'service_role')::text, true);
-
+  -- ── Cleanup ───────────────────────────────────────────────────────────────────
   DELETE FROM citas WHERE clinica_id IN (v_clinica_a, v_clinica_b);
   DELETE FROM pacientes WHERE clinica_id IN (v_clinica_a, v_clinica_b);
   DELETE FROM clinicas WHERE id IN (v_clinica_a, v_clinica_b);
-
   RAISE NOTICE '🧹 Cleanup completado';
 
 EXCEPTION WHEN others THEN
-  -- Limpiar en caso de error inesperado
   DELETE FROM citas WHERE clinica_id IN (v_clinica_a, v_clinica_b);
   DELETE FROM pacientes WHERE clinica_id IN (v_clinica_a, v_clinica_b);
   DELETE FROM clinicas WHERE id IN (v_clinica_a, v_clinica_b);
