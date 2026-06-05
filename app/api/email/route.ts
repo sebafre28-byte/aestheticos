@@ -28,7 +28,13 @@ export type TipoEmailCita =
   | 'cancelacion_cita'
   | 'post_cita'
 
-export type TipoEmail = TipoEmailCita | 'invitacion_equipo'
+export type TipoEmail = TipoEmailCita | 'invitacion_equipo' | 'bienvenida'
+
+export interface DatosBienvenida {
+  nombre: string
+  clinica_nombre: string
+  dashboard_url: string
+}
 
 export interface DatosInvitacion {
   nombre_invitado: string
@@ -546,6 +552,174 @@ function getSubject(tipo: TipoEmailCita, datos: DatosCita): string {
   return `Tu cita fue cancelada · ${c}`
 }
 
+// ─── Welcome email ───────────────────────────────────────────────────────────
+
+function buildWelcomeEmail(d: DatosBienvenida): { subject: string; html: string } {
+  const subject = `¡Bienvenido/a a SimpliClinic, ${d.nombre}! Tu prueba gratuita comienza hoy`
+  const html = `<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body style="margin:0;padding:0;background:#EEF2F7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EEF2F7;">
+  <tr>
+    <td align="center" style="padding:36px 16px 48px;">
+      <table cellpadding="0" cellspacing="0" border="0"
+             style="width:100%;max-width:580px;background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #E2E8F0;">
+
+        <!-- TOP ACCENT BAR -->
+        <tr>
+          <td height="5" style="height:5px;background:linear-gradient(90deg,#2563EB 0%,#14B8A6 100%);font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
+
+        <!-- HEADER -->
+        <tr>
+          <td style="padding:20px 36px 18px;border-bottom:1px solid #F1F5F9;">
+            <img src="${SC_LOGO_URL}" alt="SimpliClinic" height="48"
+                 style="display:block;height:48px;width:auto;border:0;" />
+          </td>
+        </tr>
+
+        <!-- HERO -->
+        <tr>
+          <td align="center" style="padding:48px 36px 32px;text-align:center;">
+            <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 22px auto;">
+              <tr>
+                <td align="center" valign="middle" width="76" height="76"
+                    style="width:76px;height:76px;background:linear-gradient(135deg,#2563EB 0%,#14B8A6 100%);border-radius:50%;">
+                  <span style="font-size:34px;color:#ffffff;display:block;line-height:76px;">&#127881;</span>
+                </td>
+              </tr>
+            </table>
+            <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 20px auto;">
+              <tr>
+                <td align="center" style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:100px;padding:5px 16px;">
+                  <span style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#1D4ED8;">14 D&Iacute;AS GRATIS &middot; SIN TARJETA</span>
+                </td>
+              </tr>
+            </table>
+            <h1 style="margin:0 0 12px;font-size:28px;font-weight:800;color:#0B132B;letter-spacing:-0.8px;line-height:1.2;">
+              &#161;Bienvenido/a, ${d.nombre}!
+            </h1>
+            <p style="margin:0;font-size:15px;color:#64748B;line-height:1.7;max-width:420px;margin-left:auto;margin-right:auto;">
+              Tu clínica <strong style="color:#0B132B;">${d.clinica_nombre}</strong> ya está creada en SimpliClinic. Tienes <strong style="color:#2563EB;">14 días gratis</strong> para explorar todo sin compromiso.
+            </p>
+          </td>
+        </tr>
+
+        <!-- PASOS -->
+        <tr>
+          <td style="padding:0 36px 28px;">
+            <table cellpadding="0" cellspacing="0" border="0"
+                   style="width:100%;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;margin:0 0 24px 0;">
+
+              <tr><td style="padding:16px 18px 8px;">
+                <p style="margin:0;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;">Primeros pasos recomendados</p>
+              </td></tr>
+
+              <tr><td style="padding:10px 18px;border-top:1px solid #F1F5F9;">
+                <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+                  <tr>
+                    <td width="32" style="vertical-align:top;padding-right:12px;padding-top:2px;">
+                      <table cellpadding="0" cellspacing="0" border="0"><tr>
+                        <td align="center" valign="middle" width="28" height="28"
+                            style="width:28px;height:28px;background:#EFF6FF;border-radius:8px;border:1px solid #BFDBFE;">
+                          <span style="font-size:14px;line-height:28px;display:block;">1</span>
+                        </td>
+                      </tr></table>
+                    </td>
+                    <td style="vertical-align:top;">
+                      <p style="margin:0 0 2px;font-size:13px;font-weight:700;color:#0F172A;">Agrega tus profesionales</p>
+                      <p style="margin:0;font-size:12px;color:#64748B;">Configura el equipo de tu cl&iacute;nica con sus especialidades.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td></tr>
+
+              <tr><td style="padding:10px 18px;border-top:1px solid #F1F5F9;">
+                <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+                  <tr>
+                    <td width="32" style="vertical-align:top;padding-right:12px;padding-top:2px;">
+                      <table cellpadding="0" cellspacing="0" border="0"><tr>
+                        <td align="center" valign="middle" width="28" height="28"
+                            style="width:28px;height:28px;background:#F0FDFA;border-radius:8px;border:1px solid #99F6E4;">
+                          <span style="font-size:14px;line-height:28px;display:block;">2</span>
+                        </td>
+                      </tr></table>
+                    </td>
+                    <td style="vertical-align:top;">
+                      <p style="margin:0 0 2px;font-size:13px;font-weight:700;color:#0F172A;">Crea tus servicios</p>
+                      <p style="margin:0;font-size:12px;color:#64748B;">Define los tratamientos con su duraci&oacute;n y precio.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td></tr>
+
+              <tr><td style="padding:10px 18px;border-top:1px solid #F1F5F9;">
+                <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+                  <tr>
+                    <td width="32" style="vertical-align:top;padding-right:12px;padding-top:2px;">
+                      <table cellpadding="0" cellspacing="0" border="0"><tr>
+                        <td align="center" valign="middle" width="28" height="28"
+                            style="width:28px;height:28px;background:#FEF3C7;border-radius:8px;border:1px solid #FDE68A;">
+                          <span style="font-size:14px;line-height:28px;display:block;">3</span>
+                        </td>
+                      </tr></table>
+                    </td>
+                    <td style="vertical-align:top;">
+                      <p style="margin:0 0 2px;font-size:13px;font-weight:700;color:#0F172A;">Comparte tu link de reservas</p>
+                      <p style="margin:0;font-size:12px;color:#64748B;">Tus pacientes pueden agendar directamente desde su celular.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td></tr>
+
+            </table>
+
+            <!-- CTA button -->
+            <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+              <tr>
+                <td align="center" style="background:linear-gradient(135deg,#2563EB 0%,#1D4ED8 100%);border-radius:12px;">
+                  <a href="${d.dashboard_url}" target="_blank"
+                     style="display:block;padding:16px 24px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;text-align:center;letter-spacing:0.2px;">
+                    Ir a mi dashboard &#8594;
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- FOOTER -->
+        <tr>
+          <td align="center" style="background:#F8FAFC;padding:24px 36px;border-top:1px solid #E2E8F0;text-align:center;">
+            <img src="${SC_LOGO_URL}" alt="SimpliClinic" height="40"
+                 style="display:block;height:40px;width:auto;border:0;margin:0 auto 10px auto;" />
+            <p style="margin:0 0 8px;font-size:11px;color:#94A3B8;letter-spacing:1.4px;text-transform:uppercase;">Tu cl&iacute;nica, m&aacute;s simple.</p>
+            <p style="margin:0;font-size:11px;color:#CBD5E1;line-height:1.7;">
+              SimpliClinic SpA &mdash; Santiago, Chile.<br/>
+              &#9993;&nbsp; <a href="mailto:hola@simpliclinic.cl" style="color:#94A3B8;text-decoration:none;">hola@simpliclinic.cl</a>
+            </p>
+          </td>
+        </tr>
+
+        <!-- BOTTOM ACCENT BAR -->
+        <tr>
+          <td height="5" style="height:5px;background:linear-gradient(90deg,#2563EB 0%,#14B8A6 100%);font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`
+  return { subject, html }
+}
+
 // ─── Invite email ─────────────────────────────────────────────────────────────
 
 function buildInviteEmail(d: DatosInvitacion): { subject: string; html: string } {
@@ -592,7 +766,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: 'Too many requests' }, { status: 429 })
   }
 
-  let payload: { tipo: string; destinatario: string; datos: DatosCita | DatosInvitacion }
+  let payload: { tipo: string; destinatario: string; datos: DatosCita | DatosInvitacion | DatosBienvenida }
   try {
     payload = await req.json()
   } catch {
@@ -607,7 +781,11 @@ export async function POST(req: NextRequest) {
   let html: string
   let subject: string
 
-  if (tipo === 'invitacion_equipo') {
+  if (tipo === 'bienvenida') {
+    const bienvenida = buildWelcomeEmail(datos as DatosBienvenida)
+    html = bienvenida.html
+    subject = bienvenida.subject
+  } else if (tipo === 'invitacion_equipo') {
     const inv = buildInviteEmail(datos as DatosInvitacion)
     html = inv.html
     subject = inv.subject
