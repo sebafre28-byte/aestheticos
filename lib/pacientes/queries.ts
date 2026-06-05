@@ -124,7 +124,7 @@ export async function getPacientes({
     .range(from, to)
 
   if (termino) {
-    query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${termino}%`)
+    query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${termino}%,email.ilike.%${termino}%`)
   }
 
   if (filtro === 'activos') {

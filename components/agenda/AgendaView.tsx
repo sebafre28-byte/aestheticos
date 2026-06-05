@@ -452,10 +452,15 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     : citas.filter(c => c.estado !== 'cancelada' && c.estado !== 'no_asistio')
 
   const citasFiltradas = busqueda.trim()
-    ? citasBase.filter((c) =>
-        c.pacientes?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-        c.servicios?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
-      )
+    ? citasBase.filter((c) => {
+        const q = busqueda.toLowerCase()
+        return (
+          c.pacientes?.nombre?.toLowerCase().includes(q) ||
+          c.pacientes?.rut?.toLowerCase().includes(q) ||
+          c.pacientes?.email?.toLowerCase().includes(q) ||
+          c.servicios?.nombre?.toLowerCase().includes(q)
+        )
+      })
     : citasBase
 
   // ─── Vista lista: citas filtradas y ordenadas ─────────────────────────────

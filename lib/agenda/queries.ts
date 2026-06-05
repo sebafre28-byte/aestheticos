@@ -357,7 +357,7 @@ export async function getPacientesBusqueda(query: string): Promise<PacienteRow[]
   const { data, error } = await supabase
     .from('pacientes')
     .select('*')
-    .or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%`)
+    .or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${termino}%,email.ilike.%${termino}%`)
     .eq('activo', true)
     .limit(10)
     .order('nombre', { ascending: true })
