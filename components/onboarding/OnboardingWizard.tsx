@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { CheckCircle2, Loader2, ChevronRight, ChevronLeft, Sparkles, Users, Scissors, Clock } from 'lucide-react'
+import { CheckCircle, CheckCircle2, Check, Copy, Loader2, ChevronRight, ChevronLeft, Sparkles, Users, Scissors, Clock } from 'lucide-react'
 import {
   actualizarClinicaBasica,
   crearProfesionalOnboarding,
@@ -117,10 +117,13 @@ function Field({ label, hint, required, children }: { label: string; hint?: stri
 export function OnboardingWizard() {
   const router = useRouter()
   const [paso, setPaso] = useState(1)
+  const [completado, setCompletado] = useState(false)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [clinica, setClinica] = useState<ClinicaBasica | null>(null)
+  const [copiado, setCopiado] = useState(false)
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Paso 1
   const [nombreClinica, setNombreClinica] = useState('')
@@ -244,13 +247,76 @@ export function OnboardingWizard() {
     // Save horarios to clinica configuracion
     await actualizarClinicaBasica({ horarios })
     setGuardando(false)
-    router.replace('/dashboard')
+    setCompletado(true)
+    redirectTimerRef.current = setTimeout(() => router.replace('/dashboard'), 10000)
   }
 
   if (cargando) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-[#2563EB]" />
+      </div>
+    )
+  }
+
+  if (completado) {
+    const bookingUrl = clinica?.slug
+      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${clinica.slug}`
+      : null
+
+    function handleCopiar() {
+      if (!bookingUrl) return
+      navigator.clipboard.writeText(bookingUrl).then(() => {
+        setCopiado(true)
+        setTimeout(() => setCopiado(false), 2000)
+      })
+    }
+
+    return (
+      <div className="mx-auto w-full max-w-xl px-4 py-8 sm:py-10 flex flex-col items-center">
+        <div
+          className="w-full rounded-2xl p-8 flex flex-col items-center text-center shadow-sm"
+          style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)', border: '1px solid #bfdbfe' }}
+        >
+          <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow mb-5">
+            <CheckCircle className="size-9 text-[#10B981]" />
+          </div>
+          <h1 className="text-2xl font-extrabold text-[#0B132B] tracking-tight mb-2">
+            ¡Tu clínica está lista!
+          </h1>
+          <p className="text-sm text-slate-500 mb-6 max-w-sm">
+            Comparte tu link de reservas con tus pacientes para empezar a recibir citas.
+          </p>
+
+          {bookingUrl && (
+            <div className="w-full mb-6 space-y-2">
+              <div className="flex items-center gap-2 bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-sm">
+                <span className="flex-1 text-sm text-slate-700 truncate text-left">{bookingUrl}</span>
+                <button
+                  type="button"
+                  onClick={handleCopiar}
+                  className="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold text-[#2563EB] hover:text-blue-700 transition-colors"
+                >
+                  {copiado ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                  {copiado ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
+              router.replace('/dashboard')
+            }}
+            className="w-full h-11 rounded-xl font-semibold text-white flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)' }}
+          >
+            Ir al dashboard →
+          </button>
+          <p className="mt-4 text-xs text-slate-400">Serás redirigido automáticamente en 10 segundos.</p>
+        </div>
       </div>
     )
   }

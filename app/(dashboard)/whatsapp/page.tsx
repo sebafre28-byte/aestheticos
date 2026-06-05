@@ -4,7 +4,7 @@ import { PlanGate } from '@/components/subscriptions/PlanGate'
 import { TrialFeatureBanner } from '@/components/subscriptions/TrialFeatureBanner'
 import { useState, useEffect, useCallback } from "react"
 import {
-  MessageCircle, CheckCheck, Check, Clock, Send, Bell, BellOff,
+  MessageCircle, CheckCheck, Check, Clock, Send, Bell,
   Wifi, WifiOff, ChevronRight, Loader2, AlertCircle, RefreshCw,
 } from "lucide-react"
 import {
@@ -22,29 +22,6 @@ const estadoIcono = {
   fallido:    <AlertCircle className="size-3.5 text-red-400" />,
 }
 
-const recordatorios = [
-  { id: "r1", label: "Recordatorio 24 h antes",  descripcion: "Mensaje automático el día anterior a la cita", defaultActivo: true },
-  { id: "r2", label: "Recordatorio 2 h antes",   descripcion: "Aviso el mismo día, 2 horas antes",            defaultActivo: true },
-  { id: "r3", label: "Confirmación de cita",      descripcion: "Solicita confirmación 48 h antes",             defaultActivo: true },
-  { id: "r4", label: "Post-cita: feedback",       descripcion: "Encuesta de satisfacción al finalizar",        defaultActivo: false },
-]
-
-function Toggle({ activo, onChange }: { activo: boolean; onChange: () => void }) {
-  return (
-    <button
-      onClick={onChange}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-        activo ? "bg-[#2563EB]" : "bg-gray-200"
-      }`}
-    >
-      <span
-        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
-          activo ? "translate-x-[18px]" : "translate-x-[3px]"
-        }`}
-      />
-    </button>
-  )
-}
 
 function iniciales(nombre: string | null, telefono: string): string {
   if (nombre) {
@@ -58,9 +35,6 @@ function iniciales(nombre: string | null, telefono: string): string {
 
 export default function WhatsAppPage() {
   const [conectado] = useState(!!process.env.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM)
-  const [toggles, setToggles] = useState<Record<string, boolean>>(
-    Object.fromEntries(recordatorios.map((r) => [r.id, r.defaultActivo]))
-  )
   const [conversaciones, setConversaciones] = useState<ConversacionResumen[]>([])
   const [stats, setStats] = useState<WhatsappStats | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -82,11 +56,6 @@ export default function WhatsAppPage() {
 
   useEffect(() => { cargar() }, [cargar])
 
-  function flipToggle(id: string) {
-    setToggles((prev) => ({ ...prev, [id]: !prev[id] }))
-  }
-
-  const activosCount = Object.values(toggles).filter(Boolean).length
   const twilioFrom = process.env.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM ?? null
 
   return (
@@ -253,49 +222,23 @@ export default function WhatsAppPage() {
           )}
         </div>
 
-        {/* Panel de recordatorios automáticos */}
+        {/* Recordatorios — link a configuración */}
         <div className="bg-white rounded-xl border border-gray-100 flex flex-col">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
             <div>
               <h2 className="text-[14px] font-semibold text-gray-900">Recordatorios automáticos</h2>
-              <p className="text-[12px] text-gray-400 mt-0.5">
-                {activosCount} de {recordatorios.length} activos
-              </p>
+              <p className="text-[12px] text-gray-400 mt-0.5">Configura cuándo y cómo se envían</p>
             </div>
             <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center">
-              {activosCount > 0 ? (
-                <Bell className="size-3.5 text-[#2563EB]" />
-              ) : (
-                <BellOff className="size-3.5 text-gray-400" />
-              )}
+              <Bell className="size-3.5 text-[#2563EB]" />
             </div>
           </div>
-
-          <div className="flex-1 divide-y divide-gray-50">
-            {recordatorios.map((rec) => (
-              <div key={rec.id} className="flex items-center justify-between px-5 py-4 gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium text-gray-900">{rec.label}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{rec.descripcion}</p>
-                </div>
-                <Toggle activo={toggles[rec.id]} onChange={() => flipToggle(rec.id)} />
-              </div>
-            ))}
-          </div>
-
-          <div className="p-4 border-t border-gray-50 space-y-2">
-            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
-              Plantilla activa
-            </p>
-            <div className="bg-[#f0fdf4] rounded-lg p-3 border border-emerald-100">
-              <p className="text-[12px] text-gray-700 leading-relaxed">
-                Hola <span className="font-semibold text-[#2563EB]">{"{nombre}"}</span>, te
-                recordamos tu cita el{" "}
-                <span className="font-semibold text-[#2563EB]">{"{fecha}"}</span> a las{" "}
-                <span className="font-semibold text-[#2563EB]">{"{hora}"}</span>. Responde{" "}
-                <span className="font-semibold">SI</span> para confirmar o{" "}
-                <span className="font-semibold">NO</span> para cancelar.
-              </p>
+          <div className="p-4">
+            <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/50 text-[13px] text-blue-700">
+              Configura tus recordatorios automáticos en{' '}
+              <a href="/configuracion?tab=recordatorios" className="font-semibold underline">
+                Configuración → Recordatorios
+              </a>
             </div>
           </div>
         </div>

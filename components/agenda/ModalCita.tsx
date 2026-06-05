@@ -73,6 +73,7 @@ export function ModalCita({
   const [mostrarCrearPaciente, setMostrarCrearPaciente] = useState(false)
   const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', telefono: '', email: '', rut: '' })
   const [creandoPaciente, setCreandoPaciente] = useState(false)
+  const [errorCrearPaciente, setErrorCrearPaciente] = useState<string | null>(null)
 
   const [profesionalId, setProfesionalId] = useState(
     citaExistente?.profesional_id ?? profesionalIdInicial ?? profesionales[0]?.id ?? ''
@@ -293,6 +294,7 @@ export function ModalCita({
   async function handleCrearPaciente() {
     if (!nuevoPaciente.nombre.trim() || !nuevoPaciente.email.trim() || !nuevoPaciente.telefono.trim() || !nuevoPaciente.rut.trim()) return
     setCreandoPaciente(true)
+    setErrorCrearPaciente(null)
     const clinicaId = await getClinicaId()
     if (!clinicaId) { setCreandoPaciente(false); return }
     const paciente = await crearPacienteRapido(nuevoPaciente.nombre, nuevoPaciente.telefono, clinicaId, nuevoPaciente.email, nuevoPaciente.rut)
@@ -301,6 +303,8 @@ export function ModalCita({
       seleccionarPaciente(paciente)
       setMostrarCrearPaciente(false)
       setNuevoPaciente({ nombre: '', telefono: '', email: '', rut: '' })
+    } else {
+      setErrorCrearPaciente('No se pudo crear el paciente. Verifica que el RUT o email no estén ya registrados.')
     }
   }
 
@@ -510,26 +514,26 @@ export function ModalCita({
                 </p>
                 <Input
                   value={nuevoPaciente.nombre}
-                  onChange={(e) => setNuevoPaciente((p) => ({ ...p, nombre: e.target.value }))}
+                  onChange={(e) => { setNuevoPaciente((p) => ({ ...p, nombre: e.target.value })); setErrorCrearPaciente(null) }}
                   placeholder="Nombre completo *"
                   className="text-[12px] bg-white"
                 />
                 <Input
                   type="email"
                   value={nuevoPaciente.email}
-                  onChange={(e) => setNuevoPaciente((p) => ({ ...p, email: e.target.value }))}
+                  onChange={(e) => { setNuevoPaciente((p) => ({ ...p, email: e.target.value })); setErrorCrearPaciente(null) }}
                   placeholder="Email *"
                   className="text-[12px] bg-white"
                 />
                 <Input
                   value={nuevoPaciente.telefono}
-                  onChange={(e) => setNuevoPaciente((p) => ({ ...p, telefono: e.target.value }))}
+                  onChange={(e) => { setNuevoPaciente((p) => ({ ...p, telefono: e.target.value })); setErrorCrearPaciente(null) }}
                   placeholder="Teléfono *"
                   className="text-[12px] bg-white"
                 />
                 <Input
                   value={nuevoPaciente.rut}
-                  onChange={(e) => setNuevoPaciente((p) => ({ ...p, rut: e.target.value }))}
+                  onChange={(e) => { setNuevoPaciente((p) => ({ ...p, rut: e.target.value })); setErrorCrearPaciente(null) }}
                   placeholder="RUT *"
                   className="text-[12px] bg-white"
                 />
@@ -552,6 +556,9 @@ export function ModalCita({
                     Cancelar
                   </Button>
                 </div>
+                {errorCrearPaciente && (
+                  <p className="text-[12px] text-red-500 mt-1">{errorCrearPaciente}</p>
+                )}
               </div>
             )}
           </div>
