@@ -313,6 +313,7 @@ export function ModalCita({
     if (!profesionalId) { setError('Selecciona un profesional'); return }
     if (!servicioId) { setError('Selecciona un servicio'); return }
     if (!fecha || !hora) { setError('Indica fecha y hora'); return }
+    if (fecha < format(new Date(), 'yyyy-MM-dd')) { setError('No puedes agendar en una fecha pasada'); return }
     if (conflicto) { setError('Existe conflicto de horario. Selecciona otro bloque.'); return }
 
     setError(null)
@@ -609,6 +610,7 @@ export function ModalCita({
               <input
                 type="date"
                 value={fecha}
+                min={format(new Date(), 'yyyy-MM-dd')}
                 onChange={(e) => setFecha(e.target.value)}
                 className="w-full h-9 px-3 rounded-xl border border-gray-200 text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 bg-white"
               />
