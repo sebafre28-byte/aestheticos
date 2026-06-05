@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, use } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle2, ChevronLeft, Loader2, MapPin, Phone, Mail, Clock, DollarSign, Check } from 'lucide-react'
 import { Turnstile } from '@marsidev/react-turnstile'
+import { format } from 'date-fns'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -749,8 +750,8 @@ function PasoDatos({
           direccion: clinica.direccion,
           logo_url: clinica.logo_url,
         },
-        inicio: inicio.toISOString(),
-        fin: fin.toISOString(),
+        inicio: format(inicio, "yyyy-MM-dd'T'HH:mm:ss"),
+        fin: format(fin, "yyyy-MM-dd'T'HH:mm:ss"),
       }),
     }).catch((err) => console.warn('[booking] notificar-cita error (non-critical):', err))
 
