@@ -16,6 +16,7 @@ import { SeccionCobroCita } from './SeccionCobroCita'
 import { useDialogA11y } from './useDialogA11y'
 import { useRol } from '@/lib/auth/useRol'
 import { getNotasClinicas, crearNotaClinica, eliminarNotaClinica, type NotaClinica } from '@/lib/pacientes/queries'
+import { getClinicaBasica } from '@/lib/onboarding/queries'
 
 // Configuración visual del badge prominente de estado
 const estadoConfig: Record<EstadoCita, {
@@ -238,8 +239,51 @@ export function PanelDetalleCita({
     if (!ok) {
       setEstadoActual(cita.estado)
       onEstadoActualizado(cita.id, cita.estado)
+    } else if (nuevoEstado === 'cancelada') {
+      // Enviar emails de cancelación al paciente y al admin en background
+      enviarEmailsCancelacion().catch(() => {})
     }
     setActualizando(null)
+  }
+
+  async function enviarEmailsCancelacion() {
+    const clinica = await getClinicaBasica()
+    if (!clinica) return
+
+    const inicio = parseISO(cita.inicio)
+    const datos = {
+      paciente_nombre:   paciente?.nombre ?? 'Paciente',
+      paciente_email:    paciente?.email ?? undefined,
+      paciente_telefono: paciente?.telefono ?? undefined,
+      servicio_nombre:   servicio?.nombre ?? 'Servicio',
+      profesional_nombre: cita.profesionales?.nombre ?? '',
+      fecha: format(inicio, "EEEE d 'de' MMMM yyyy", { locale: es }),
+      hora:  format(inicio, 'HH:mm'),
+      clinica_nombre:    clinica.nombre,
+      clinica_email:     clinica.email ?? undefined,
+      clinica_telefono:  clinica.telefono ?? undefined,
+      canal: 'agenda' as const,
+    }
+
+    const base = window.location.origin
+
+    // Email al paciente (solo si tiene email)
+    if (datos.paciente_email) {
+      fetch(`${base}/api/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'cancelacion_cita', destinatario: datos.paciente_email, datos }),
+      }).catch(() => {})
+    }
+
+    // Email al admin
+    if (clinica.email) {
+      fetch(`${base}/api/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'cancelacion_cita', destinatario: clinica.email, datos }),
+      }).catch(() => {})
+    }
   }
 
   function handleAccion(accion: AccionEstado) {
