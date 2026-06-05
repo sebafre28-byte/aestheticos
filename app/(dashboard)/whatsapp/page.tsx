@@ -120,7 +120,7 @@ export default function WhatsAppPage() {
             {conectado ? (
               <>
                 <Wifi className="size-3.5" />
-                {twilioFrom ?? "Sandbox conectado"}
+                {twilioFrom ?? "WhatsApp conectado"}
               </>
             ) : (
               <>
