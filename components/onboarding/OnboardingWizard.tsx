@@ -71,13 +71,13 @@ function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) 
 
 
 const DIAS = [
-  { key: 'lunes',     label: 'L' },
-  { key: 'martes',    label: 'M' },
-  { key: 'miercoles', label: 'X' },
-  { key: 'jueves',    label: 'J' },
-  { key: 'viernes',   label: 'V' },
-  { key: 'sabado',    label: 'S' },
-  { key: 'domingo',   label: 'D' },
+  { key: 'lunes',      label: 'L' },
+  { key: 'martes',     label: 'M' },
+  { key: 'miércoles',  label: 'X' },
+  { key: 'jueves',     label: 'J' },
+  { key: 'viernes',    label: 'V' },
+  { key: 'sábado',     label: 'S' },
+  { key: 'domingo',    label: 'D' },
 ]
 
 type DiaConfig = { activo: boolean; desde: string; hasta: string }
@@ -145,13 +145,13 @@ export function OnboardingWizard() {
 
   // Paso 4
   const [horarios, setHorarios] = useState<Record<string, DiaConfig>>({
-    lunes:     { activo: true,  desde: '09:00', hasta: '18:00' },
-    martes:    { activo: true,  desde: '09:00', hasta: '18:00' },
-    miercoles: { activo: true,  desde: '09:00', hasta: '18:00' },
-    jueves:    { activo: true,  desde: '09:00', hasta: '18:00' },
-    viernes:   { activo: true,  desde: '09:00', hasta: '18:00' },
-    sabado:    { activo: false, desde: '09:00', hasta: '14:00' },
-    domingo:   { activo: false, desde: '09:00', hasta: '14:00' },
+    'lunes':      { activo: true,  desde: '09:00', hasta: '18:00' },
+    'martes':     { activo: true,  desde: '09:00', hasta: '18:00' },
+    'miércoles':  { activo: true,  desde: '09:00', hasta: '18:00' },
+    'jueves':     { activo: true,  desde: '09:00', hasta: '18:00' },
+    'viernes':    { activo: true,  desde: '09:00', hasta: '18:00' },
+    'sábado':     { activo: false, desde: '09:00', hasta: '14:00' },
+    'domingo':    { activo: false, desde: '09:00', hasta: '14:00' },
   })
 
   useEffect(() => {

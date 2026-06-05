@@ -1518,7 +1518,15 @@ function SeccionHorarios() {
 
   useEffect(() => {
     getClinicaConfig().then((cfg) => {
-      if (cfg.horarios && Object.keys(cfg.horarios).length > 0) setHorarios(cfg.horarios)
+      if (cfg.horarios && Object.keys(cfg.horarios).length > 0) {
+        // Normalize legacy keys without accents (saved by old onboarding)
+        const normalized: HorariosConfig = {}
+        const KEY_MAP: Record<string, string> = { miercoles: 'miércoles', sabado: 'sábado' }
+        for (const [k, v] of Object.entries(cfg.horarios)) {
+          normalized[KEY_MAP[k] ?? k] = v
+        }
+        setHorarios(normalized)
+      }
       setCargando(false)
     })
   }, [])
