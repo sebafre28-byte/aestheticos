@@ -206,6 +206,26 @@ export async function handleStripeWebhook(
       break
     }
 
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as { subscription?: string }
+      if (!invoice.subscription) break
+      await supabase
+        .from('subscriptions')
+        .update({ estado: 'pausada', updated_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', invoice.subscription)
+      break
+    }
+
+    case 'invoice.payment_action_required': {
+      const invoice = event.data.object as { subscription?: string }
+      if (!invoice.subscription) break
+      await supabase
+        .from('subscriptions')
+        .update({ estado: 'pausada', updated_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', invoice.subscription)
+      break
+    }
+
     default:
       // Unhandled event type — not an error
       break
