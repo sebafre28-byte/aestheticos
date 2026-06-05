@@ -500,12 +500,12 @@ export function ModalCita({
                   placeholder="Nombre completo *"
                   className="text-[12px] bg-white"
                 />
-                <input
+                <Input
                   type="email"
                   value={nuevoPaciente.email}
                   onChange={(e) => setNuevoPaciente((p) => ({ ...p, email: e.target.value }))}
                   placeholder="Email *"
-                  className="w-full h-8 px-2.5 text-[12px] rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-400/50"
+                  className="text-[12px] bg-white"
                 />
                 <Input
                   value={nuevoPaciente.telefono}
