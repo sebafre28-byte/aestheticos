@@ -90,7 +90,10 @@ export async function getPacientes({
       .order('created_at', { ascending: false })
       .range(from, to)
 
-    if (termino) query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${termino}%`)
+    if (termino) {
+      const terminoRut = termino.replace(/\./g, '').replace(/-/g, '')
+      query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${terminoRut}%,email.ilike.%${termino}%`)
+    }
     if (filtro === 'activos') query = query.eq('activo', true)
     if (filtro === 'nuevos') query = query.gte('created_at', subDays(new Date(), 30).toISOString())
 
@@ -125,7 +128,8 @@ export async function getPacientes({
     .range(from, to)
 
   if (termino) {
-    query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${termino}%,email.ilike.%${termino}%`)
+    const terminoRut = termino.replace(/\./g, '').replace(/-/g, '')
+    query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${terminoRut}%,email.ilike.%${termino}%`)
   }
 
   if (filtro === 'activos') {
