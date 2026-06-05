@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DatePicker } from '@/components/ui/DatePicker'
+import { TimePicker } from '@/components/ui/TimePicker'
 import type {
   CitaConRelaciones, ProfesionalRow, ServicioRow, PacienteRow, NuevaCitaData,
 } from '@/lib/agenda/queries'
@@ -811,16 +812,12 @@ export function ModalCita({
                               disabledDays={isDayDisabled}
                               className={`flex-1 ${hayProblema ? '[&_button]:border-red-300 [&_button]:text-red-700' : ''}`}
                             />
-                            <select
+                            <TimePicker
                               value={horaSession}
-                              onChange={e => setSessionHoraOverrides(prev => ({ ...prev, [i]: e.target.value }))}
-                              className={`h-7 rounded-lg border px-2 pr-5 text-[11px] font-semibold appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400/50 ${
-                                hayProblema ? 'border-red-300 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-[#2563EB]'
-                              }`}
-                              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%2394a3b8' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
-                            >
-                              {SLOTS_HORA.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
+                              onChange={v => setSessionHoraOverrides(prev => ({ ...prev, [i]: v }))}
+                              slots={SLOTS_HORA}
+                              hasError={!!hayProblema}
+                            />
                             {diaNoAtiende && <span className="text-[10px] text-orange-500 font-medium flex-shrink-0">Día cerrado</span>}
                             {tieneConflicto && !diaNoAtiende && <span className="text-[10px] text-red-500 font-medium flex-shrink-0">Conflicto</span>}
                           </div>
