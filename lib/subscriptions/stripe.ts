@@ -226,6 +226,17 @@ export async function handleStripeWebhook(
       break
     }
 
+    case 'invoice.payment_succeeded': {
+      // Payment retry succeeded — reactivate subscription
+      const invoice = event.data.object as { subscription?: string }
+      if (!invoice.subscription) break
+      await supabase
+        .from('subscriptions')
+        .update({ estado: 'activa', updated_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', invoice.subscription)
+      break
+    }
+
     default:
       // Unhandled event type — not an error
       break
