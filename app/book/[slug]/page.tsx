@@ -722,7 +722,7 @@ function PasoDatos({
       setError(rpcError.message || 'No se pudo crear la reserva.')
       return
     }
-    const result = data as { cita_id?: string; ok?: boolean; error?: string }
+    const result = data as { cita_id?: string; cancel_token?: string; ok?: boolean; error?: string }
     if (!result?.cita_id && !result?.ok) {
       setError(result?.error || 'No se pudo crear la reserva.')
       return
@@ -752,6 +752,7 @@ function PasoDatos({
         },
         inicio: format(inicio, "yyyy-MM-dd'T'HH:mm:ss"),
         fin: format(fin, "yyyy-MM-dd'T'HH:mm:ss"),
+        cancel_token: result.cancel_token,
       }),
     }).catch((err) => console.warn('[booking] notificar-cita error (non-critical):', err))
 

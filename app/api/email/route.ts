@@ -26,6 +26,7 @@ export type TipoEmailCita =
   | 'nueva_reserva_admin'
   | 'recordatorio_cita'
   | 'cancelacion_cita'
+  | 'cancelacion_admin'
   | 'post_cita'
 
 export type TipoEmail = TipoEmailCita | 'invitacion_equipo' | 'bienvenida'
@@ -59,6 +60,7 @@ export interface DatosCita {
   clinica_email?: string
   clinica_direccion?: string
   canal?: 'book' | 'agenda' | 'whatsapp'
+  cancel_url?: string
 }
 
 
@@ -123,6 +125,18 @@ const VARIANT: Record<TipoEmailCita, {
     alertBorder: '#FECACA',
     alertTitleColor: '#991B1B',
     alertBodyColor: '#DC2626',
+  },
+  cancelacion_admin: {
+    heroGradient: 'linear-gradient(135deg,#F97316 0%,#EA580C 100%)',
+    heroIcon: '&#10007;',
+    heroChipBg: '#ffffff',
+    heroChipBorder: '#ffffff',
+    heroChipColor: '#9A3412',
+    heroChipText: 'CITA CANCELADA POR PACIENTE',
+    alertBg: '#FFF7ED',
+    alertBorder: '#FED7AA',
+    alertTitleColor: '#9A3412',
+    alertBodyColor: '#C2410C',
   },
   post_cita: {
     heroGradient: 'linear-gradient(135deg,#7C3AED 0%,#6D28D9 100%)',
@@ -396,6 +410,21 @@ function buildEmail(tipo: TipoEmailCita, datos: DatosCita, body: string): string
 
 // ─── Email body per type ──────────────────────────────────────────────────────
 
+function cancelBtn(url: string): string {
+  return `
+    <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:8px;">
+      <tr>
+        <td align="center" style="background:#FFFFFF;border:1.5px solid #E2E8F0;border-radius:10px;">
+          <a href="${url}" target="_blank"
+             style="display:block;padding:13px 24px;font-size:13px;font-weight:700;color:#64748B;text-decoration:none;text-align:center;">
+            &#10005;&nbsp; Cancelar mi cita
+          </a>
+        </td>
+      </tr>
+    </table>
+  `
+}
+
 function buildBody(tipo: TipoEmailCita, datos: DatosCita): string {
   const v = VARIANT[tipo]
   const card = detailsCard(datos)
@@ -416,13 +445,13 @@ function buildBody(tipo: TipoEmailCita, datos: DatosCita): string {
           <td style="background:${v.alertBg};border:1.5px solid ${v.alertBorder};border-radius:12px;padding:14px 18px;">
             <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${v.alertTitleColor};">&#10003; Reserva confirmada</p>
             <p style="margin:0;font-size:13px;color:${v.alertBodyColor};line-height:1.6;">
-              Te pedimos llegar <strong>10 minutos antes</strong> para una mejor atenci&oacute;n.<br/>
-              &#191;Necesitas modificar o cancelar? <strong>Cont&aacute;ctanos con anticipaci&oacute;n</strong> y con gusto te ayudamos.
+              Te pedimos llegar <strong>10 minutos antes</strong> para una mejor atenci&oacute;n.
             </p>
           </td>
         </tr>
       </table>
       ${clinica_telefono ? whatsappBtn(clinica_telefono, waMsg) : ''}
+      ${datos.cancel_url ? cancelBtn(datos.cancel_url) : ''}
       <p style="margin:12px 0 24px;font-size:0;">&nbsp;</p>
     `
   }
@@ -512,6 +541,29 @@ function buildBody(tipo: TipoEmailCita, datos: DatosCita): string {
     `
   }
 
+  if (tipo === 'cancelacion_admin') {
+    return `
+      <h1 style="margin:0 0 8px;font-size:27px;font-weight:800;color:#0B132B;letter-spacing:-0.8px;line-height:1.15;text-align:center;">
+        Cita cancelada por el paciente
+      </h1>
+      <p style="margin:0 0 28px;font-size:15px;color:#64748B;line-height:1.7;text-align:center;">
+        <strong style="color:#0B132B;">${paciente_nombre}</strong> cancel&oacute; su reserva del <strong style="color:#0B132B;">${datos.fecha}</strong> a las <strong style="color:#0B132B;">${datos.hora}</strong>.
+      </p>
+      ${card}
+      ${datos.paciente_telefono || datos.paciente_email ? `
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:20px;">
+        <tr>
+          <td style="background:${v.alertBg};border:1.5px solid ${v.alertBorder};border-radius:12px;padding:14px 18px;">
+            <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:${v.alertTitleColor};text-transform:uppercase;letter-spacing:1px;">Datos de contacto</p>
+            ${datos.paciente_telefono ? `<p style="margin:0 0 3px;font-size:13px;color:${v.alertBodyColor};">&#128222;&nbsp; <a href="tel:${datos.paciente_telefono}" style="color:${v.alertBodyColor};font-weight:700;text-decoration:none;">${datos.paciente_telefono}</a></p>` : ''}
+            ${datos.paciente_email    ? `<p style="margin:0;font-size:13px;color:${v.alertBodyColor};">&#9993;&nbsp; <a href="mailto:${datos.paciente_email}" style="color:${v.alertBodyColor};font-weight:700;text-decoration:none;">${datos.paciente_email}</a></p>` : ''}
+          </td>
+        </tr>
+      </table>` : ''}
+      <p style="margin:12px 0 24px;font-size:0;">&nbsp;</p>
+    `
+  }
+
   // cancelacion_cita
   const contactLine = clinica_telefono
     ? `<a href="tel:${clinica_telefono}" style="color:${v.alertBodyColor};font-weight:700;text-decoration:none;">${clinica_telefono}</a>`
@@ -549,6 +601,7 @@ function getSubject(tipo: TipoEmailCita, datos: DatosCita): string {
   if (tipo === 'nueva_reserva_admin') return `Nueva reserva: ${datos.paciente_nombre} · ${datos.fecha} ${datos.hora}`
   if (tipo === 'recordatorio_cita')   return `Recuerda tu cita el ${datos.fecha} a las ${datos.hora} · ${c}`
   if (tipo === 'post_cita')           return `¿Cómo fue tu visita? · ${c}`
+  if (tipo === 'cancelacion_admin')   return `Cancelación: ${datos.paciente_nombre} · ${datos.fecha} ${datos.hora}`
   return `Tu cita fue cancelada · ${c}`
 }
 
