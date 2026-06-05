@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { format, parseISO, addDays, addWeeks, addMonths } from 'date-fns'
+import { format, parseISO, addDays, addWeeks, addMonths, isBefore, startOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { X, Search, Plus, AlertTriangle, Loader2, User, Clock, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -101,6 +101,7 @@ export function ModalCita({
   const [sessionHoraOverrides, setSessionHoraOverrides] = useState<Record<number, string>>({})
   const [sessionFechaOverrides, setSessionFechaOverrides] = useState<Record<number, string>>({})
   const [horariosClinica, setHorariosClinica] = useState<HorariosConfig | null>(null)
+  const [disponibilidadProfesional, setDisponibilidadProfesional] = useState<import('@/lib/agenda/queries').DisponibilidadRow[]>([])
   const [serieEditMode, setSerieEditMode] = useState<'single' | 'future' | 'all'>('single')
 
   const [conflicto, setConflicto] = useState<CitaConRelaciones | null>(null)
@@ -142,11 +143,14 @@ export function ModalCita({
     }
   }, [abiertoPicker])
 
-  // Cargar horarios de la clínica para filtrar días válidos en recurrencia
+  // Cargar horarios de la clínica + disponibilidad del profesional para recurrencia
   useEffect(() => {
     getClinicaConfig().then(cfg => {
       if (cfg.horarios) setHorariosClinica(cfg.horarios)
     })
+    if (profesionalId) {
+      getDisponibilidadProfesional(profesionalId).then(setDisponibilidadProfesional)
+    }
     // Cargar servicios por profesional
     getProfesionalesConServicios().then(profs => {
       const map: Record<string, string[]> = {}
@@ -156,6 +160,13 @@ export function ModalCita({
   }, [])
 
   // Cargar citas del profesional para detectar slots ocupados
+  // Recargar disponibilidad cuando cambia el profesional
+  useEffect(() => {
+    if (profesionalId) {
+      getDisponibilidadProfesional(profesionalId).then(setDisponibilidadProfesional)
+    }
+  }, [profesionalId])
+
   useEffect(() => {
     if (!profesionalId || !fecha) { return }
     getCitasDelDia(fecha).then((todas) => {
@@ -749,10 +760,18 @@ export function ModalCita({
                         const fechaStr = sessionFechaOverrides[i] ?? format(dBase, 'yyyy-MM-dd')
                         const d = parseISO(`${fechaStr}T12:00:00`)
                         const horaSession = sessionHoraOverrides[i] ?? hora
-                        const diaNombre = format(d, 'EEEE', { locale: es }).toLowerCase()
-                        const diaKey = diaNombre === 'miércoles' ? 'miercoles' : diaNombre
-                        const diaConfig = horariosClinica?.[diaKey]
-                        const diaNoAtiende = horariosClinica && diaConfig && !diaConfig.activo
+                        // dia_semana: 1=lunes … 7=domingo (ISO)
+                        const diaSemanaISO = d.getDay() === 0 ? 7 : d.getDay()
+                        const diaNoAtiende = disponibilidadProfesional.length > 0
+                          ? disponibilidadProfesional.some(r => r.dia_semana === diaSemanaISO && !r.activo)
+                            || !disponibilidadProfesional.some(r => r.dia_semana === diaSemanaISO)
+                          : horariosClinica
+                            ? (() => {
+                                const diaNombre = format(d, 'EEEE', { locale: es }).toLowerCase()
+                                const cfg = horariosClinica[diaNombre]
+                                return cfg ? !cfg.activo : false
+                              })()
+                            : false
                         const tieneConflicto = servicioActual && citasDelProfesional.some(c => {
                           if (!c.inicio.startsWith(fechaStr)) return false
                           const cInicio = parseInt(c.inicio.slice(11,13))*60 + parseInt(c.inicio.slice(14,16))
@@ -762,6 +781,23 @@ export function ModalCita({
                           return sInicio < cFin && sFin > cInicio
                         })
                         const hayProblema = tieneConflicto || diaNoAtiende
+
+                        // días deshabilitados en el picker: pasados + días no disponibles del profesional
+                        function isDayDisabled(day: Date) {
+                          if (isBefore(startOfDay(day), startOfDay(new Date()))) return true
+                          const iso = day.getDay() === 0 ? 7 : day.getDay()
+                          if (disponibilidadProfesional.length > 0) {
+                            return disponibilidadProfesional.some(r => r.dia_semana === iso && !r.activo)
+                              || !disponibilidadProfesional.some(r => r.dia_semana === iso)
+                          }
+                          if (horariosClinica) {
+                            const nombre = format(day, 'EEEE', { locale: es }).toLowerCase()
+                            const cfg = horariosClinica[nombre]
+                            return cfg ? !cfg.activo : false
+                          }
+                          return false
+                        }
+
                         return (
                           <div key={i} className={`flex items-center gap-2 px-3 py-2 ${hayProblema ? 'bg-red-50' : i === 0 ? 'bg-blue-50/40' : ''}`}>
                             <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
@@ -771,6 +807,8 @@ export function ModalCita({
                             <DatePicker
                               value={fechaStr}
                               onChange={v => setSessionFechaOverrides(prev => ({ ...prev, [i]: v }))}
+                              min={format(new Date(), 'yyyy-MM-dd')}
+                              disabledDays={isDayDisabled}
                               className={`flex-1 ${hayProblema ? '[&_button]:border-red-300 [&_button]:text-red-700' : ''}`}
                             />
                             <select
