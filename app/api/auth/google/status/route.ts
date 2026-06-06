@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data: token } = await supabase
     .from('google_calendar_tokens')
-    .select('email, expires_at, sync_mode')
+    .select('token_expiry, calendar_id, sync_mode')
     .eq('user_id', user.id)
     .maybeSingle()
 

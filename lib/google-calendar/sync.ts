@@ -58,7 +58,18 @@ export async function syncCitaToGoogle(citaId: string, action: SyncAction = 'upd
       .maybeSingle()
 
     const isAdmin = member?.rol === 'admin' || !!ownerClinica
-    const isProfesionalOwner = token.user_id === cita.profesional_id
+
+    // Check if this user is the profesional assigned to this cita
+    // (profesionales.id ≠ auth user id — link goes through usuarios_clinica)
+    const { data: ucProfesional } = await supabase
+      .from('usuarios_clinica')
+      .select('id')
+      .eq('user_id', token.user_id)
+      .eq('clinica_id', cita.clinica_id)
+      .eq('profesional_id', cita.profesional_id)
+      .maybeSingle()
+
+    const isProfesionalOwner = !!ucProfesional
 
     if (!isAdmin && !isProfesionalOwner) continue
 

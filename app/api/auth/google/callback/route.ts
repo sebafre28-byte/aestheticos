@@ -28,27 +28,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
   }
 
-  // Fetch user email from Google
-  let googleEmail: string | null = null
-  try {
-    const infoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
-    })
-    const info = await infoRes.json()
-    googleEmail = info.email ?? null
-  } catch { /* ignore */ }
+  if (!tokenData.refresh_token) {
+    return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
+  }
 
   const supabase = await createClient()
   const miembro = await getClinicaIdForUser(supabase, userId)
   if (!miembro) return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
 
+  const tokenExpiry = new Date(Date.now() + (tokenData.expires_in ?? 3600) * 1000).toISOString()
+
   await supabase.from('google_calendar_tokens').upsert({
     user_id: userId,
     clinica_id: miembro.clinicaId,
     access_token: tokenData.access_token,
-    refresh_token: tokenData.refresh_token ?? null,
-    expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-    email: googleEmail,
+    refresh_token: tokenData.refresh_token,
+    token_expiry: tokenExpiry,
+    calendar_id: 'primary',
+    scope: tokenData.scope ?? null,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' })
 
