@@ -1,7 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, getValidToken } from './client'
 
-export async function syncCitaToGoogle(citaId: string): Promise<void> {
+export type SyncAction = 'create' | 'update' | 'delete'
+
+export async function syncCitaToGoogle(citaId: string, action: SyncAction = 'update'): Promise<void> {
   const supabase = createAdminClient()
 
   const { data: cita } = await supabase
@@ -22,6 +24,7 @@ export async function syncCitaToGoogle(citaId: string): Promise<void> {
     .from('google_calendar_tokens')
     .select('*')
     .eq('clinica_id', cita.clinica_id)
+    .in('sync_mode', ['push_only', 'bidirectional'])
 
   if (!tokens?.length) return
 
@@ -71,7 +74,12 @@ export async function syncCitaToGoogle(citaId: string): Promise<void> {
       }).eq('id', token.id)
     }
 
-    if (cita.estado === 'cancelada' || cita.estado === 'no_asistio') {
+    const shouldDelete =
+      action === 'delete' ||
+      cita.estado === 'cancelada' ||
+      cita.estado === 'no_asistio'
+
+    if (shouldDelete) {
       const { data: existing } = await supabase
         .from('google_calendar_events')
         .select('google_event_id')

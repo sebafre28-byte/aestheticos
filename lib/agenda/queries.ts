@@ -17,11 +17,11 @@ async function triggerCitaJobs(citaId: string, action: 'schedule' | 'cancel' | '
   }
 }
 
-function triggerGoogleSync(citaId: string): void {
+function triggerGoogleSync(citaId: string, action: 'create' | 'update' | 'delete' = 'update'): void {
   fetch('/api/citas/sync-google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cita_id: citaId }),
+    body: JSON.stringify({ cita_id: citaId, action }),
   }).catch(() => {})
 }
 
@@ -520,7 +520,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
   }
   invalidateAgendaCache()
   await triggerCitaJobs(citaCompleta.id, 'schedule')
-  triggerGoogleSync(citaCompleta.id)
+  triggerGoogleSync(citaCompleta.id, 'create')
 
   // Disparar notificaciones (no bloquea el flujo)
   dispararNotificacionCita(citaCompleta as CitaConRelaciones).catch(() => {})
@@ -681,7 +681,7 @@ export async function editarCita(
 
     await triggerCitaJobs(citaId, debeReprogramar ? 'reschedule' : 'cancel')
   }
-  triggerGoogleSync(citaId)
+  triggerGoogleSync(citaId, 'update')
 
   if (!actualizadaRpc) {
     const { data: actualizadaFallback, error: errorFallback } = await supabase

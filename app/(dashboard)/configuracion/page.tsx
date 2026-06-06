@@ -1294,12 +1294,22 @@ function SeccionRecordatorios() {
 
 // ─── Sección Google Calendar ──────────────────────────────────────────────────
 
+type SyncMode = 'push_only' | 'pull_only' | 'bidirectional'
+
+const SYNC_MODE_OPTIONS: { value: SyncMode; label: string; description: string }[] = [
+  { value: 'push_only', label: 'Solo exportar', description: 'Tus citas de SimpliClinic aparecen en Google Calendar' },
+  { value: 'pull_only', label: 'Solo importar', description: 'Tus eventos de Google bloquean horarios en la agenda' },
+  { value: 'bidirectional', label: 'Bidireccional', description: 'Ambas opciones activas' },
+]
+
 function SeccionGoogleCalendar() {
   const searchParams = useSearchParams()
   const [conectado, setConectado] = useState(false)
-  const [token, setToken] = useState<{ id: string; calendar_id: string; updated_at: string } | null>(null)
+  const [tokenEmail, setTokenEmail] = useState<string | null>(null)
+  const [syncMode, setSyncMode] = useState<SyncMode>('push_only')
   const [cargando, setCargando] = useState(true)
   const [desconectando, setDesconectando] = useState(false)
+  const [guardandoMode, setGuardandoMode] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
 
   const googleParam = searchParams.get("google")
@@ -1313,9 +1323,10 @@ function SeccionGoogleCalendar() {
   useEffect(() => {
     fetch('/api/auth/google/status')
       .then(r => r.json())
-      .then((data: { connected: boolean; token: { id: string; calendar_id: string; updated_at: string } | null }) => {
+      .then((data: { connected: boolean; token: { email: string; expires_at: string; sync_mode?: SyncMode } | null }) => {
         setConectado(data.connected)
-        setToken(data.token)
+        setTokenEmail(data.token?.email ?? null)
+        if (data.token?.sync_mode) setSyncMode(data.token.sync_mode)
         setCargando(false)
       })
       .catch(() => setCargando(false))
@@ -1327,10 +1338,24 @@ function SeccionGoogleCalendar() {
     setDesconectando(false)
     if (res.ok) {
       setConectado(false)
-      setToken(null)
+      setTokenEmail(null)
       setFeedback({ tipo: "ok", msg: "Google Calendar desconectado." })
     } else {
       setFeedback({ tipo: "error", msg: "No se pudo desconectar." })
+    }
+  }
+
+  async function cambiarSyncMode(mode: SyncMode) {
+    setSyncMode(mode)
+    setGuardandoMode(true)
+    const res = await fetch('/api/auth/google/sync-mode', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sync_mode: mode }),
+    })
+    setGuardandoMode(false)
+    if (!res.ok) {
+      setFeedback({ tipo: "error", msg: "No se pudo actualizar el modo de sincronización." })
     }
   }
 
@@ -1366,7 +1391,7 @@ function SeccionGoogleCalendar() {
             </p>
             <p className="text-[12px] text-gray-500 mt-0.5">
               {conectado
-                ? `Calendario: ${token?.calendar_id ?? 'primary'}`
+                ? tokenEmail ?? "Cuenta conectada"
                 : "Conecta tu cuenta para sincronizar citas automáticamente"}
             </p>
           </div>
@@ -1376,23 +1401,31 @@ function SeccionGoogleCalendar() {
         </div>
       </div>
 
-      <div className="space-y-3 mb-6">
-        <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50/60 border border-blue-100">
-          <CheckCircle2 className="size-4 text-[#2563EB] shrink-0 mt-0.5" />
-          <p className="text-[12px] text-gray-600">
-            <span className="font-semibold">Admin</span>: sincroniza todas las citas de la clínica hacia tu Google Calendar.
-          </p>
-        </div>
-        <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50/60 border border-blue-100">
-          <CheckCircle2 className="size-4 text-[#2563EB] shrink-0 mt-0.5" />
-          <p className="text-[12px] text-gray-600">
-            <span className="font-semibold">Profesional</span>: sincroniza solo tus propias citas hacia tu Google Calendar personal.
-          </p>
-        </div>
-      </div>
-
       {conectado ? (
-        <div className="flex items-center gap-3">
+        <>
+          <p className="text-[13px] font-semibold text-gray-700 mb-3">Modo de sincronización</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+            {SYNC_MODE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => cambiarSyncMode(opt.value)}
+                disabled={guardandoMode}
+                className={`text-left p-3.5 rounded-xl border transition-all disabled:opacity-60 ${
+                  syncMode === opt.value
+                    ? "border-[#2563EB] bg-blue-50/60 ring-1 ring-[#2563EB]"
+                    : "border-gray-200 bg-white hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[13px] font-semibold text-gray-900">{opt.label}</span>
+                  {syncMode === opt.value && (
+                    <CheckCircle2 className="size-4 text-[#2563EB] shrink-0" />
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-500 leading-snug">{opt.description}</p>
+              </button>
+            ))}
+          </div>
           <button
             onClick={desconectar}
             disabled={desconectando}
@@ -1401,10 +1434,7 @@ function SeccionGoogleCalendar() {
             {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
             Desconectar
           </button>
-          <span className="text-[12px] text-gray-400">
-            Conectado {token?.updated_at ? `el ${new Date(token.updated_at).toLocaleDateString('es-CL')}` : ''}
-          </span>
-        </div>
+        </>
       ) : (
         <a
           href="/api/auth/google"
