@@ -36,7 +36,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "equipo" | "horarios" | "disponibilidad" | "usuarios" | "whatsapp" | "recordatorios" | "plan" | "seguridad"
+type SeccionId = "clinica" | "equipo" | "horarios" | "disponibilidad" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
 
 const NAV: { id: SeccionId; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[] = [
   { id: "clinica",       label: "Datos de la clínica",   icon: Building2 },
@@ -46,6 +46,7 @@ const NAV: { id: SeccionId; label: string; icon: React.ElementType; badge?: stri
   { id: "usuarios",       label: "Usuarios y roles",      icon: UserCog },
   { id: "whatsapp",      label: "WhatsApp Business",     icon: MessageCircle },
   { id: "recordatorios", label: "Recordatorios",         icon: Bell },
+  { id: "google",        label: "Google Calendar",       icon: CalendarDays },
   { id: "plan",          label: "Plan y facturación",    icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
   { id: "seguridad",     label: "Seguridad",             icon: Shield },
 ]
@@ -1291,6 +1292,137 @@ function SeccionRecordatorios() {
   )
 }
 
+// ─── Sección Google Calendar ──────────────────────────────────────────────────
+
+function SeccionGoogleCalendar() {
+  const searchParams = useSearchParams()
+  const [conectado, setConectado] = useState(false)
+  const [token, setToken] = useState<{ id: string; calendar_id: string; updated_at: string } | null>(null)
+  const [cargando, setCargando] = useState(true)
+  const [desconectando, setDesconectando] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+
+  const googleParam = searchParams.get("google")
+
+  useEffect(() => {
+    if (googleParam === "success") setFeedback({ tipo: "ok", msg: "Google Calendar conectado correctamente." })
+    else if (googleParam === "error") setFeedback({ tipo: "error", msg: "No se pudo conectar con Google Calendar. Intenta nuevamente." })
+    else if (googleParam === "no_refresh_token") setFeedback({ tipo: "error", msg: "No se recibió el token de actualización. Intenta desconectar y volver a conectar." })
+  }, [googleParam])
+
+  useEffect(() => {
+    fetch('/api/auth/google/status')
+      .then(r => r.json())
+      .then((data: { connected: boolean; token: { id: string; calendar_id: string; updated_at: string } | null }) => {
+        setConectado(data.connected)
+        setToken(data.token)
+        setCargando(false)
+      })
+      .catch(() => setCargando(false))
+  }, [googleParam])
+
+  async function desconectar() {
+    setDesconectando(true)
+    const res = await fetch('/api/auth/google/disconnect', { method: 'DELETE' })
+    setDesconectando(false)
+    if (res.ok) {
+      setConectado(false)
+      setToken(null)
+      setFeedback({ tipo: "ok", msg: "Google Calendar desconectado." })
+    } else {
+      setFeedback({ tipo: "error", msg: "No se pudo desconectar." })
+    }
+  }
+
+  if (cargando) return (
+    <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
+      <Loader2 className="size-4 animate-spin" /> Cargando…
+    </div>
+  )
+
+  return (
+    <div>
+      <SectionHeader
+        title="Google Calendar"
+        subtitle="Sincroniza tus citas con Google Calendar automáticamente"
+      />
+
+      <Feedback f={feedback} />
+
+      <div className="bg-gray-50 rounded-xl border border-gray-100 p-5 mb-6">
+        <div className="flex items-center gap-4">
+          {/* Google icon */}
+          <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
+            <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
+              <path d="M6.3 14.7l7.4 5.4C15.5 16 19.4 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z" fill="#FF3D00"/>
+              <path d="M24 46c5.5 0 10.5-1.9 14.3-5.1l-6.6-5.6C29.6 36.7 26.9 37.5 24 37.5c-5.8 0-10.6-3.9-12.4-9.2l-7.3 5.7C7.9 41.3 15.4 46 24 46z" fill="#4CAF50"/>
+              <path d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.3l6.6 5.6C41.1 37.3 44.5 31.1 44.5 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-[14px] font-semibold text-gray-900">
+              {conectado ? "Conectado a Google Calendar" : "Google Calendar no conectado"}
+            </p>
+            <p className="text-[12px] text-gray-500 mt-0.5">
+              {conectado
+                ? `Calendario: ${token?.calendar_id ?? 'primary'}`
+                : "Conecta tu cuenta para sincronizar citas automáticamente"}
+            </p>
+          </div>
+          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${conectado ? "bg-emerald-50 text-[#10B981]" : "bg-gray-100 text-gray-500"}`}>
+            {conectado ? "Conectado" : "Desconectado"}
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-3 mb-6">
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50/60 border border-blue-100">
+          <CheckCircle2 className="size-4 text-[#2563EB] shrink-0 mt-0.5" />
+          <p className="text-[12px] text-gray-600">
+            <span className="font-semibold">Admin</span>: sincroniza todas las citas de la clínica hacia tu Google Calendar.
+          </p>
+        </div>
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50/60 border border-blue-100">
+          <CheckCircle2 className="size-4 text-[#2563EB] shrink-0 mt-0.5" />
+          <p className="text-[12px] text-gray-600">
+            <span className="font-semibold">Profesional</span>: sincroniza solo tus propias citas hacia tu Google Calendar personal.
+          </p>
+        </div>
+      </div>
+
+      {conectado ? (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={desconectar}
+            disabled={desconectando}
+            className="h-9 px-4 rounded-lg border border-red-200 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2"
+          >
+            {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
+            Desconectar
+          </button>
+          <span className="text-[12px] text-gray-400">
+            Conectado {token?.updated_at ? `el ${new Date(token.updated_at).toLocaleDateString('es-CL')}` : ''}
+          </span>
+        </div>
+      ) : (
+        <a
+          href="/api/auth/google"
+          className="inline-flex items-center gap-2.5 h-10 px-5 rounded-xl border border-gray-200 bg-white text-[13px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+        >
+          <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
+            <path d="M6.3 14.7l7.4 5.4C15.5 16 19.4 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z" fill="#FF3D00"/>
+            <path d="M24 46c5.5 0 10.5-1.9 14.3-5.1l-6.6-5.6C29.6 36.7 26.9 37.5 24 37.5c-5.8 0-10.6-3.9-12.4-9.2l-7.3 5.7C7.9 41.3 15.4 46 24 46z" fill="#4CAF50"/>
+            <path d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.3l6.6 5.6C41.1 37.3 44.5 31.1 44.5 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
+          </svg>
+          Conectar con Google Calendar
+        </a>
+      )}
+    </div>
+  )
+}
+
 // ─── Sección Plan ─────────────────────────────────────────────────────────────
 
 function SeccionPlan() {
@@ -2005,7 +2137,7 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","disponibilidad","usuarios","whatsapp","recordatorios","plan","seguridad"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","disponibilidad","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
 
@@ -2028,6 +2160,7 @@ function ConfiguracionInner() {
     usuarios:       <SeccionUsuarios />,
     whatsapp:       <SeccionWhatsApp />,
     recordatorios:  <SeccionRecordatorios />,
+    google:         <SeccionGoogleCalendar />,
     plan:           <SeccionPlan />,
     seguridad:      <SeccionSeguridad />,
   }
