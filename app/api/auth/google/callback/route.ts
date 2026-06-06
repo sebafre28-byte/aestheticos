@@ -8,15 +8,15 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get('state')
   const error = searchParams.get('error')
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const origin = req.nextUrl.origin
 
   if (error || !code || !userId) {
-    return NextResponse.redirect(`${appUrl}/configuracion?tab=google_calendar&google=error`)
+    return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID!
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET!
-  const redirectUri = `${appUrl}/api/auth/google/callback`
+  const redirectUri = `${origin}/api/auth/google/callback`
 
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -52,5 +52,5 @@ export async function GET(req: NextRequest) {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' })
 
-  return NextResponse.redirect(`${appUrl}/configuracion?tab=google_calendar&google=success`)
+  return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=success`)
 }

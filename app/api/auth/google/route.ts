@@ -7,7 +7,7 @@ const SCOPES = [
   'email',
 ].join(' ')
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
@@ -15,7 +15,7 @@ export async function GET(_req: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID
   if (!clientId) return NextResponse.json({ error: 'GOOGLE_CLIENT_ID no configurado' }, { status: 500 })
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`
+  const redirectUri = `${req.nextUrl.origin}/api/auth/google/callback`
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
