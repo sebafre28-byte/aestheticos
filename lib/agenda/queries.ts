@@ -504,6 +504,9 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
       console.error('Error crearCita fallback:', error)
       return null
     }
+    invalidateAgendaCache()
+    await triggerCitaJobs((nueva as CitaConRelaciones).id, 'schedule')
+    triggerGoogleSync((nueva as CitaConRelaciones).id, 'create')
     dispararNotificacionCita(nueva as CitaConRelaciones).catch(() => {})
     return nueva as CitaConRelaciones
   }
@@ -731,6 +734,7 @@ export async function actualizarEstadoCita(
     return false
   }
   invalidateAgendaCache()
+  triggerGoogleSync(citaId, 'update')
   return true
 }
 
