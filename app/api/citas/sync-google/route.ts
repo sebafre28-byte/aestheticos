@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { syncCitaToGoogle, SyncAction } from '@/lib/google-calendar/sync'
 
-const VALID_ACTIONS: SyncAction[] = ['create', 'update', 'delete']
-
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  const body = await req.json()
+  const { cita_id, action } = body as { cita_id: string; action?: SyncAction }
+  if (!cita_id) return NextResponse.json({ error: 'cita_id required' }, { status: 400 })
 
-  const body = await req.json().catch(() => ({})) as { cita_id?: string; action?: string }
-  if (!body.cita_id) return NextResponse.json({ error: 'cita_id requerido' }, { status: 400 })
-
-  const action: SyncAction = VALID_ACTIONS.includes(body.action as SyncAction)
-    ? (body.action as SyncAction)
-    : 'update'
-
-  await syncCitaToGoogle(body.cita_id, action)
+  await syncCitaToGoogle(cita_id, action ?? 'update')
   return NextResponse.json({ ok: true })
 }

@@ -60,7 +60,6 @@ export async function syncCitaToGoogle(citaId: string, action: SyncAction = 'upd
     const isAdmin = member?.rol === 'admin' || !!ownerClinica
 
     // Check if this user is the profesional assigned to this cita
-    // (profesionales.id ≠ auth user id — link goes through usuarios_clinica)
     const { data: ucProfesional } = await supabase
       .from('usuarios_clinica')
       .select('id')
