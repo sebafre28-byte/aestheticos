@@ -2,7 +2,7 @@ name: Crons horarios
 
 on:
   schedule:
-    - cron: '0 * * * *'  # cada hora
+    - cron: '0 */2 * * *'  # cada 2 horas
   workflow_dispatch:      # permite correr manualmente desde GitHub
 
 jobs:
