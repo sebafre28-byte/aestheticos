@@ -605,6 +605,12 @@ function getSubject(tipo: TipoEmailCita, datos: DatosCita): string {
   return `Tu cita fue cancelada · ${c}`
 }
 
+// ─── Public builder for preview endpoint ─────────────────────────────────────
+
+export function buildEmailHtml(tipo: TipoEmailCita, datos: DatosCita): string {
+  return buildEmail(tipo, datos, buildBody(tipo, datos))
+}
+
 // ─── Welcome email ───────────────────────────────────────────────────────────
 
 function buildWelcomeEmail(d: DatosBienvenida): { subject: string; html: string } {

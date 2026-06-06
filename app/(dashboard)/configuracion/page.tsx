@@ -952,6 +952,69 @@ const OPCIONES_MINUTOS = [
   { label: "Personalizado",  value: -1 },
 ]
 
+type PreviewTipo = 'confirmacion_cita' | 'recordatorio_cita' | 'post_cita' | 'cancelacion_cita'
+
+function EmailPreviewModal({ tipo, onClose }: { tipo: PreviewTipo; onClose: () => void }) {
+  const [html, setHtml] = useState<string | null>(null)
+  const [cargando, setCargando] = useState(true)
+
+  const LABELS: Record<PreviewTipo, string> = {
+    confirmacion_cita: 'Confirmación de cita',
+    recordatorio_cita: 'Recordatorio',
+    post_cita:         'Post-consulta',
+    cancelacion_cita:  'Cancelación',
+  }
+
+  useEffect(() => {
+    fetch(`/api/email/preview?tipo=${tipo}`)
+      .then(r => r.text())
+      .then(h => { setHtml(h); setCargando(false) })
+      .catch(() => setCargando(false))
+  }, [tipo])
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(0,0,0,0.6)' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center">
+            <Bell className="size-3.5 text-[#2563EB]" />
+          </div>
+          <span className="text-[13px] font-semibold text-gray-800">Vista previa — {LABELS[tipo]}</span>
+          <span className="text-[11px] text-gray-400 ml-1">· datos de ejemplo</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
+          aria-label="Cerrar"
+        >
+          <X className="size-4 text-gray-500" />
+        </button>
+      </div>
+
+      {/* iframe */}
+      <div className="flex-1 bg-[#EEF2F7] overflow-hidden">
+        {cargando ? (
+          <div className="flex items-center justify-center h-full gap-2 text-[13px] text-gray-400">
+            <Loader2 className="size-4 animate-spin" /> Cargando vista previa…
+          </div>
+        ) : html ? (
+          <iframe
+            srcDoc={html}
+            className="w-full h-full border-0"
+            title="Vista previa del email"
+            sandbox="allow-same-origin"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-[13px] text-gray-400">
+            No se pudo cargar la vista previa.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function SeccionRecordatorios() {
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -965,6 +1028,9 @@ function SeccionRecordatorios() {
 
   // ── Email state ──
   const [emailCfg, setEmailCfg] = useState<RecordatoriosEmailConfig>(RECORDATORIOS_EMAIL_DEFAULT)
+
+  // ── Preview modal ──
+  const [previewTipo, setPreviewTipo] = useState<PreviewTipo | null>(null)
 
   useEffect(() => {
     getClinicaConfig().then((cfg) => {
@@ -1131,15 +1197,23 @@ function SeccionRecordatorios() {
         <div className="pl-9 space-y-3">
 
           {/* Recordatorio día anterior */}
-          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-[13px] font-semibold text-gray-900">Recordatorio día anterior</p>
-              <p className="text-[12px] text-gray-500 mt-0.5">Email la tarde del día antes de la cita</p>
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[13px] font-semibold text-gray-900">Recordatorio día anterior</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">Email la tarde del día antes de la cita</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTipo('recordatorio_cita')}
+                  className="h-7 px-2.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center gap-1"
+                >
+                  <Eye className="size-3" /> Ver
+                </button>
+                <Toggle activo={emailCfg.manana} onChange={() => setEmailCfg(c => ({ ...c, manana: !c.manana }))} />
+              </div>
             </div>
-            <Toggle
-              activo={emailCfg.manana}
-              onChange={() => setEmailCfg(c => ({ ...c, manana: !c.manana }))}
-            />
           </div>
 
           {/* Recordatorio mismo día */}
@@ -1149,10 +1223,16 @@ function SeccionRecordatorios() {
                 <p className="text-[13px] font-semibold text-gray-900">Recordatorio mismo día</p>
                 <p className="text-[12px] text-gray-500 mt-0.5">Email unas horas antes de la cita</p>
               </div>
-              <Toggle
-                activo={emailCfg.hoy}
-                onChange={() => setEmailCfg(c => ({ ...c, hoy: !c.hoy }))}
-              />
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTipo('recordatorio_cita')}
+                  className="h-7 px-2.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center gap-1"
+                >
+                  <Eye className="size-3" /> Ver
+                </button>
+                <Toggle activo={emailCfg.hoy} onChange={() => setEmailCfg(c => ({ ...c, hoy: !c.hoy }))} />
+              </div>
             </div>
             {emailCfg.hoy && (
               <div>
@@ -1174,15 +1254,23 @@ function SeccionRecordatorios() {
           </div>
 
           {/* Post-consulta */}
-          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-[13px] font-semibold text-gray-900">Email post-consulta</p>
-              <p className="text-[12px] text-gray-500 mt-0.5">Se envía 1–3 horas después de completar la cita</p>
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[13px] font-semibold text-gray-900">Email post-consulta</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">Se envía 1–3 horas después de completar la cita</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTipo('post_cita')}
+                  className="h-7 px-2.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center gap-1"
+                >
+                  <Eye className="size-3" /> Ver
+                </button>
+                <Toggle activo={emailCfg.post_cita} onChange={() => setEmailCfg(c => ({ ...c, post_cita: !c.post_cita }))} />
+              </div>
             </div>
-            <Toggle
-              activo={emailCfg.post_cita}
-              onChange={() => setEmailCfg(c => ({ ...c, post_cita: !c.post_cita }))}
-            />
           </div>
 
         </div>
@@ -1194,6 +1282,11 @@ function SeccionRecordatorios() {
           {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Guardar configuración"}
         </Button>
       </div>
+
+      {/* Preview modal */}
+      {previewTipo && (
+        <EmailPreviewModal tipo={previewTipo} onClose={() => setPreviewTipo(null)} />
+      )}
     </div>
   )
 }
