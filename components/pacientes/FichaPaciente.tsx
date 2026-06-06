@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { useRol } from '@/lib/auth/useRol'
 import { differenceInYears, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -32,7 +32,10 @@ import {
   type PacienteRow,
 } from '@/lib/pacientes/queries'
 
-type Tab = 'informacion' | 'historial' | 'salud' | 'notas'
+const PanelFichas = lazy(() => import('@/components/fichas/PanelFichas'))
+const PanelGaleria = lazy(() => import('@/components/galeria/PanelGaleria'))
+
+type Tab = 'informacion' | 'historial' | 'salud' | 'notas' | 'fichas' | 'galeria'
 
 type Props = {
   pacienteId: string
@@ -153,6 +156,7 @@ export function FichaPaciente({
   onNuevaCita,
 }: Props) {
   const [tab, setTab] = useState<Tab>('informacion')
+  const [fichasCount, setFichasCount] = useState(0)
   const [paciente, setPaciente] = useState<PacienteRow | null>(null)
   const [historial, setHistorial] = useState<HistorialCitaPaciente[]>([])
   const [loading, setLoading] = useState(true)
@@ -268,11 +272,13 @@ export function FichaPaciente({
   if (!paciente) return null
 
   const gradient = avatarGradient(paciente.nombre)
-  const tabs: { key: Tab; label: string }[] = [
+  const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'informacion', label: 'Información' },
     { key: 'historial', label: 'Historial' },
     { key: 'salud', label: 'Salud' },
     { key: 'notas', label: 'Notas' },
+    { key: 'fichas', label: 'Fichas', badge: fichasCount > 0 ? fichasCount : undefined },
+    { key: 'galeria', label: 'Galería' },
   ]
 
   return (
@@ -324,17 +330,22 @@ export function FichaPaciente({
             ))}
           </div>
 
-          {/* Tab buttons */}
-          <div className="flex items-center gap-1">
-            {tabs.map(({ key, label }) => (
+          {/* Tab buttons — scrollable on mobile */}
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none -mx-1 px-1">
+            {tabs.map(({ key, label, badge }) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`h-7 px-2.5 rounded-lg text-[12px] font-medium transition-colors ${
+                className={`flex-shrink-0 h-7 px-2.5 rounded-lg text-[12px] font-medium transition-colors flex items-center gap-1 ${
                   tab === key ? 'bg-[#2563EB] text-white' : 'text-gray-500 hover:bg-gray-50'
                 }`}
               >
                 {label}
+                {badge != null && badge > 0 && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${tab === key ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-600'}`}>
+                    {badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -500,6 +511,20 @@ export function FichaPaciente({
                 Esta información es confidencial y solo visible para el equipo médico.
               </p>
             </div>
+          )}
+
+          {/* ---- FICHAS CLÍNICAS ---- */}
+          {tab === 'fichas' && (
+            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
+              <PanelFichas pacienteId={pacienteId} onCountChange={setFichasCount} />
+            </Suspense>
+          )}
+
+          {/* ---- GALERÍA ---- */}
+          {tab === 'galeria' && (
+            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
+              <PanelGaleria pacienteId={pacienteId} />
+            </Suspense>
           )}
 
           {/* ---- NOTAS CLÍNICAS ---- */}
