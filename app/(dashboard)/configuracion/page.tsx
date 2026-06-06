@@ -20,8 +20,9 @@ import { Label } from "@/components/ui/label"
 import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
   crearProfesional, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
+  RECORDATORIOS_EMAIL_DEFAULT,
   type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig, type RecordatoriosWspConfig,
-  type HorarioDia, type HorariosConfig,
+  type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig,
 } from "@/lib/onboarding/queries"
 import {
   getUsuariosClinica, invitarUsuario, actualizarRolUsuario, toggleActivoUsuario, eliminarUsuario,
@@ -956,11 +957,14 @@ function SeccionRecordatorios() {
   const [guardando, setGuardando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
 
+  // ── WhatsApp state ──
   const [activo, setActivo] = useState(true)
-  const [minutosAntes, setMinutosAntes] = useState(1440)
   const [opcionSeleccionada, setOpcionSeleccionada] = useState(1440)
   const [minutosCustom, setMinutosCustom] = useState(60)
   const [template, setTemplate] = useState(TEMPLATE_RECORDATORIO_DEFAULT)
+
+  // ── Email state ──
+  const [emailCfg, setEmailCfg] = useState<RecordatoriosEmailConfig>(RECORDATORIOS_EMAIL_DEFAULT)
 
   useEffect(() => {
     getClinicaConfig().then((cfg) => {
@@ -971,12 +975,13 @@ function SeccionRecordatorios() {
         const opcionFija = OPCIONES_MINUTOS.find(o => o.value === wsp.minutos_antes && o.value !== -1)
         if (opcionFija) {
           setOpcionSeleccionada(wsp.minutos_antes)
-          setMinutosAntes(wsp.minutos_antes)
         } else {
           setOpcionSeleccionada(-1)
           setMinutosCustom(wsp.minutos_antes)
-          setMinutosAntes(wsp.minutos_antes)
         }
+      }
+      if (cfg.recordatorios_email) {
+        setEmailCfg(cfg.recordatorios_email)
       }
       setCargando(false)
     })
@@ -984,26 +989,19 @@ function SeccionRecordatorios() {
 
   function handleOpcionChange(val: number) {
     setOpcionSeleccionada(val)
-    if (val !== -1) setMinutosAntes(val)
-    else setMinutosAntes(minutosCustom)
-  }
-
-  function handleMinutosCustomChange(val: number) {
-    setMinutosCustom(val)
-    setMinutosAntes(val)
+    if (val !== -1) setMinutosCustom(val)
   }
 
   async function guardar() {
     setGuardando(true)
     setFeedback(null)
     const mins = opcionSeleccionada === -1 ? minutosCustom : opcionSeleccionada
-    const nuevaConfig: RecordatoriosWspConfig = {
-      activo,
-      minutos_antes: mins,
-      template,
-    }
     const cfg = await getClinicaConfig()
-    const ok = await actualizarClinicaConfig({ ...cfg, recordatorios_wsp: nuevaConfig })
+    const ok = await actualizarClinicaConfig({
+      ...cfg,
+      recordatorios_wsp: { activo, minutos_antes: mins, template },
+      recordatorios_email: emailCfg,
+    })
     setGuardando(false)
     if (ok) {
       setFeedback({ tipo: "ok", msg: "Configuración guardada correctamente." })
@@ -1018,99 +1016,177 @@ function SeccionRecordatorios() {
   const preview = aplicarVariables(template, EJEMPLO_PREVIEW)
 
   return (
-    <div>
-      <SectionHeader title="Recordatorios automáticos" subtitle="Configura el mensaje que recibirán tus pacientes" />
+    <div className="space-y-8">
 
-      {/* Toggle general */}
-      <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-[13px] font-semibold text-gray-900">Activar recordatorios automáticos</p>
-          <p className="text-[12px] text-gray-500 mt-0.5">Envía mensajes de WhatsApp automáticamente antes de cada cita</p>
+      {/* ── BLOQUE WHATSAPP ─────────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-7 h-7 rounded-lg bg-[#25D366]/10 flex items-center justify-center">
+            <MessageCircle className="size-4 text-[#25D366]" />
+          </div>
+          <div>
+            <p className="text-[14px] font-semibold text-gray-900">Recordatorios por WhatsApp</p>
+            <p className="text-[12px] text-gray-400">Mensaje automático antes de cada cita</p>
+          </div>
+          <div className="ml-auto">
+            <Toggle activo={activo} onChange={() => setActivo(v => !v)} />
+          </div>
         </div>
-        <Toggle activo={activo} onChange={() => setActivo(v => !v)} />
+
+        {activo && (
+          <div className="pl-9 space-y-4">
+            {/* Cuándo enviar */}
+            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+              <p className="text-[12px] font-semibold text-gray-700 mb-3">¿Cuándo enviar el recordatorio?</p>
+              <div className="flex flex-wrap gap-2">
+                {OPCIONES_MINUTOS.map((op) => (
+                  <button
+                    key={op.value}
+                    type="button"
+                    onClick={() => handleOpcionChange(op.value)}
+                    className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${opcionSeleccionada === op.value ? "border-[#2563EB] bg-blue-50 text-[#2563EB]" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    {op.label}
+                  </button>
+                ))}
+              </div>
+              {opcionSeleccionada === -1 && (
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={minutosCustom}
+                    onChange={(e) => setMinutosCustom(Number(e.target.value))}
+                    className="h-8 w-24 px-2 rounded-lg border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+                  />
+                  <span className="text-[12px] text-gray-500">minutos antes de la cita</span>
+                </div>
+              )}
+            </div>
+
+            {/* Template + preview */}
+            <div>
+              <p className="text-[12px] font-semibold text-gray-700 mb-1">Mensaje de recordatorio</p>
+              <p className="text-[12px] text-gray-400 mb-3">Usa variables para personalizar el mensaje con los datos de cada cita</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                  <textarea
+                    value={template}
+                    onChange={(e) => setTemplate(e.target.value)}
+                    rows={10}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-[13px] text-gray-900 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {VARIABLES_DISPONIBLES.map((v) => (
+                      <button
+                        key={v.key}
+                        type="button"
+                        title={v.desc}
+                        onClick={() => setTemplate(t => t + v.key)}
+                        className="h-6 px-2 rounded-md bg-blue-50 text-[11px] font-mono text-[#2563EB] border border-blue-100 hover:bg-blue-100 transition-colors"
+                      >
+                        {v.key}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTemplate(TEMPLATE_RECORDATORIO_DEFAULT)}
+                    className="mt-2 text-[11px] text-gray-400 hover:text-gray-600 underline"
+                  >
+                    Restaurar plantilla por defecto
+                  </button>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-gray-500 mb-2 uppercase tracking-wide">Vista previa</p>
+                  <div className="bg-[#ECE5DD] rounded-xl p-4 min-h-[200px]">
+                    <div className="bg-white rounded-xl rounded-tl-none px-4 py-3 max-w-[85%] shadow-sm">
+                      <p className="text-[13px] text-gray-900 whitespace-pre-wrap leading-relaxed">{preview}</p>
+                      <p className="text-[10px] text-gray-400 mt-1.5 text-right">15:00 ✓✓</p>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-3 text-center">Ejemplo con datos ficticios</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {activo && (
-        <>
-          {/* Cuándo enviar */}
-          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-4">
-            <p className="text-[13px] font-semibold text-gray-900 mb-3">¿Cuándo enviar el recordatorio?</p>
-            <div className="flex flex-wrap gap-2">
-              {OPCIONES_MINUTOS.map((op) => (
-                <button
-                  key={op.value}
-                  type="button"
-                  onClick={() => handleOpcionChange(op.value)}
-                  className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${opcionSeleccionada === op.value ? "border-[#2563EB] bg-blue-50 text-[#2563EB]" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
-                >
-                  {op.label}
-                </button>
-              ))}
+      {/* ── SEPARADOR ───────────────────────────────────────────────────────── */}
+      <div className="border-t border-gray-100" />
+
+      {/* ── BLOQUE EMAIL ────────────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+            <Bell className="size-4 text-[#2563EB]" />
+          </div>
+          <div>
+            <p className="text-[14px] font-semibold text-gray-900">Recordatorios por email</p>
+            <p className="text-[12px] text-gray-400">Elige qué correos automáticos reciben tus pacientes</p>
+          </div>
+        </div>
+
+        <div className="pl-9 space-y-3">
+
+          {/* Recordatorio día anterior */}
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-semibold text-gray-900">Recordatorio día anterior</p>
+              <p className="text-[12px] text-gray-500 mt-0.5">Email la tarde del día antes de la cita</p>
             </div>
-            {opcionSeleccionada === -1 && (
-              <div className="mt-3 flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  value={minutosCustom}
-                  onChange={(e) => handleMinutosCustomChange(Number(e.target.value))}
-                  className="h-8 w-24 px-2 rounded-lg border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-                />
-                <span className="text-[12px] text-gray-500">minutos antes de la cita</span>
+            <Toggle
+              activo={emailCfg.manana}
+              onChange={() => setEmailCfg(c => ({ ...c, manana: !c.manana }))}
+            />
+          </div>
+
+          {/* Recordatorio mismo día */}
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <div>
+                <p className="text-[13px] font-semibold text-gray-900">Recordatorio mismo día</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">Email unas horas antes de la cita</p>
+              </div>
+              <Toggle
+                activo={emailCfg.hoy}
+                onChange={() => setEmailCfg(c => ({ ...c, hoy: !c.hoy }))}
+              />
+            </div>
+            {emailCfg.hoy && (
+              <div>
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">¿Con cuánta anticipación?</p>
+                <div className="flex flex-wrap gap-2">
+                  {[1, 2, 3].map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => setEmailCfg(c => ({ ...c, hoy_horas_antes: h }))}
+                      className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${emailCfg.hoy_horas_antes === h ? "border-[#2563EB] bg-blue-50 text-[#2563EB]" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      {h} {h === 1 ? "hora antes" : "horas antes"}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Template + preview */}
-          <div className="mb-4">
-            <p className="text-[13px] font-semibold text-gray-900 mb-1">Mensaje de recordatorio</p>
-            <p className="text-[12px] text-gray-400 mb-3">Usa variables para personalizar el mensaje con los datos de cada cita</p>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Editor */}
-              <div>
-                <textarea
-                  value={template}
-                  onChange={(e) => setTemplate(e.target.value)}
-                  rows={10}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-[13px] text-gray-900 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
-                />
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {VARIABLES_DISPONIBLES.map((v) => (
-                    <button
-                      key={v.key}
-                      type="button"
-                      title={v.desc}
-                      onClick={() => setTemplate(t => t + v.key)}
-                      className="h-6 px-2 rounded-md bg-blue-50 text-[11px] font-mono text-[#2563EB] border border-blue-100 hover:bg-blue-100 transition-colors"
-                    >
-                      {v.key}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setTemplate(TEMPLATE_RECORDATORIO_DEFAULT)}
-                  className="mt-2 text-[11px] text-gray-400 hover:text-gray-600 underline"
-                >
-                  Restaurar plantilla por defecto
-                </button>
-              </div>
-
-              {/* Preview */}
-              <div>
-                <p className="text-[11px] font-medium text-gray-500 mb-2 uppercase tracking-wide">Vista previa</p>
-                <div className="bg-[#ECE5DD] rounded-xl p-4 min-h-[200px]">
-                  <div className="bg-white rounded-xl rounded-tl-none px-4 py-3 max-w-[85%] shadow-sm">
-                    <p className="text-[13px] text-gray-900 whitespace-pre-wrap leading-relaxed">{preview}</p>
-                    <p className="text-[10px] text-gray-400 mt-1.5 text-right">15:00 ✓✓</p>
-                  </div>
-                  <p className="text-[10px] text-gray-500 mt-3 text-center">Ejemplo con datos ficticios</p>
-                </div>
-              </div>
+          {/* Post-consulta */}
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-semibold text-gray-900">Email post-consulta</p>
+              <p className="text-[12px] text-gray-500 mt-0.5">Se envía 1–3 horas después de completar la cita</p>
             </div>
+            <Toggle
+              activo={emailCfg.post_cita}
+              onChange={() => setEmailCfg(c => ({ ...c, post_cita: !c.post_cita }))}
+            />
           </div>
-        </>
-      )}
+
+        </div>
+      </div>
 
       <Feedback f={feedback} />
       <div className="flex justify-end">

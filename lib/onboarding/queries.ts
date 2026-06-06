@@ -33,11 +33,26 @@ export type { RecordatoriosWspConfig } from '@/lib/whatsapp/recordatorio-config'
 export { TEMPLATE_RECORDATORIO_DEFAULT } from '@/lib/whatsapp/recordatorio-config'
 import type { RecordatoriosWspConfig } from '@/lib/whatsapp/recordatorio-config'
 
+export type RecordatoriosEmailConfig = {
+  manana: boolean         // recordatorio día anterior
+  hoy: boolean            // recordatorio mismo día
+  hoy_horas_antes: number // 1, 2 o 3 horas antes
+  post_cita: boolean      // email post-consulta
+}
+
+export const RECORDATORIOS_EMAIL_DEFAULT: RecordatoriosEmailConfig = {
+  manana: true,
+  hoy: true,
+  hoy_horas_antes: 2,
+  post_cita: true,
+}
+
 export type ClinicaConfiguracion = {
   plantillas?: PlantillaWsp[]
   recordatorios?: RecordatorioConfig[]
   horarios?: HorariosConfig
   recordatorios_wsp?: RecordatoriosWspConfig
+  recordatorios_email?: RecordatoriosEmailConfig
 }
 
 const PLANTILLAS_DEFAULT: PlantillaWsp[] = [

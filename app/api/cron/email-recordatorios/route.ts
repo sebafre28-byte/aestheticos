@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { RECORDATORIOS_EMAIL_DEFAULT, type RecordatoriosEmailConfig } from '@/lib/onboarding/queries'
 
 export const runtime = 'nodejs'
 
@@ -18,6 +19,7 @@ type CitaRow = {
     email: string | null
     direccion: string | null
     logo_url: string | null
+    configuracion: Record<string, unknown> | null
   } | null
 }
 
@@ -132,8 +134,13 @@ export async function GET(request: Request) {
     pacientes(nombre, email, telefono),
     profesionales(nombre),
     servicios(nombre),
-    clinicas(id, nombre, telefono, email, direccion, logo_url)
+    clinicas(id, nombre, telefono, email, direccion, logo_url, configuracion)
   `
+
+  function emailConfig(cita: CitaRow): RecordatoriosEmailConfig {
+    const cfg = cita.clinicas?.configuracion
+    return (cfg?.recordatorios_email as RecordatoriosEmailConfig) ?? RECORDATORIOS_EMAIL_DEFAULT
+  }
 
   // ── 1. Recordatorio día anterior ─────────────────────────────────────────────
   const manana = new Date(now)
@@ -164,6 +171,7 @@ export async function GET(request: Request) {
   for (const cita of rowsManana) {
     if (!cita.pacientes?.email) continue
     if (!cita.clinicas?.id) continue
+    if (!emailConfig(cita).manana) { stats.omitidos++; continue }
 
     if (sentManana.has(cita.id)) {
       stats.omitidos++
@@ -180,13 +188,14 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── 2. Recordatorio mismo día (ventana +1h a +3h desde ahora, hora chilena) ───
+  // ── 2. Recordatorio mismo día ────────────────────────────────────────────────
   // inicio está guardado como wall-clock (hora local de Chile, no UTC).
-  // Convertimos now a hora chilena restando el offset (Chile = UTC-4 en invierno).
-  const CHILE_OFFSET_MS = 4 * 60 * 60 * 1000 // UTC-4 (invierno); en verano sería UTC-3
+  // Chile = UTC-4 en invierno (junio). Cada clínica configura cuántas horas antes.
+  // Buscamos citas en ventana amplia [+0.5h, +3.5h] y filtramos por config de cada clínica.
+  const CHILE_OFFSET_MS = 4 * 60 * 60 * 1000
   const nowChile = new Date(now.getTime() - CHILE_OFFSET_MS)
-  const windowFrom = new Date(nowChile.getTime() + 1 * 60 * 60 * 1000).toISOString().slice(0, 19)
-  const windowTo   = new Date(nowChile.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 19)
+  const windowFrom = new Date(nowChile.getTime() + 0.5 * 60 * 60 * 1000).toISOString().slice(0, 19)
+  const windowTo   = new Date(nowChile.getTime() + 3.5 * 60 * 60 * 1000).toISOString().slice(0, 19)
 
   const { data: citasHoy } = await supabase
     .from('citas')
@@ -201,6 +210,16 @@ export async function GET(request: Request) {
   for (const cita of rowsHoy) {
     if (!cita.pacientes?.email) continue
     if (!cita.clinicas?.id) continue
+
+    const cfg = emailConfig(cita)
+    if (!cfg.hoy) { stats.omitidos++; continue }
+
+    // Check if this cita falls within ±30min of the configured horas_antes window
+    const horasAntes = cfg.hoy_horas_antes ?? 2
+    const citaWall = new Date(cita.inicio.slice(0, 19))
+    const targetWall = new Date(nowChile.getTime() + horasAntes * 60 * 60 * 1000)
+    const diffMin = Math.abs(citaWall.getTime() - targetWall.getTime()) / 60000
+    if (diffMin > 30) { stats.omitidos++; continue }
 
     if (sentHoy.has(cita.id)) {
       stats.omitidos++
@@ -234,6 +253,7 @@ export async function GET(request: Request) {
   for (const cita of rowsPost) {
     if (!cita.pacientes?.email) continue
     if (!cita.clinicas?.id) continue
+    if (!emailConfig(cita).post_cita) { stats.omitidos++; continue }
 
     if (sentPost.has(cita.id)) {
       stats.omitidos++
