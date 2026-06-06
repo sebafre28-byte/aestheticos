@@ -46,8 +46,9 @@ export async function GET(req: NextRequest) {
     token_expiry: tokenExpiry,
     calendar_id: 'primary',
     scope: tokenData.scope ?? null,
+    sync_mode: 'push_only',
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' })
+  }, { onConflict: 'user_id', ignoreDuplicates: false })
 
   if (upsertError) {
     console.error('Error saving google token:', upsertError)

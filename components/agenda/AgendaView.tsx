@@ -85,6 +85,22 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   const [bloqueoProfeIdInicial, setBloqueoProfeIdInicial] = useState<string | undefined>()
   const [bloqueoParaEditar, setBloqueoParaEditar] = useState<BloqueoProfesional | undefined>()
 
+  const [horariosConfig, setHorariosConfig] = useState<HorariosConfig | null>(null)
+
+  // Update working hours when fecha changes
+  useEffect(() => {
+    if (!horariosConfig) return
+    const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+    const diaNombre = diasSemana[fechaActual.getDay()]
+    const horarioDia = horariosConfig[diaNombre]
+    if (horarioDia?.activo && horarioDia.desde && horarioDia.hasta) {
+      const [hInicio] = horarioDia.desde.split(':').map(Number)
+      const [hFin] = horarioDia.hasta.split(':').map(Number)
+      if (!isNaN(hInicio)) setHoraInicioLaboral(hInicio)
+      if (!isNaN(hFin)) setHoraFinLaboral(hFin)
+    }
+  }, [fechaActual, horariosConfig])
+
   // ─── Cargar datos ─────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
@@ -98,16 +114,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       setServicios(servs)
 
       if (config.horarios) {
-        const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
-        const hoy = new Date()
-        const diaNombre = diasSemana[hoy.getDay()]
-        const horarioDia = (config.horarios as HorariosConfig)[diaNombre]
-        if (horarioDia?.activo && horarioDia.desde && horarioDia.hasta) {
-          const [hInicio] = horarioDia.desde.split(':').map(Number)
-          const [hFin] = horarioDia.hasta.split(':').map(Number)
-          if (!isNaN(hInicio)) setHoraInicioLaboral(hInicio)
-          if (!isNaN(hFin)) setHoraFinLaboral(hFin)
-        }
+        setHorariosConfig(config.horarios as HorariosConfig)
       }
     }
     init()
@@ -292,6 +299,27 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   }
 
   // ─── Abrir modal de nueva cita ────────────────────────────────────────────
+  function wallClockMinutes(iso: string): number {
+    const m = iso.match(/T(\d{2}):(\d{2})/)
+    if (!m) return 0
+    return parseInt(m[1]) * 60 + parseInt(m[2])
+  }
+
+  function wallClockAddMinutes(iso: string, delta: number): string {
+    const datePart = iso.slice(0, 10)
+    const m = iso.match(/T(\d{2}):(\d{2})/)
+    if (!m) return iso
+    const totalMin = parseInt(m[1]) * 60 + parseInt(m[2]) + delta
+    const days = Math.floor(totalMin / (24 * 60))
+    const remMin = ((totalMin % (24 * 60)) + 24 * 60) % (24 * 60)
+    const hh = Math.floor(remMin / 60).toString().padStart(2, '0')
+    const mm = (remMin % 60).toString().padStart(2, '0')
+    if (days === 0) return `${datePart}T${hh}:${mm}:00`
+    const d = new Date(`${datePart}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + days)
+    return `${d.toISOString().slice(0, 10)}T${hh}:${mm}:00`
+  }
+
   function abrirNuevaCita() {
     setProfesionalModalId(undefined)
     setFechaHoraModal(undefined)
@@ -311,10 +339,11 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     const inicioNuevo = new Date(horaDestino)
     const finNuevo = new Date(inicioNuevo.getTime() + duracionMs)
 
+    // Use wall-clock ISO to avoid timezone shift bugs
     const actualizada = await editarCita(cita.id, {
       profesional_id: profesionalId,
-      inicio: inicioNuevo.toISOString(),
-      fin: finNuevo.toISOString(),
+      inicio: wallClockAddMinutes(cita.inicio, Math.round((inicioNuevo.getTime() - inicioActual.getTime()) / 60_000)),
+      fin: wallClockAddMinutes(cita.fin, Math.round((finNuevo.getTime() - finActual.getTime()) / 60_000)),
     })
     if (!actualizada) return
 
@@ -331,13 +360,12 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
   async function redimensionarCita(cita: CitaConRelaciones, deltaMinutos: number) {
     if (deltaMinutos === 0) return
-    const inicio = new Date(cita.inicio)
-    const finActual = new Date(cita.fin)
-    const finNuevo = new Date(finActual.getTime() + deltaMinutos * 60_000)
-    if (finNuevo <= inicio) return
+    const inicioMin = wallClockMinutes(cita.inicio)
+    const finMin = wallClockMinutes(cita.fin) + deltaMinutos
+    if (finMin <= inicioMin) return
 
     const actualizada = await editarCita(cita.id, {
-      fin: finNuevo.toISOString(),
+      fin: wallClockAddMinutes(cita.fin, deltaMinutos),
     })
     if (!actualizada) return
     setCitas((prev) => prev.map((item) => (item.id === cita.id ? actualizada : item)))
