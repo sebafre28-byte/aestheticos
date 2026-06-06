@@ -16,6 +16,7 @@ import { SeccionCobroCita } from './SeccionCobroCita'
 import { useDialogA11y } from './useDialogA11y'
 import { useRol } from '@/lib/auth/useRol'
 import { getNotasClinicas, crearNotaClinica, eliminarNotaClinica, type NotaClinica } from '@/lib/pacientes/queries'
+import MiniPanelFichas from '@/components/fichas/MiniPanelFichas'
 
 // Configuración visual del badge prominente de estado
 const estadoConfig: Record<EstadoCita, {
@@ -583,6 +584,9 @@ export function PanelDetalleCita({
               </div>
             </div>
           )}
+
+          {/* ── Fichas clínicas (mini panel) ── */}
+          {paciente?.id && <MiniPanelFichas pacienteId={paciente.id} />}
 
           {/* ── Historial del paciente ── */}
           <div className="px-5 py-4">
