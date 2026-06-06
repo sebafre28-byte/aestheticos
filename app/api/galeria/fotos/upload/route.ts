@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getClinicaIdForUser } from '@/lib/supabase/getClinicaId'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  const { data: miembro } = await supabase
-    .from('usuarios_clinica').select('clinica_id').eq('user_id', user.id).maybeSingle()
-  if (!miembro?.clinica_id) return NextResponse.json({ error: 'No perteneces a ninguna clínica' }, { status: 403 })
+  const miembro = await getClinicaIdForUser(supabase, user.id)
+  if (!miembro) return NextResponse.json({ error: 'No perteneces a ninguna clínica' }, { status: 403 })
 
   const form = await req.formData().catch(() => null)
   if (!form) return NextResponse.json({ error: 'FormData inválido' }, { status: 400 })
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   if (!file || !pacienteId) return NextResponse.json({ error: 'Faltan file o paciente_id' }, { status: 400 })
 
   const ext = file.name.split('.').pop() ?? 'jpg'
-  const path = `${miembro.clinica_id}/${pacienteId}/${Date.now()}.${ext}`
+  const path = `${miembro.clinicaId}/${pacienteId}/${Date.now()}.${ext}`
 
   const arrayBuffer = await file.arrayBuffer()
   const { error: storageError } = await supabase.storage
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     .from('galeria_fotos')
     .insert({
       paciente_id: pacienteId,
-      clinica_id: miembro.clinica_id,
+      clinica_id: miembro.clinicaId,
       tipo,
       tratamiento: tratamiento || null,
       descripcion: descripcion || null,

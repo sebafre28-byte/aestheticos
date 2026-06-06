@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getClinicaIdForUser } from '@/lib/supabase/getClinicaId'
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -30,15 +31,14 @@ export async function POST(req: NextRequest) {
   const { paciente_id, tipo_tratamiento, contenido, notas } = body
   if (!paciente_id || !tipo_tratamiento) return NextResponse.json({ error: 'Faltan campos' }, { status: 400 })
 
-  const { data: miembro } = await supabase
-    .from('usuarios_clinica').select('clinica_id').eq('user_id', user.id).maybeSingle()
-  if (!miembro?.clinica_id) return NextResponse.json({ error: 'Sin clínica' }, { status: 403 })
+  const miembro = await getClinicaIdForUser(supabase, user.id)
+  if (!miembro) return NextResponse.json({ error: 'Sin clínica' }, { status: 403 })
 
   const { data, error } = await supabase
     .from('fichas_clinicas')
     .insert({
       paciente_id,
-      clinica_id: miembro.clinica_id,
+      clinica_id: miembro.clinicaId,
       tipo_tratamiento,
       contenido: contenido ?? {},
       notas: notas ?? null,
