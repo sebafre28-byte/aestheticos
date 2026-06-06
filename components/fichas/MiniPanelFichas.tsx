@@ -28,7 +28,7 @@ export default function MiniPanelFichas({ pacienteId }: { pacienteId: string }) 
 
   async function handleGuardar() {
     setGuardando(true)
-    const ficha = await crearFicha({ paciente_id: pacienteId, tipo_tratamiento: tipo, contenido: {}, notas: notas || null })
+    const { data: ficha } = await crearFicha({ paciente_id: pacienteId, tipo_tratamiento: tipo, contenido: {}, notas: notas || null })
     if (ficha) {
       setFichas((prev) => [ficha, ...prev])
       resetForm()

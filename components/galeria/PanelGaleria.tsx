@@ -37,6 +37,7 @@ export default function PanelGaleria({ pacienteId, clinicaId }: { pacienteId: st
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [subiendo, setSubiendo] = useState(false)
+  const [errorSubir, setErrorSubir] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const puedeEliminar = rol === 'admin' || rol === 'profesional'
@@ -57,16 +58,17 @@ export default function PanelGaleria({ pacienteId, clinicaId }: { pacienteId: st
   async function handleGuardar() {
     if (!file) return
     setSubiendo(true)
+    setErrorSubir(null)
 
     let cId = clinicaIdResuelto
     if (!cId) {
       const res = await fetch('/api/auth/clinica-id')
       if (res.ok) { const d = await res.json(); cId = d.clinica_id }
     }
-    if (!cId) { setSubiendo(false); return }
+    if (!cId) { setErrorSubir('No se pudo obtener la clínica. Recarga la página.'); setSubiendo(false); return }
 
     const fotoPath = await subirFotoGaleria(cId, pacienteId, file)
-    if (!fotoPath) { setSubiendo(false); return }
+    if (!fotoPath) { setErrorSubir('Error al subir la foto al storage. Verifica el bucket galeria-clinica en Supabase.'); setSubiendo(false); return }
 
     const res = await fetch('/api/galeria/fotos', {
       method: 'POST',
@@ -86,6 +88,9 @@ export default function PanelGaleria({ pacienteId, clinicaId }: { pacienteId: st
       const data = await getGaleriaFotosPaciente(pacienteId)
       setFotos(data)
       resetForm()
+    } else {
+      const json = await res.json().catch(() => ({}))
+      setErrorSubir(json.error ?? `Error ${res.status} al guardar la foto`)
     }
     setSubiendo(false)
   }
@@ -216,6 +221,9 @@ export default function PanelGaleria({ pacienteId, clinicaId }: { pacienteId: st
             >
               {subiendo ? <><Upload className="size-4 animate-bounce" /> Subiendo...</> : 'Guardar foto'}
             </button>
+            {errorSubir && (
+              <p className="text-[12px] text-red-500 text-center">{errorSubir}</p>
+            )}
           </div>
         </div>
       )}

@@ -24,15 +24,19 @@ export async function crearFicha(payload: {
   tipo_tratamiento: string
   contenido: Record<string, unknown>
   notas: string | null
-}): Promise<FichaClinica | null> {
-  const res = await fetch('/api/fichas', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) return null
-  const { data } = await res.json()
-  return data ?? null
+}): Promise<{ data: FichaClinica | null; error: string | null }> {
+  try {
+    const res = await fetch('/api/fichas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const json = await res.json()
+    if (!res.ok) return { data: null, error: json.error ?? `Error ${res.status}` }
+    return { data: json.data ?? null, error: null }
+  } catch (e) {
+    return { data: null, error: String(e) }
+  }
 }
 
 export async function eliminarFicha(id: string): Promise<boolean> {

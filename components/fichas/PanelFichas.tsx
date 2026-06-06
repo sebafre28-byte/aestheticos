@@ -23,6 +23,7 @@ export default function PanelFichas({ pacienteId, onCountChange }: Props) {
   const [campos, setCampos] = useState<Record<string, string>>({})
   const [notas, setNotas] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null)
 
   const puedeEliminar = rol === 'admin' || rol === 'profesional'
 
@@ -34,13 +35,14 @@ export default function PanelFichas({ pacienteId, onCountChange }: Props) {
     })
   }, [pacienteId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function resetForm() { setTipo('general'); setCampos({}); setNotas(''); setCreando(false) }
+  function resetForm() { setTipo('general'); setCampos({}); setNotas(''); setCreando(false); setErrorGuardar(null) }
 
   async function handleGuardar() {
     setGuardando(true)
+    setErrorGuardar(null)
     const contenido: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(campos)) if (v) contenido[k] = v
-    const ficha = await crearFicha({ paciente_id: pacienteId, tipo_tratamiento: tipo, contenido, notas: notas || null })
+    const { data: ficha, error } = await crearFicha({ paciente_id: pacienteId, tipo_tratamiento: tipo, contenido, notas: notas || null })
     if (ficha) {
       setFichas((prev) => {
         const next = [ficha, ...prev]
@@ -48,6 +50,8 @@ export default function PanelFichas({ pacienteId, onCountChange }: Props) {
         return next
       })
       resetForm()
+    } else {
+      setErrorGuardar(error ?? 'Error al guardar. Intenta de nuevo.')
     }
     setGuardando(false)
   }
@@ -151,6 +155,9 @@ export default function PanelFichas({ pacienteId, onCountChange }: Props) {
           >
             {guardando ? 'Guardando...' : 'Guardar ficha'}
           </button>
+          {errorGuardar && (
+            <p className="text-[12px] text-red-500 text-center">{errorGuardar}</p>
+          )}
         </div>
       )}
 
