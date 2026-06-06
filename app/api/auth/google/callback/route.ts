@@ -8,7 +8,9 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get('state')
   const error = searchParams.get('error')
 
-  const origin = req.nextUrl.origin
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
+  const host = req.headers.get('x-forwarded-host') ?? req.nextUrl.host
+  const origin = `${proto}://${host}`
 
   if (error || !code || !userId) {
     return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)

@@ -15,7 +15,9 @@ export async function GET(req: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID
   if (!clientId) return NextResponse.json({ error: 'GOOGLE_CLIENT_ID no configurado' }, { status: 500 })
 
-  const redirectUri = `${req.nextUrl.origin}/api/auth/google/callback`
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
+  const host = req.headers.get('x-forwarded-host') ?? req.nextUrl.host
+  const redirectUri = `${proto}://${host}/api/auth/google/callback`
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
