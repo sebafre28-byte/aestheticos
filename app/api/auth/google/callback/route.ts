@@ -3,54 +3,54 @@ import { createClient } from '@/lib/supabase/server'
 import { getClinicaIdForUser } from '@/lib/supabase/getClinicaId'
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.redirect(new URL('/login', req.url))
+  const { searchParams } = req.nextUrl
+  const code = searchParams.get('code')
+  const userId = searchParams.get('state')
+  const error = searchParams.get('error')
 
-  const code = req.nextUrl.searchParams.get('code')
-  if (!code) return NextResponse.redirect(new URL('/configuracion?google=error', req.url))
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`
+  if (error || !code || !userId) {
+    return NextResponse.redirect(`${appUrl}/configuracion?tab=google_calendar&google=error`)
+  }
+
+  const clientId = process.env.GOOGLE_CLIENT_ID!
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET!
+  const redirectUri = `${appUrl}/api/auth/google/callback`
 
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      code,
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code',
-    }),
+    body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
   })
-
-  if (!tokenRes.ok) return NextResponse.redirect(new URL('/configuracion?google=error', req.url))
-
-  const tokens = await tokenRes.json() as {
-    access_token: string
-    refresh_token?: string
-    expires_in: number
-    scope: string
+  const tokenData = await tokenRes.json()
+  if (!tokenData.access_token) {
+    return NextResponse.redirect(`${appUrl}/configuracion?tab=google_calendar&google=error`)
   }
 
-  if (!tokens.refresh_token) {
-    return NextResponse.redirect(new URL('/configuracion?google=no_refresh_token', req.url))
-  }
+  // Fetch user email from Google
+  let googleEmail: string | null = null
+  try {
+    const infoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    })
+    const info = await infoRes.json()
+    googleEmail = info.email ?? null
+  } catch { /* ignore */ }
 
-  const miembro = await getClinicaIdForUser(supabase, user.id)
-  if (!miembro) return NextResponse.redirect(new URL('/configuracion?google=error', req.url))
-
-  const expiryDate = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+  const supabase = await createClient()
+  const miembro = await getClinicaIdForUser(supabase, userId)
+  if (!miembro) return NextResponse.redirect(`${appUrl}/configuracion?tab=google_calendar&google=error`)
 
   await supabase.from('google_calendar_tokens').upsert({
-    user_id: user.id,
+    user_id: userId,
     clinica_id: miembro.clinicaId,
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token,
-    token_expiry: expiryDate,
-    scope: tokens.scope,
+    access_token: tokenData.access_token,
+    refresh_token: tokenData.refresh_token ?? null,
+    expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
+    email: googleEmail,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id,clinica_id' })
+  }, { onConflict: 'user_id' })
 
-  return NextResponse.redirect(new URL('/configuracion?google=success', req.url))
+  return NextResponse.redirect(`${appUrl}/configuracion?tab=google_calendar&google=success`)
 }
