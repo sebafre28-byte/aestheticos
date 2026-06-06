@@ -1323,9 +1323,9 @@ function SeccionGoogleCalendar() {
   useEffect(() => {
     fetch('/api/auth/google/status')
       .then(r => r.json())
-      .then((data: { connected: boolean; token: { email: string; expires_at: string; sync_mode?: SyncMode } | null }) => {
+      .then((data: { connected: boolean; token: { token_expiry?: string; calendar_id?: string; sync_mode?: SyncMode } | null }) => {
         setConectado(data.connected)
-        setTokenEmail(data.token?.email ?? null)
+        setTokenEmail(data.token?.calendar_id ?? null)
         if (data.token?.sync_mode) setSyncMode(data.token.sync_mode)
         setCargando(false)
       })
