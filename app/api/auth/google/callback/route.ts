@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   })
   const tokenData = await tokenRes.json()
   if (!tokenData.access_token) {
-    return NextResponse.redirect(`${appUrl}/configuracion?tab=google_calendar&google=error`)
+    return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
   }
 
   // Fetch user email from Google
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createClient()
   const miembro = await getClinicaIdForUser(supabase, userId)
-  if (!miembro) return NextResponse.redirect(`${appUrl}/configuracion?tab=google_calendar&google=error`)
+  if (!miembro) return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
 
   await supabase.from('google_calendar_tokens').upsert({
     user_id: userId,
