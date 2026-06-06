@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { CheckCircle, CheckCircle2, Check, Copy, Loader2, ChevronRight, ChevronLeft, Sparkles, Users, Scissors, Clock } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import {
   actualizarClinicaBasica,
   crearProfesionalOnboarding,
@@ -159,10 +160,16 @@ export function OnboardingWizard() {
 
   useEffect(() => {
     async function init() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      const metaClinicaNombre = user?.user_metadata?.clinica_nombre as string | undefined
+
       const data = await getClinicaBasica()
       if (data) {
         setClinica(data)
-        setNombreClinica(data.nombre ?? '')
+        // If trigger saved "Mi Clínica" (fallback), use the name from registration metadata instead
+        const nombreReal = (data.nombre === 'Mi Clínica' && metaClinicaNombre) ? metaClinicaNombre : (data.nombre ?? '')
+        setNombreClinica(nombreReal)
         setTelefonoClinica(data.telefono ?? '')
         setDireccionClinica(data.direccion ?? '')
         setEmailClinica(data.email ?? '')
@@ -191,6 +198,9 @@ export function OnboardingWizard() {
     e.preventDefault()
     setError(null)
     if (!nombreClinica.trim()) { setError('El nombre de la clínica es obligatorio'); return }
+    if (!telefonoClinica.trim()) { setError('El teléfono de contacto es obligatorio'); return }
+    if (!emailClinica.trim()) { setError('El email de contacto es obligatorio'); return }
+    if (!direccionClinica.trim()) { setError('La dirección es obligatoria'); return }
     setGuardando(true)
     const actualizada = await actualizarClinicaBasica({
       nombre: nombreClinica,
@@ -386,28 +396,31 @@ export function OnboardingWizard() {
                 </Select>
               </Field>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Teléfono de contacto">
+                <Field label="Teléfono de contacto" required>
                   <Input
                     type="tel"
                     value={telefonoClinica}
                     onChange={e => setTelefonoClinica(e.target.value)}
                     placeholder="+56 9 1234 5678"
+                    required
                   />
                 </Field>
-                <Field label="Email de contacto">
+                <Field label="Email de contacto" required>
                   <Input
                     type="email"
                     value={emailClinica}
                     onChange={e => setEmailClinica(e.target.value)}
                     placeholder="hola@tuclinica.cl"
+                    required
                   />
                 </Field>
               </div>
-              <Field label="Dirección">
+              <Field label="Dirección" required>
                 <Input
                   value={direccionClinica}
                   onChange={e => setDireccionClinica(e.target.value)}
                   placeholder="Av. Providencia 1234, Santiago"
+                  required
                 />
               </Field>
               <Field label="Sitio web" hint="opcional">
