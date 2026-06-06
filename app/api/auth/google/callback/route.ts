@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
 
   if (error || !code || !userId) {
-    return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
+    return NextResponse.redirect(`${origin}/mi-cuenta?google=error`)
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID!
@@ -25,20 +25,20 @@ export async function GET(req: NextRequest) {
   })
   const tokenData = await tokenRes.json()
   if (!tokenData.access_token) {
-    return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
+    return NextResponse.redirect(`${origin}/mi-cuenta?google=error`)
   }
 
   if (!tokenData.refresh_token) {
-    return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
+    return NextResponse.redirect(`${origin}/mi-cuenta?google=error`)
   }
 
   const supabase = await createClient()
   const miembro = await getClinicaIdForUser(supabase, userId)
-  if (!miembro) return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
+  if (!miembro) return NextResponse.redirect(`${origin}/mi-cuenta?google=error`)
 
   const tokenExpiry = new Date(Date.now() + (tokenData.expires_in ?? 3600) * 1000).toISOString()
 
-  await supabase.from('google_calendar_tokens').upsert({
+  const { error: upsertError } = await supabase.from('google_calendar_tokens').upsert({
     user_id: userId,
     clinica_id: miembro.clinicaId,
     access_token: tokenData.access_token,
@@ -49,5 +49,14 @@ export async function GET(req: NextRequest) {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' })
 
-  return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=success`)
+  if (upsertError) {
+    console.error('Error saving google token:', upsertError)
+    return NextResponse.redirect(`${origin}/mi-cuenta?google=error`)
+  }
+
+  const isAdmin = miembro.rol === 'admin'
+  if (isAdmin) {
+    return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=success`)
+  }
+  return NextResponse.redirect(`${origin}/mi-cuenta?google=success`)
 }
