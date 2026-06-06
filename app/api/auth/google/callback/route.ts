@@ -8,9 +8,7 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get('state')
   const error = searchParams.get('error')
 
-  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
-  const host = req.headers.get('x-forwarded-host') ?? req.nextUrl.host
-  const origin = `${proto}://${host}`
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
 
   if (error || !code || !userId) {
     return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=error`)
