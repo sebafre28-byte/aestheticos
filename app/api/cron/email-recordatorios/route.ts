@@ -90,11 +90,12 @@ async function sendEmail(
 
 function buildDatos(cita: CitaRow, tipo: string) {
   const { hora, horaFin, fecha } = formatCita(cita)
-  const p = cita.pacientes!
+  const p = cita.pacientes
   const c = cita.clinicas
+  if (!p?.email) return null
   return {
     tipo,
-    destinatario: p.email!,
+    destinatario: p.email,
     datos: {
       paciente_nombre: p.nombre,
       paciente_telefono: p.telefono ?? undefined,
@@ -113,8 +114,11 @@ function buildDatos(cita: CitaRow, tipo: string) {
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
+  }
+  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -152,7 +156,9 @@ export async function GET(request: Request) {
       continue
     }
 
-    const { tipo, destinatario, datos } = buildDatos(cita, 'recordatorio_cita')
+    const built = buildDatos(cita, 'recordatorio_cita')
+    if (!built) { stats.omitidos++; continue }
+    const { tipo, destinatario, datos } = built
     const ok = await sendEmail(base, tipo, destinatario, datos)
     if (ok) {
       await registrarEnvio(supabase, cita.id, cita.clinicas.id, 'email_recordatorio_manana', destinatario)
@@ -181,7 +187,9 @@ export async function GET(request: Request) {
       continue
     }
 
-    const { tipo, destinatario, datos } = buildDatos(cita, 'recordatorio_cita')
+    const builtHoy = buildDatos(cita, 'recordatorio_cita')
+    if (!builtHoy) { stats.omitidos++; continue }
+    const { tipo, destinatario, datos } = builtHoy
     const ok = await sendEmail(base, tipo, destinatario, datos)
     if (ok) {
       await registrarEnvio(supabase, cita.id, cita.clinicas.id, 'email_recordatorio_hoy', destinatario)
@@ -211,7 +219,9 @@ export async function GET(request: Request) {
       continue
     }
 
-    const { tipo, destinatario, datos } = buildDatos(cita, 'post_cita')
+    const builtPost = buildDatos(cita, 'post_cita')
+    if (!builtPost) { stats.omitidos++; continue }
+    const { tipo, destinatario, datos } = builtPost
     const ok = await sendEmail(base, tipo, destinatario, datos)
     if (ok) {
       await registrarEnvio(supabase, cita.id, cita.clinicas.id, 'email_post_cita', destinatario)
