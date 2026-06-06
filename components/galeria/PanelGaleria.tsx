@@ -60,29 +60,16 @@ export default function PanelGaleria({ pacienteId, clinicaId }: { pacienteId: st
     setSubiendo(true)
     setErrorSubir(null)
 
-    let cId = clinicaIdResuelto
-    if (!cId) {
-      const res = await fetch('/api/auth/clinica-id')
-      if (res.ok) { const d = await res.json(); cId = d.clinica_id }
-    }
-    if (!cId) { setErrorSubir('No se pudo obtener la clínica. Recarga la página.'); setSubiendo(false); return }
+    const form = new FormData()
+    form.append('file', file)
+    form.append('paciente_id', pacienteId)
+    form.append('tipo', tipoFoto)
+    form.append('fecha_foto', fecha)
+    if (tratamiento) form.append('tratamiento', tratamiento)
+    if (descripcion) form.append('descripcion', descripcion)
+    if (notas) form.append('notas', notas)
 
-    const fotoPath = await subirFotoGaleria(cId, pacienteId, file)
-    if (!fotoPath) { setErrorSubir('Error al subir la foto al storage. Verifica el bucket galeria-clinica en Supabase.'); setSubiendo(false); return }
-
-    const res = await fetch('/api/galeria/fotos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        paciente_id: pacienteId,
-        tipo: tipoFoto,
-        tratamiento: tratamiento || null,
-        descripcion: descripcion || null,
-        foto_url: fotoPath,
-        fecha_foto: fecha,
-        notas: notas || null,
-      }),
-    })
+    const res = await fetch('/api/galeria/fotos/upload', { method: 'POST', body: form })
 
     if (res.ok) {
       const data = await getGaleriaFotosPaciente(pacienteId)
