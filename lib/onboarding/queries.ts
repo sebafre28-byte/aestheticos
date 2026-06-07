@@ -12,6 +12,7 @@ export type ClinicaBasica = {
   sitio_web: string | null
   logo_url: string | null
   slug: string | null
+  tipo: string | null
 }
 
 export type HorarioDia = { activo: boolean; desde: string; hasta: string }
@@ -101,6 +102,7 @@ export async function actualizarClinicaBasica(input: {
   sitio_web?: string
   logo_url?: string
   horarios?: HorariosConfig
+  tipo?: string
 }): Promise<ClinicaBasica | null> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
