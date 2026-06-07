@@ -74,7 +74,7 @@ export default function CancelarCitaPage({ params }: { params: Promise<{ token: 
           clinica_logo_url: d.clinicas.logo_url ?? undefined,
           fecha,
           hora,
-          hora_fin: d.fin.slice(11, 16),
+          hora_fin: d.fin?.slice(11, 16) ?? '',
         })
         setRawInicio(d.inicio)
         setRawFin(d.fin)

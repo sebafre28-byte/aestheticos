@@ -327,7 +327,7 @@ function PasoProfesionalFecha({
     : profesionales
   const today = toLocalDate(new Date(), tz)
 
-  // Build 42-day calendar (6 weeks) starting from the Monday on or before today
+  // Build 42-day calendar starting from the Monday on or before today
   const startDow = today.getDay() // 0=sun
   const daysFromMonday = startDow === 0 ? 6 : startDow - 1
   const calStart = new Date(today)
@@ -341,7 +341,7 @@ function PasoProfesionalFecha({
 
   // Group by weeks (rows of 7)
   const weeks: Date[][] = []
-  for (let i = 0; i < 28; i += 7) {
+  for (let i = 0; i < 42; i += 7) {
     weeks.push(calDays.slice(i, i + 7))
   }
 

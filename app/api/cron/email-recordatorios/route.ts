@@ -5,6 +5,18 @@ import { RECORDATORIOS_EMAIL_DEFAULT, type RecordatoriosEmailConfig } from '@/li
 
 export const runtime = 'nodejs'
 
+function getChileOffsetMs(): number {
+  const now = new Date()
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Santiago',
+    hour: 'numeric', hourCycle: 'h23'
+  }).formatToParts(now)
+  const localHour = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0')
+  const utcHour = now.getUTCHours()
+  const diff = ((localHour - utcHour + 36) % 24) - 12 // handle day boundary
+  return -diff * 60 * 60 * 1000
+}
+
 type CitaRow = {
   id: string
   inicio: string
@@ -191,11 +203,10 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── 2. Recordatorio mismo día ────────────────────────────────────────────────
+  // ── 2. Recordatorio mismo día ─────────────────────────────────────────────────
   // inicio está guardado como wall-clock (hora local de Chile, no UTC).
-  // Chile = UTC-4 en invierno (junio). Cada clínica configura cuántas horas antes.
-  // Buscamos citas en ventana amplia [+0.5h, +3.5h] y filtramos por config de cada clínica.
-  const CHILE_OFFSET_MS = 4 * 60 * 60 * 1000
+  // Usamos el offset real de Santiago para no asumir un valor fijo.
+  const CHILE_OFFSET_MS = getChileOffsetMs()
   const nowChile = new Date(now.getTime() - CHILE_OFFSET_MS)
   const windowFrom = new Date(nowChile.getTime() + 0.5 * 60 * 60 * 1000).toISOString().slice(0, 19)
   const windowTo   = new Date(nowChile.getTime() + 3.5 * 60 * 60 * 1000).toISOString().slice(0, 19)
@@ -241,7 +252,7 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── 3. Post-cita (fin entre 1h y 3h atrás, hora chilena) ────────────────────
+  // ── 3. Post-cita (fin entre 1h y 3h atrás, hora chilena) ─────────────────────
   const postDesde = new Date(nowChile.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 19)
   const postHasta = new Date(nowChile.getTime() - 1 * 60 * 60 * 1000).toISOString().slice(0, 19)
 

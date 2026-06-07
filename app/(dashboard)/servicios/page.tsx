@@ -71,11 +71,15 @@ export default function ServiciosPage() {
     activo: boolean
     buffer_minutos: number
   }) {
+    let ok: boolean
     if (servicioEditando) {
-      await actualizarServicio(servicioEditando.id, data)
+      const result = await actualizarServicio(servicioEditando.id, data)
+      ok = result !== null
     } else {
-      await crearServicio(data)
+      const result = await crearServicio(data)
+      ok = result !== null
     }
+    if (!ok) return
     setOpenForm(false)
     setServicioEditando(null)
     await recargar()
