@@ -208,6 +208,7 @@ export function OnboardingWizard() {
       direccion: direccionClinica,
       email: emailClinica || undefined,
       sitio_web: sitioWeb || undefined,
+      tipo: tipoClinica || undefined,
     })
     setGuardando(false)
     if (!actualizada) { setError('No se pudieron guardar los datos. Intenta de nuevo.'); return }
@@ -617,7 +618,7 @@ export function OnboardingWizard() {
                         {dia.label}
                       </button>
                       <span className={`text-sm font-medium w-20 flex-shrink-0 capitalize ${cfg.activo ? 'text-slate-700' : 'text-slate-400'}`}>
-                        {dia.key === 'miercoles' ? 'Miércoles' : dia.key.charAt(0).toUpperCase() + dia.key.slice(1)}
+                        {dia.key === 'miércoles' ? 'Miércoles' : dia.key.charAt(0).toUpperCase() + dia.key.slice(1)}
                       </span>
                       {cfg.activo ? (
                         <div className="flex items-center gap-2 flex-1">

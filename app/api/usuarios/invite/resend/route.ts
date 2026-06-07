@@ -26,6 +26,18 @@ export async function POST(request: NextRequest) {
 
     if (!uc) return NextResponse.json({ ok: false, error: 'Usuario no encontrado o ya activado' })
 
+    // Verify the caller is an admin of the same clinic
+    const { data: callerUc } = await supabase
+      .from('usuarios_clinica')
+      .select('clinica_id, rol')
+      .eq('user_id', user.id)
+      .eq('clinica_id', uc.clinica_id)
+      .maybeSingle()
+
+    if (!callerUc || callerUc.rol !== 'admin') {
+      return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 })
+    }
+
     const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
     const redirectTo = `${base}/invite/accept`
 
