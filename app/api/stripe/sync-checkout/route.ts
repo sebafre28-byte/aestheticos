@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-    const { clinica_id } = await request.json() as { clinica_id?: string }
+    const body = await request.json() as { clinica_id?: string; session_id?: string }
+    const { clinica_id, session_id } = body
     if (!clinica_id) return NextResponse.json({ error: 'clinica_id requerido' }, { status: 400 })
 
     // Verify clinica_id belongs to the authenticated user
@@ -31,26 +32,36 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
     if (!clinica) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
 
-    // List recent checkout sessions for this clinica
-    const url = new URL(`${STRIPE_API}/checkout/sessions`)
-    url.searchParams.set('limit', '5')
-    url.searchParams.set('status', 'complete')
+    // If a session_id is available, fetch it directly; otherwise list recent sessions
+    let session: { id: string; payment_status: string; metadata?: { clinica_id?: string; plan?: string }; customer?: string; subscription?: string } | undefined
 
-    const res = await fetch(url.toString(), { headers: stripeHeaders() })
-    const json = await res.json() as { data: Array<{
-      id: string
-      payment_status: string
-      metadata?: { clinica_id?: string; plan?: string }
-      customer?: string
-      subscription?: string
-    }> }
+    if (session_id) {
+      const sessionUrl = `${STRIPE_API}/checkout/sessions/${encodeURIComponent(session_id)}`
+      const res = await fetch(sessionUrl, { headers: stripeHeaders() })
+      const json = await res.json() as { id: string; payment_status: string; metadata?: { clinica_id?: string; plan?: string }; customer?: string; subscription?: string; error?: unknown }
+      if (!res.ok) throw new Error(`Stripe error: ${JSON.stringify(json)}`)
+      if (json.metadata?.clinica_id === clinica_id && json.payment_status === 'paid') {
+        session = json
+      }
+    } else {
+      const url = new URL(`${STRIPE_API}/checkout/sessions`)
+      url.searchParams.set('limit', '25')
+      url.searchParams.set('status', 'complete')
 
-    if (!res.ok) throw new Error(`Stripe error: ${JSON.stringify(json)}`)
+      const res = await fetch(url.toString(), { headers: stripeHeaders() })
+      const json = await res.json() as { data: Array<{
+        id: string
+        payment_status: string
+        metadata?: { clinica_id?: string; plan?: string }
+        customer?: string
+        subscription?: string
+      }> }
 
-    // Find session matching this clinica_id
-    const session = json.data.find(
-      s => s.metadata?.clinica_id === clinica_id && s.payment_status === 'paid'
-    )
+      if (!res.ok) throw new Error(`Stripe error: ${JSON.stringify(json)}`)
+      session = json.data.find(
+        s => s.metadata?.clinica_id === clinica_id && s.payment_status === 'paid'
+      )
+    }
 
     if (!session) {
       return NextResponse.json({ synced: false, reason: 'No se encontró sesión pagada' })

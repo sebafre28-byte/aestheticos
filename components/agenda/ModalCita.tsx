@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { format, parseISO, addDays, addWeeks, addMonths } from 'date-fns'
+import { format, parseISO, addDays, addWeeks, addMonths, isBefore, startOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { X, Search, Plus, AlertTriangle, Loader2, User, Clock, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { DatePicker } from '@/components/ui/DatePicker'
+import { TimePicker } from '@/components/ui/TimePicker'
 import type {
   CitaConRelaciones, ProfesionalRow, ServicioRow, PacienteRow, NuevaCitaData,
 } from '@/lib/agenda/queries'
@@ -69,8 +71,9 @@ export function ModalCita({
   const [resultadosBusqueda, setResultadosBusqueda] = useState<PacienteRow[]>([])
   const [buscando, setBuscando] = useState(false)
   const [mostrarCrearPaciente, setMostrarCrearPaciente] = useState(false)
-  const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', telefono: '', email: '' })
+  const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', telefono: '', email: '', rut: '' })
   const [creandoPaciente, setCreandoPaciente] = useState(false)
+  const [errorCrearPaciente, setErrorCrearPaciente] = useState<string | null>(null)
 
   const [profesionalId, setProfesionalId] = useState(
     citaExistente?.profesional_id ?? profesionalIdInicial ?? profesionales[0]?.id ?? ''
@@ -100,6 +103,7 @@ export function ModalCita({
   const [sessionHoraOverrides, setSessionHoraOverrides] = useState<Record<number, string>>({})
   const [sessionFechaOverrides, setSessionFechaOverrides] = useState<Record<number, string>>({})
   const [horariosClinica, setHorariosClinica] = useState<HorariosConfig | null>(null)
+  const [disponibilidadProfesional, setDisponibilidadProfesional] = useState<import('@/lib/agenda/queries').DisponibilidadRow[]>([])
   const [serieEditMode, setSerieEditMode] = useState<'single' | 'future' | 'all'>('single')
 
   const [conflicto, setConflicto] = useState<CitaConRelaciones | null>(null)
@@ -141,11 +145,14 @@ export function ModalCita({
     }
   }, [abiertoPicker])
 
-  // Cargar horarios de la clínica para filtrar días válidos en recurrencia
+  // Cargar horarios de la clínica + disponibilidad del profesional para recurrencia
   useEffect(() => {
     getClinicaConfig().then(cfg => {
       if (cfg.horarios) setHorariosClinica(cfg.horarios)
     })
+    if (profesionalId) {
+      getDisponibilidadProfesional(profesionalId).then(setDisponibilidadProfesional)
+    }
     // Cargar servicios por profesional
     getProfesionalesConServicios().then(profs => {
       const map: Record<string, string[]> = {}
@@ -155,6 +162,13 @@ export function ModalCita({
   }, [])
 
   // Cargar citas del profesional para detectar slots ocupados
+  // Recargar disponibilidad cuando cambia el profesional
+  useEffect(() => {
+    if (profesionalId) {
+      getDisponibilidadProfesional(profesionalId).then(setDisponibilidadProfesional)
+    }
+  }, [profesionalId])
+
   useEffect(() => {
     if (!profesionalId || !fecha) { return }
     getCitasDelDia(fecha).then((todas) => {
@@ -278,16 +292,19 @@ export function ModalCita({
   }
 
   async function handleCrearPaciente() {
-    if (!nuevoPaciente.nombre.trim()) return
+    if (!nuevoPaciente.nombre.trim() || !nuevoPaciente.email.trim() || !nuevoPaciente.telefono.trim() || !nuevoPaciente.rut.trim()) return
     setCreandoPaciente(true)
+    setErrorCrearPaciente(null)
     const clinicaId = await getClinicaId()
     if (!clinicaId) { setCreandoPaciente(false); return }
-    const paciente = await crearPacienteRapido(nuevoPaciente.nombre, nuevoPaciente.telefono, clinicaId, nuevoPaciente.email || undefined)
+    const paciente = await crearPacienteRapido(nuevoPaciente.nombre, nuevoPaciente.telefono, clinicaId, nuevoPaciente.email, nuevoPaciente.rut)
     setCreandoPaciente(false)
     if (paciente) {
       seleccionarPaciente(paciente)
       setMostrarCrearPaciente(false)
-      setNuevoPaciente({ nombre: '', telefono: '', email: '' })
+      setNuevoPaciente({ nombre: '', telefono: '', email: '', rut: '' })
+    } else {
+      setErrorCrearPaciente('No se pudo crear el paciente. Verifica que el RUT o email no estén ya registrados.')
     }
   }
 
@@ -313,6 +330,7 @@ export function ModalCita({
     if (!profesionalId) { setError('Selecciona un profesional'); return }
     if (!servicioId) { setError('Selecciona un servicio'); return }
     if (!fecha || !hora) { setError('Indica fecha y hora'); return }
+    if (fecha < format(new Date(), 'yyyy-MM-dd')) { setError('No puedes agendar en una fecha pasada'); return }
     if (conflicto) { setError('Existe conflicto de horario. Selecciona otro bloque.'); return }
 
     setError(null)
@@ -496,28 +514,34 @@ export function ModalCita({
                 </p>
                 <Input
                   value={nuevoPaciente.nombre}
-                  onChange={(e) => setNuevoPaciente((p) => ({ ...p, nombre: e.target.value }))}
-                  placeholder="Nombre completo"
+                  onChange={(e) => { setNuevoPaciente((p) => ({ ...p, nombre: e.target.value })); setErrorCrearPaciente(null) }}
+                  placeholder="Nombre completo *"
                   className="text-[12px] bg-white"
                 />
-                <input
+                <Input
                   type="email"
                   value={nuevoPaciente.email}
-                  onChange={(e) => setNuevoPaciente((p) => ({ ...p, email: e.target.value }))}
-                  placeholder="Email (opcional)"
-                  className="w-full h-8 px-2.5 text-[12px] rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-400/50"
+                  onChange={(e) => { setNuevoPaciente((p) => ({ ...p, email: e.target.value })); setErrorCrearPaciente(null) }}
+                  placeholder="Email *"
+                  className="text-[12px] bg-white"
                 />
                 <Input
                   value={nuevoPaciente.telefono}
-                  onChange={(e) => setNuevoPaciente((p) => ({ ...p, telefono: e.target.value }))}
-                  placeholder="Teléfono (opcional)"
+                  onChange={(e) => { setNuevoPaciente((p) => ({ ...p, telefono: e.target.value })); setErrorCrearPaciente(null) }}
+                  placeholder="Teléfono *"
+                  className="text-[12px] bg-white"
+                />
+                <Input
+                  value={nuevoPaciente.rut}
+                  onChange={(e) => { setNuevoPaciente((p) => ({ ...p, rut: e.target.value })); setErrorCrearPaciente(null) }}
+                  placeholder="RUT *"
                   className="text-[12px] bg-white"
                 />
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     onClick={handleCrearPaciente}
-                    disabled={creandoPaciente || !nuevoPaciente.nombre.trim()}
+                    disabled={creandoPaciente || !nuevoPaciente.nombre.trim() || !nuevoPaciente.email.trim() || !nuevoPaciente.telefono.trim() || !nuevoPaciente.rut.trim()}
                     className="text-[12px] bg-[#2563EB] hover:bg-blue-700 text-white"
                   >
                     {creandoPaciente && <Loader2 className="size-3 animate-spin mr-1" />}
@@ -532,6 +556,9 @@ export function ModalCita({
                     Cancelar
                   </Button>
                 </div>
+                {errorCrearPaciente && (
+                  <p className="text-[12px] text-red-500 mt-1">{errorCrearPaciente}</p>
+                )}
               </div>
             )}
           </div>
@@ -600,11 +627,10 @@ export function ModalCita({
               <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
                 Fecha
               </Label>
-              <input
-                type="date"
+              <DatePicker
                 value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl border border-gray-200 text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 bg-white"
+                onChange={setFecha}
+                min={format(new Date(), 'yyyy-MM-dd')}
               />
             </div>
 
@@ -742,10 +768,18 @@ export function ModalCita({
                         const fechaStr = sessionFechaOverrides[i] ?? format(dBase, 'yyyy-MM-dd')
                         const d = parseISO(`${fechaStr}T12:00:00`)
                         const horaSession = sessionHoraOverrides[i] ?? hora
-                        const diaNombre = format(d, 'EEEE', { locale: es }).toLowerCase()
-                        const diaKey = diaNombre === 'miércoles' ? 'miercoles' : diaNombre
-                        const diaConfig = horariosClinica?.[diaKey]
-                        const diaNoAtiende = horariosClinica && diaConfig && !diaConfig.activo
+                        // dia_semana: 1=lunes … 7=domingo (ISO)
+                        const diaSemanaISO = d.getDay() === 0 ? 7 : d.getDay()
+                        const diaNoAtiende = disponibilidadProfesional.length > 0
+                          ? disponibilidadProfesional.some(r => r.dia_semana === diaSemanaISO && !r.activo)
+                            || !disponibilidadProfesional.some(r => r.dia_semana === diaSemanaISO)
+                          : horariosClinica
+                            ? (() => {
+                                const diaNombre = format(d, 'EEEE', { locale: es }).toLowerCase()
+                                const cfg = horariosClinica[diaNombre]
+                                return cfg ? !cfg.activo : false
+                              })()
+                            : false
                         const tieneConflicto = servicioActual && citasDelProfesional.some(c => {
                           if (!c.inicio.startsWith(fechaStr)) return false
                           const cInicio = parseInt(c.inicio.slice(11,13))*60 + parseInt(c.inicio.slice(14,16))
@@ -755,28 +789,42 @@ export function ModalCita({
                           return sInicio < cFin && sFin > cInicio
                         })
                         const hayProblema = tieneConflicto || diaNoAtiende
+
+                        // días deshabilitados en el picker: pasados + días no disponibles del profesional
+                        function isDayDisabled(day: Date) {
+                          if (isBefore(startOfDay(day), startOfDay(new Date()))) return true
+                          const iso = day.getDay() === 0 ? 7 : day.getDay()
+                          if (disponibilidadProfesional.length > 0) {
+                            return disponibilidadProfesional.some(r => r.dia_semana === iso && !r.activo)
+                              || !disponibilidadProfesional.some(r => r.dia_semana === iso)
+                          }
+                          if (horariosClinica) {
+                            const nombre = format(day, 'EEEE', { locale: es }).toLowerCase()
+                            const cfg = horariosClinica[nombre]
+                            return cfg ? !cfg.activo : false
+                          }
+                          return false
+                        }
+
                         return (
                           <div key={i} className={`flex items-center gap-2 px-3 py-2 ${hayProblema ? 'bg-red-50' : i === 0 ? 'bg-blue-50/40' : ''}`}>
                             <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
                               style={{ backgroundColor: i === 0 ? '#2563EB' : '#e2e8f0', color: i === 0 ? 'white' : '#64748b' }}>
                               {i + 1}
                             </div>
-                            <input
-                              type="date"
+                            <DatePicker
                               value={fechaStr}
-                              onChange={e => setSessionFechaOverrides(prev => ({ ...prev, [i]: e.target.value }))}
-                              className={`h-7 rounded-lg border px-2 text-[11px] font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400/50 ${hayProblema ? 'border-red-300 text-red-700' : 'border-slate-200 text-slate-700'}`}
+                              onChange={v => setSessionFechaOverrides(prev => ({ ...prev, [i]: v }))}
+                              min={format(new Date(), 'yyyy-MM-dd')}
+                              disabledDays={isDayDisabled}
+                              className={`flex-1 ${hayProblema ? '[&_button]:border-red-300 [&_button]:text-red-700' : ''}`}
                             />
-                            <select
+                            <TimePicker
                               value={horaSession}
-                              onChange={e => setSessionHoraOverrides(prev => ({ ...prev, [i]: e.target.value }))}
-                              className={`h-7 rounded-lg border px-2 pr-5 text-[11px] font-semibold appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400/50 ${
-                                hayProblema ? 'border-red-300 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-[#2563EB]'
-                              }`}
-                              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%2394a3b8' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
-                            >
-                              {SLOTS_HORA.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
+                              onChange={v => setSessionHoraOverrides(prev => ({ ...prev, [i]: v }))}
+                              slots={SLOTS_HORA}
+                              hasError={!!hayProblema}
+                            />
                             {diaNoAtiende && <span className="text-[10px] text-orange-500 font-medium flex-shrink-0">Día cerrado</span>}
                             {tieneConflicto && !diaNoAtiende && <span className="text-[10px] text-red-500 font-medium flex-shrink-0">Conflicto</span>}
                           </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { format } from 'date-fns'
 import { Calendar, Ban } from 'lucide-react'
 import { citaWallClockMinutes } from '@/lib/agenda/datetime'
@@ -8,6 +8,7 @@ import type { CitaConRelaciones, ProfesionalRow } from '@/lib/agenda/queries'
 import { BloqueCita, PIXEL_POR_MIN, HORA_GRILLA_INICIO } from './BloquesCita'
 import { BloqueHorario } from './BloqueHorario'
 import type { BloqueoProfesional } from '@/lib/agenda/queries'
+import type { GoogleExternalEvent } from '@/app/api/auth/google/events/route'
 
 const HORA_FIN_GRILLA = 20
 const HORAS_TOTALES = HORA_FIN_GRILLA - HORA_GRILLA_INICIO  // 12 horas
@@ -55,6 +56,36 @@ function etiquetaDesdeY(y: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
+// ─── Bloque de evento externo de Google Calendar ─────────────────────────────
+
+function BloqueGoogleCalendar({
+  evento,
+  topPx,
+  heightPx,
+}: {
+  evento: GoogleExternalEvent
+  topPx: number
+  heightPx: number
+}) {
+  const label = evento.summary.length > 30 ? evento.summary.slice(0, 28) + '…' : evento.summary
+  return (
+    <div
+      className="absolute left-0.5 right-0.5 z-10 rounded overflow-hidden pointer-events-none select-none"
+      style={{
+        top: topPx + 1,
+        height: Math.max(16, heightPx - 2),
+        background: 'repeating-linear-gradient(45deg, #e5e7eb 0px, #e5e7eb 4px, #f3f4f6 4px, #f3f4f6 10px)',
+        border: '1px solid #d1d5db',
+      }}
+      title={evento.summary}
+    >
+      <span className="block px-1 pt-0.5 text-[10px] font-medium text-gray-500 truncate leading-tight">
+        {label}
+      </span>
+    </div>
+  )
+}
+
 // ─── Columna de un profesional ────────────────────────────────────────────────
 
 type MenuContextual = {
@@ -68,6 +99,7 @@ function ColumnaProfesional({
   profesional,
   citas,
   bloqueos,
+  eventosGoogle,
   onClickCita,
   onClickCelda,
   onBloquearHorario,
@@ -82,6 +114,7 @@ function ColumnaProfesional({
   profesional: ProfesionalRow
   citas: CitaConRelaciones[]
   bloqueos: BloqueoProfesional[]
+  eventosGoogle: GoogleExternalEvent[]
   onClickCita: (cita: CitaConRelaciones) => void
   onClickCelda: (profesionalId: string | undefined, hora: Date) => void
   onBloquearHorario: (profesionalId: string | undefined, hora: Date) => void
@@ -212,6 +245,19 @@ function ColumnaProfesional({
         )
       })}
 
+      {/* Eventos externos de Google Calendar (solo visual, no interactivos) */}
+      {eventosGoogle.map((evento) => {
+        const { top, height } = calcularPosicion(evento.start, evento.end)
+        return (
+          <BloqueGoogleCalendar
+            key={evento.id}
+            evento={evento}
+            topPx={top}
+            heightPx={height}
+          />
+        )
+      })}
+
       {/* Citas posicionadas absolutamente */}
       {dispuestas.map(({ cita, col, totalCols }) => {
         const { top, height } = calcularPosicion(cita.inicio, cita.fin)
@@ -272,6 +318,42 @@ export function CalendarioDia({
   horaInicioLaboral,
   horaFinLaboral,
 }: Props) {
+  // Map from profesional_id → GoogleExternalEvent[]
+  const [eventosGooglePorProfesional, setEventosGooglePorProfesional] = useState<
+    Record<string, GoogleExternalEvent[]>
+  >({})
+
+  const fetchEventosGoogle = useCallback(async (profIds: string[], fechaStr: string) => {
+    const results = await Promise.allSettled(
+      profIds.map(async (id) => {
+        const res = await fetch(`/api/auth/google/events?fecha=${fechaStr}&profesional_id=${id}`)
+        if (!res.ok) return { id, events: [] as GoogleExternalEvent[] }
+        const data = await res.json() as { events: GoogleExternalEvent[] }
+        return { id, events: data.events }
+      })
+    )
+    const map: Record<string, GoogleExternalEvent[]> = {}
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        map[r.value.id] = r.value.events
+      }
+    }
+    setEventosGooglePorProfesional(map)
+  }, [])
+
+  const profsVisibles = profesionales.filter(
+    (p) => profesionalesFiltrados.length === 0 || profesionalesFiltrados.includes(p.id)
+  )
+
+  useEffect(() => {
+    const fechaStr = format(fecha, 'yyyy-MM-dd')
+    const ids = profsVisibles.map((p) => p.id)
+    if (ids.length > 0) {
+      void fetchEventosGoogle(ids, fechaStr)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [format(fecha, 'yyyy-MM-dd'), profsVisibles.map((p) => p.id).join(',')])
+
   const [lineaHora, setLineaHora] = useState<number | null>(() => {
     const ahora = new Date()
     const h = ahora.getHours()
@@ -280,10 +362,6 @@ export function CalendarioDia({
     return (h - HORA_GRILLA_INICIO) * ALTURA_HORA_PX + m * PIXEL_POR_MIN
   })
   const scrollRef = useRef<HTMLDivElement>(null)
-
-  const profsVisibles = profesionales.filter(
-    (p) => profesionalesFiltrados.length === 0 || profesionalesFiltrados.includes(p.id)
-  )
 
   function calcularLineaActual() {
     const ahora = new Date()
@@ -447,12 +525,14 @@ export function CalendarioDia({
             {profsVisibles.map((prof) => {
               const citasProf = citas.filter((c) => c.profesional_id === prof.id)
               const bloqueosProf = bloqueos.filter((b) => b.profesional_id === prof.id)
+              const eventosGoogle = eventosGooglePorProfesional[prof.id] ?? []
               return (
                 <div key={prof.id} className="flex-1 min-w-[120px]">
                   <ColumnaProfesional
                     profesional={prof}
                     citas={citasProf}
                     bloqueos={bloqueosProf}
+                    eventosGoogle={eventosGoogle}
                     onClickCita={onClickCita}
                     onClickCelda={onClickCelda}
                     onBloquearHorario={onBloquearHorario ?? (() => undefined)}

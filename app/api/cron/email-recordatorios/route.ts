@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { RECORDATORIOS_EMAIL_DEFAULT, type RecordatoriosEmailConfig } from '@/lib/onboarding/queries'
 
 export const runtime = 'nodejs'
+
+function getChileOffsetMs(): number {
+  const now = new Date()
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Santiago',
+    hour: 'numeric', hourCycle: 'h23'
+  }).formatToParts(now)
+  const localHour = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0')
+  const utcHour = now.getUTCHours()
+  const diff = ((localHour - utcHour + 36) % 24) - 12 // handle day boundary
+  return -diff * 60 * 60 * 1000
+}
 
 type CitaRow = {
   id: string
@@ -18,6 +31,7 @@ type CitaRow = {
     email: string | null
     direccion: string | null
     logo_url: string | null
+    configuracion: Record<string, unknown> | null
   } | null
 }
 
@@ -91,11 +105,12 @@ async function sendEmail(
 
 function buildDatos(cita: CitaRow, tipo: string) {
   const { hora, horaFin, fecha } = formatCita(cita)
-  const p = cita.pacientes!
+  const p = cita.pacientes
   const c = cita.clinicas
+  if (!p?.email) return null
   return {
     tipo,
-    destinatario: p.email!,
+    destinatario: p.email,
     datos: {
       paciente_nombre: p.nombre,
       paciente_telefono: p.telefono ?? undefined,
@@ -114,8 +129,11 @@ function buildDatos(cita: CitaRow, tipo: string) {
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'CRON_SECRET no configurado' }, { status: 500 })
+  }
+  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -129,8 +147,13 @@ export async function GET(request: Request) {
     pacientes(nombre, email, telefono),
     profesionales(nombre),
     servicios(nombre),
-    clinicas(id, nombre, telefono, email, direccion, logo_url)
+    clinicas(id, nombre, telefono, email, direccion, logo_url, configuracion)
   `
+
+  function emailConfig(cita: CitaRow): RecordatoriosEmailConfig {
+    const cfg = cita.clinicas?.configuracion
+    return (cfg?.recordatorios_email as RecordatoriosEmailConfig) ?? RECORDATORIOS_EMAIL_DEFAULT
+  }
 
   // ── 1. Recordatorio día anterior ─────────────────────────────────────────────
   const manana = new Date(now)
@@ -144,16 +167,33 @@ export async function GET(request: Request) {
     .lt('inicio', `${mananaStr}T23:59:59`)
     .in('estado', ['pendiente', 'confirmada'])
 
-  for (const cita of (citasManana ?? []) as unknown as CitaRow[]) {
+  // Batch fetch already-sent logs to avoid N+1 queries
+  async function batchYaEnviados(citaIds: string[], tipo: TipoEmailLog): Promise<Set<string>> {
+    if (citaIds.length === 0) return new Set()
+    const { data } = await supabase
+      .from('whatsapp_logs')
+      .select('cita_id')
+      .in('cita_id', citaIds)
+      .eq('tipo_mensaje', tipo)
+    return new Set((data ?? []).map((r: { cita_id: string }) => r.cita_id))
+  }
+
+  const rowsManana = (citasManana ?? []) as unknown as CitaRow[]
+  const sentManana = await batchYaEnviados(rowsManana.map(c => c.id), 'email_recordatorio_manana')
+
+  for (const cita of rowsManana) {
     if (!cita.pacientes?.email) continue
     if (!cita.clinicas?.id) continue
+    if (!emailConfig(cita).manana) { stats.omitidos++; continue }
 
-    if (await yaEnviado(supabase, cita.id, 'email_recordatorio_manana')) {
+    if (sentManana.has(cita.id)) {
       stats.omitidos++
       continue
     }
 
-    const { tipo, destinatario, datos } = buildDatos(cita, 'recordatorio_cita')
+    const built = buildDatos(cita, 'recordatorio_cita')
+    if (!built) { stats.omitidos++; continue }
+    const { tipo, destinatario, datos } = built
     const ok = await sendEmail(base, tipo, destinatario, datos)
     if (ok) {
       await registrarEnvio(supabase, cita.id, cita.clinicas.id, 'email_recordatorio_manana', destinatario)
@@ -164,25 +204,45 @@ export async function GET(request: Request) {
   }
 
   // ── 2. Recordatorio mismo día ─────────────────────────────────────────────────
-  const hoyStr = now.toISOString().slice(0, 10)
+  // inicio está guardado como wall-clock (hora local de Chile, no UTC).
+  // Usamos el offset real de Santiago para no asumir un valor fijo.
+  const CHILE_OFFSET_MS = getChileOffsetMs()
+  const nowChile = new Date(now.getTime() - CHILE_OFFSET_MS)
+  const windowFrom = new Date(nowChile.getTime() + 0.5 * 60 * 60 * 1000).toISOString().slice(0, 19)
+  const windowTo   = new Date(nowChile.getTime() + 3.5 * 60 * 60 * 1000).toISOString().slice(0, 19)
 
   const { data: citasHoy } = await supabase
     .from('citas')
     .select(commonSelect)
-    .gte('inicio', `${hoyStr}T10:00:00`)
-    .lt('inicio', `${hoyStr}T23:59:59`)
+    .gte('inicio', windowFrom)
+    .lte('inicio', windowTo)
     .in('estado', ['pendiente', 'confirmada'])
 
-  for (const cita of (citasHoy ?? []) as unknown as CitaRow[]) {
+  const rowsHoy = (citasHoy ?? []) as unknown as CitaRow[]
+  const sentHoy = await batchYaEnviados(rowsHoy.map(c => c.id), 'email_recordatorio_hoy')
+
+  for (const cita of rowsHoy) {
     if (!cita.pacientes?.email) continue
     if (!cita.clinicas?.id) continue
 
-    if (await yaEnviado(supabase, cita.id, 'email_recordatorio_hoy')) {
+    const cfg = emailConfig(cita)
+    if (!cfg.hoy) { stats.omitidos++; continue }
+
+    // Check if this cita falls within ±30min of the configured horas_antes window
+    const horasAntes = cfg.hoy_horas_antes ?? 2
+    const citaWall = new Date(cita.inicio.slice(0, 19))
+    const targetWall = new Date(nowChile.getTime() + horasAntes * 60 * 60 * 1000)
+    const diffMin = Math.abs(citaWall.getTime() - targetWall.getTime()) / 60000
+    if (diffMin > 30) { stats.omitidos++; continue }
+
+    if (sentHoy.has(cita.id)) {
       stats.omitidos++
       continue
     }
 
-    const { tipo, destinatario, datos } = buildDatos(cita, 'recordatorio_cita')
+    const builtHoy = buildDatos(cita, 'recordatorio_cita')
+    if (!builtHoy) { stats.omitidos++; continue }
+    const { tipo, destinatario, datos } = builtHoy
     const ok = await sendEmail(base, tipo, destinatario, datos)
     if (ok) {
       await registrarEnvio(supabase, cita.id, cita.clinicas.id, 'email_recordatorio_hoy', destinatario)
@@ -192,9 +252,9 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── 3. Post-cita (completadas hace 1–3 horas) ─────────────────────────────────
-  const postDesde = new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString()
-  const postHasta = new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString()
+  // ── 3. Post-cita (fin entre 1h y 3h atrás, hora chilena) ─────────────────────
+  const postDesde = new Date(nowChile.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 19)
+  const postHasta = new Date(nowChile.getTime() - 1 * 60 * 60 * 1000).toISOString().slice(0, 19)
 
   const { data: citasPost } = await supabase
     .from('citas')
@@ -203,16 +263,22 @@ export async function GET(request: Request) {
     .gte('fin', postDesde)
     .lte('fin', postHasta)
 
-  for (const cita of (citasPost ?? []) as unknown as CitaRow[]) {
+  const rowsPost = (citasPost ?? []) as unknown as CitaRow[]
+  const sentPost = await batchYaEnviados(rowsPost.map(c => c.id), 'email_post_cita')
+
+  for (const cita of rowsPost) {
     if (!cita.pacientes?.email) continue
     if (!cita.clinicas?.id) continue
+    if (!emailConfig(cita).post_cita) { stats.omitidos++; continue }
 
-    if (await yaEnviado(supabase, cita.id, 'email_post_cita')) {
+    if (sentPost.has(cita.id)) {
       stats.omitidos++
       continue
     }
 
-    const { tipo, destinatario, datos } = buildDatos(cita, 'post_cita')
+    const builtPost = buildDatos(cita, 'post_cita')
+    if (!builtPost) { stats.omitidos++; continue }
+    const { tipo, destinatario, datos } = builtPost
     const ok = await sendEmail(base, tipo, destinatario, datos)
     if (ok) {
       await registrarEnvio(supabase, cita.id, cita.clinicas.id, 'email_post_cita', destinatario)

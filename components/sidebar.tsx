@@ -30,6 +30,7 @@ const navItems: { href: string; label: string; icon: React.ElementType; modulo: 
   { href: "/inbox",         label: "Inbox",         icon: MessageSquare,   modulo: "inbox" },
   { href: "/reportes",      label: "Reportes",      icon: BarChart2,       modulo: "reportes" },
   { href: "/configuracion", label: "Configuración", icon: Settings,        modulo: "configuracion" },
+  { href: "/mi-cuenta",     label: "Mi cuenta",     icon: Settings,        modulo: "mi-cuenta" },
 ]
 
 function LogoIcon() {

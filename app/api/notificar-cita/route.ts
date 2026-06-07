@@ -10,9 +10,25 @@ export interface NotificarCitaPayload {
   fin: string
   canal?: 'book' | 'agenda' | 'whatsapp'
   email_admin?: string  // if set, notifies this specific email instead of clinica.email
+  cancel_token?: string // included in confirmation email to generate cancel link
 }
 
 export async function POST(req: NextRequest) {
+  // Internal-only endpoint: require either a session cookie or the CRON_SECRET header
+  const authHeader = req.headers.get('x-internal-secret')
+  const cronSecret = process.env.CRON_SECRET
+  const isInternalCall = cronSecret && authHeader === cronSecret
+
+  if (!isInternalCall) {
+    // Fall back to checking if the caller has a valid session
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ ok: false, reason: 'No autorizado' }, { status: 401 })
+    }
+  }
+
   let body: NotificarCitaPayload
   try {
     body = await req.json()
@@ -20,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { tipo, paciente, profesional, servicio, clinica, inicio, fin, canal, email_admin } = body
+  const { tipo, paciente, profesional, servicio, clinica, inicio, fin, canal, email_admin, cancel_token } = body
 
   const hora = inicio.slice(11, 16)
   const horaFin = fin.slice(11, 16)
@@ -32,7 +48,7 @@ export async function POST(req: NextRequest) {
     timeZone: 'UTC',
   })
 
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpliclinic.vercel.app'
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
 
   const promesas: Promise<unknown>[] = []
 
@@ -60,6 +76,7 @@ export async function POST(req: NextRequest) {
               clinica_email: clinica.email ?? undefined,
               clinica_direccion: clinica.direccion ?? undefined,
               canal,
+              cancel_url: cancel_token ? `${base}/cancelar/${cancel_token}` : undefined,
             },
           }),
         }).catch((err) => console.error('[notificar-cita] confirmacion error:', err)),
@@ -98,31 +115,50 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (tipo === 'cancelacion' && paciente.email) {
-    promesas.push(
-      fetch(`${base}/api/email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo: 'cancelacion_cita',
-          destinatario: paciente.email,
-          datos: {
-            paciente_nombre: paciente.nombre,
-            servicio_nombre: servicio.nombre,
-            profesional_nombre: profesional.nombre,
-            fecha,
-            hora,
-            hora_fin: horaFin,
-            clinica_nombre: clinica.nombre,
-            clinica_logo_url: clinica.logo_url ?? undefined,
-            clinica_telefono: clinica.telefono ?? undefined,
-            clinica_email: clinica.email ?? undefined,
-            clinica_direccion: clinica.direccion ?? undefined,
-            canal,
-          },
-        }),
-      }).catch((err) => console.error('[notificar-cita] cancelacion error:', err)),
-    )
+  if (tipo === 'cancelacion') {
+    const cancelDatos = {
+      paciente_nombre: paciente.nombre,
+      paciente_telefono: paciente.telefono ?? undefined,
+      paciente_email: paciente.email ?? undefined,
+      servicio_nombre: servicio.nombre,
+      profesional_nombre: profesional.nombre,
+      fecha,
+      hora,
+      hora_fin: horaFin,
+      clinica_nombre: clinica.nombre,
+      clinica_logo_url: clinica.logo_url ?? undefined,
+      clinica_telefono: clinica.telefono ?? undefined,
+      clinica_email: clinica.email ?? undefined,
+      clinica_direccion: clinica.direccion ?? undefined,
+      canal,
+    }
+
+    // 1. Email al paciente
+    if (paciente.email) {
+      promesas.push(
+        fetch(`${base}/api/email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tipo: 'cancelacion_cita', destinatario: paciente.email, datos: cancelDatos }),
+        }).catch((err) => console.error('[notificar-cita] cancelacion paciente error:', err)),
+      )
+    }
+
+    // 2. Notificar a la clínica (admin)
+    const adminEmail = email_admin ?? clinica.email
+    if (adminEmail) {
+      promesas.push(
+        fetch(`${base}/api/email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tipo: 'cancelacion_admin',
+            destinatario: adminEmail,
+            datos: cancelDatos,
+          }),
+        }).catch((err) => console.error('[notificar-cita] cancelacion admin error:', err)),
+      )
+    }
   }
 
   await Promise.allSettled(promesas)

@@ -1,6 +1,7 @@
 // Queries de reportes: resumen mensual de citas, ingresos y top servicios (server-side).
 
 import { createClient } from '@/lib/supabase/server'
+import { getClinicaId } from '@/lib/onboarding/queries'
 import { montoIngresoCobrado } from '@/lib/cobros/utils'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -48,6 +49,7 @@ type CitaRaw = {
   estado: EstadoCita
   pago_monto: number
   pago_estado: PagoEstado
+  paciente_id: string | null
   pacientes: { nombre: string }[] | { nombre: string } | null
   servicios: { nombre: string; precio: number }[] | { nombre: string; precio: number } | null
   profesionales: { nombre: string }[] | { nombre: string } | null
@@ -55,21 +57,28 @@ type CitaRaw = {
 
 export async function getReporteData(year: number, month: number): Promise<ReporteData> {
   const supabase = await createClient()
+  const clinicaId = await getClinicaId()
 
   const date = new Date(year, month - 1, 1)
   const rangeStart = startOfMonth(date)
   const rangeEnd = endOfMonth(date)
   const mesLabel = format(date, 'MMMM yyyy', { locale: es })
 
-  const { data } = await supabase
+  let query = supabase
     .from('citas')
     .select(`
-      id, inicio, estado, pago_monto, pago_estado,
+      id, inicio, estado, pago_monto, pago_estado, paciente_id,
       pacientes(nombre), servicios(nombre, precio), profesionales(nombre)
     `)
     .gte('inicio', rangeStart.toISOString())
     .lte('inicio', rangeEnd.toISOString())
     .order('inicio', { ascending: true })
+
+  if (clinicaId) {
+    query = query.eq('clinica_id', clinicaId)
+  }
+
+  const { data } = await query
 
   const rawCitas = (data ?? []) as unknown as CitaRaw[]
 
@@ -101,9 +110,10 @@ export async function getReporteData(year: number, month: number): Promise<Repor
   const ticketPromedio = completadas > 0 ? ingresosTotales / completadas : 0
 
   const pacientesAtendidosSet = new Set(
-    citas
+    rawCitas
       .filter((c) => c.estado === 'completada' || c.estado === 'confirmada')
-      .map((c) => c.paciente),
+      .map((c) => c.paciente_id)
+      .filter((id): id is string => id !== null),
   )
   const pacientesAtendidos = pacientesAtendidosSet.size
 
