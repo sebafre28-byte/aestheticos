@@ -57,6 +57,9 @@ export async function getServicios({
   page = 1,
   pageSize = 20,
 }: ServiciosParams): Promise<{ items: ServicioListaItem[]; total: number }> {
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return { items: [], total: 0 }
+
   const supabase = createClient()
   const termino = busqueda.trim()
   const from = (page - 1) * pageSize
@@ -65,6 +68,7 @@ export async function getServicios({
   let query = supabase
     .from('servicios')
     .select('*', { count: 'exact' })
+    .eq('clinica_id', clinicaId)
     .order('created_at', { ascending: false })
     .range(from, to)
 
@@ -130,9 +134,11 @@ export async function getServicioDetalle(servicioId: string): Promise<{
 }> {
   const supabase = createClient()
 
+  const clinicaId = await getClinicaId()
+
   const [{ data: servicio, error: servicioError }, { data: historial, error: historialError }] =
     await Promise.all([
-      supabase.from('servicios').select('*').eq('id', servicioId).single(),
+      supabase.from('servicios').select('*').eq('id', servicioId).eq('clinica_id', clinicaId ?? '').single(),
       supabase
         .from('citas')
         .select('id, inicio, fin, estado, pacientes(nombre, telefono), profesionales(nombre, especialidad)')
@@ -202,11 +208,15 @@ export async function toggleActivoServicio(servicioId: string, activo: boolean):
 }
 
 export async function eliminarServicio(servicioId: string): Promise<boolean> {
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return false
+
   const supabase = createClient()
   const { error } = await supabase
     .from('servicios')
     .delete()
     .eq('id', servicioId)
+    .eq('clinica_id', clinicaId)
 
   if (error) {
     console.error('Error eliminarServicio:', error)
@@ -216,6 +226,9 @@ export async function eliminarServicio(servicioId: string): Promise<boolean> {
 }
 
 export async function actualizarServicio(servicioId: string, input: ServicioInput): Promise<ServicioRow | null> {
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return null
+
   const supabase = createClient()
   const payload = {
     nombre: input.nombre.trim(),
@@ -231,6 +244,7 @@ export async function actualizarServicio(servicioId: string, input: ServicioInpu
     .from('servicios')
     .update(payload)
     .eq('id', servicioId)
+    .eq('clinica_id', clinicaId)
     .select('*')
     .single()
 

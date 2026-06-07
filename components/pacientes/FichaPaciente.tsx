@@ -204,8 +204,9 @@ export function FichaPaciente({
   }, [historial])
 
   const now = new Date().toISOString()
+  const nowWallClock = format(new Date(), "yyyy-MM-dd'T'HH:mm:ss")
   const proximaCita = historial.find(
-    (h) => h.inicio > now && h.estado !== 'cancelada' && h.estado !== 'no_asistio'
+    (h) => h.inicio > nowWallClock && h.estado !== 'cancelada' && h.estado !== 'no_asistio'
   )
 
   async function guardarNotas() {

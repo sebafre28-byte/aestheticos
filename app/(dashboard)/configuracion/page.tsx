@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
-  crearProfesional, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
+  crearProfesional, getClinicaId, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
   type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig, type RecordatoriosWspConfig,
   type HorarioDia, type HorariosConfig,
 } from "@/lib/onboarding/queries"
@@ -677,6 +677,7 @@ type ProfesionalConServicios = ProfesionalRow & { servicios_nombres?: string[] }
 
 function SeccionEquipo() {
   const [profesionales, setProfesionales] = useState<ProfesionalConServicios[]>([])
+  const [clinicaId, setClinicaId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [eliminando, setEliminando] = useState<string | null>(null)
   const [abrirModal, setAbrirModal] = useState(false)
@@ -686,10 +687,14 @@ function SeccionEquipo() {
   const alcanzadoLimite = profesionales.length >= limiteProfesionales
 
   const cargar = useCallback(async () => {
+    const cid = await getClinicaId()
+    setClinicaId(cid)
+    if (!cid) { setCargando(false); return }
     const supabase = createClient()
     const { data } = await supabase
       .from("profesionales")
       .select("*, profesional_servicios(servicio_id, servicios(nombre))")
+      .eq("clinica_id", cid)
       .order("nombre", { ascending: true })
     const rows = (data ?? []).map((p: ProfesionalRow & { profesional_servicios?: { servicio_id: string; servicios?: { nombre: string } | null }[] }) => ({
       ...p,
@@ -702,16 +707,18 @@ function SeccionEquipo() {
   useEffect(() => { cargar() }, [cargar])
 
   async function toggleActivo(prof: ProfesionalRow) {
+    if (!clinicaId) return
     const supabase = createClient()
-    await supabase.from("profesionales").update({ activo: !prof.activo }).eq("id", prof.id)
+    await supabase.from("profesionales").update({ activo: !prof.activo }).eq("id", prof.id).eq("clinica_id", clinicaId)
     cargar()
   }
 
   async function eliminar(id: string) {
+    if (!clinicaId) return
     if (!confirm("¿Seguro que quieres eliminar este profesional?")) return
     setEliminando(id)
     const supabase = createClient()
-    await supabase.from("profesionales").delete().eq("id", id)
+    await supabase.from("profesionales").delete().eq("id", id).eq("clinica_id", clinicaId)
     await cargar()
     setEliminando(null)
   }

@@ -4,6 +4,13 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET() {
   const supabase = await createClient()
 
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  const { data: clinicaData } = await supabase.rpc('auth_clinica_id')
+  const clinicaId = (clinicaData as string | null) ?? null
+  if (!clinicaId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
   const { data, error } = await supabase
     .from('conversaciones')
     .select(`
@@ -11,6 +18,7 @@ export async function GET() {
       pacientes(nombre),
       mensajes_inbox(contenido, created_at, direccion)
     `)
+    .eq('clinica_id', clinicaId)
     .eq('estado', 'activa')
     .order('ultimo_mensaje_at', { ascending: false })
     .limit(1, { referencedTable: 'mensajes_inbox' })
