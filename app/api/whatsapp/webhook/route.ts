@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { handleInboundTwilioMessage } from '@/lib/whatsapp/jobs'
+import { responderConAgente } from '@/lib/whatsapp/agente'
+import { getWhatsappProviderForClinica, toWhatsAppE164, type WhatsappClinicaConfig } from '@/lib/whatsapp/provider'
 
 export const runtime = 'nodejs'
 
@@ -115,22 +117,70 @@ async function handleMetaPost(request: NextRequest): Promise<NextResponse> {
 
       // Inbound messages
       const phoneNumberId = value.metadata?.phone_number_id ?? ''
+
+      // Resolve clinica_id from the business phone number ID
+      const { data: clinicaRow } = await supabase
+        .from('clinicas')
+        .select('id, whatsapp_config')
+        .eq('meta_phone_number_id', phoneNumberId)
+        .maybeSingle()
+      const clinicaIdForNew = clinicaRow?.id ?? null
+      const clinicaWhatsappConfig = (clinicaRow?.whatsapp_config ?? {}) as WhatsappClinicaConfig
+
       for (const msg of value.messages ?? []) {
-        if (msg.type !== 'text') continue
-        const texto = msg.text?.body ?? ''
         const from = `+${msg.from}`
 
-        // Upsert conversacion
-        const { data: conv, error: convErr } = await supabase
+        // Look up existing conversation
+        const { data: existingConv, error: convErr } = await supabase
           .from('conversaciones')
-          .select('id, clinica_id')
+          .select('id, clinica_id, no_leidos')
           .eq('telefono', from)
           .maybeSingle()
 
+        let conv: { id: string; clinica_id: string; no_leidos: number } | null = existingConv ?? null
+
         if (convErr || !conv) {
-          console.warn('[whatsapp/webhook/meta] conversacion no encontrada para', from, convErr)
+          // Upsert new conversation for unknown number
+          const { data: newConv, error: newConvErr } = await supabase
+            .from('conversaciones')
+            .insert({
+              telefono: from,
+              estado: 'activa',
+              no_leidos: 0,
+              clinica_id: clinicaIdForNew,
+            })
+            .select('id, clinica_id, no_leidos')
+            .single()
+
+          if (newConvErr || !newConv) {
+            console.error('[webhook] could not create conversation for unknown number', from)
+            continue
+          }
+          conv = newConv
+        }
+
+        if (msg.type !== 'text') {
+          const labels: Record<string, string> = {
+            image: '[Imagen]', audio: '[Audio]', video: '[Video]',
+            document: '[Documento]', sticker: '[Sticker]', location: '[Ubicación]',
+          }
+          await supabase.from('mensajes_inbox').insert({
+            conversacion_id: conv.id,
+            clinica_id: conv.clinica_id,
+            direccion: 'entrante',
+            contenido: labels[msg.type] ?? `[${msg.type}]`,
+            tipo: msg.type,
+            estado_whatsapp: 'recibido',
+            wamid: msg.id,
+          })
+          await supabase
+            .from('conversaciones')
+            .update({ no_leidos: (conv.no_leidos ?? 0) + 1, ultimo_mensaje_at: new Date().toISOString() })
+            .eq('id', conv.id)
           continue
         }
+
+        const texto = msg.text?.body ?? ''
 
         await supabase.from('mensajes_inbox').insert({
           conversacion_id: conv.id,
@@ -142,7 +192,58 @@ async function handleMetaPost(request: NextRequest): Promise<NextResponse> {
           wamid: msg.id,
         })
 
+        await supabase
+          .from('conversaciones')
+          .update({ no_leidos: (conv.no_leidos ?? 0) + 1, ultimo_mensaje_at: new Date().toISOString() })
+          .eq('id', conv.id)
+
         console.log('[whatsapp/webhook/meta] mensaje entrante guardado', { from, wamid: msg.id, phoneNumberId })
+
+        // ─── Agente IA de agendamiento ───
+        if (conv.clinica_id) {
+          try {
+            const { texto } = await responderConAgente({
+              supabase,
+              clinicaId: conv.clinica_id,
+              conversacionId: conv.id,
+              telefono: from,
+            })
+            if (texto) {
+              // Use per-clinic WhatsApp credentials (fallback to env vars if not configured)
+              let wspConfig = clinicaWhatsappConfig
+              if (!wspConfig || Object.keys(wspConfig).length === 0) {
+                // clinicaRow might not match this conv's clinic_id — fetch config directly
+                const { data: cfgRow } = await supabase
+                  .from('clinicas')
+                  .select('whatsapp_config')
+                  .eq('id', conv.clinica_id)
+                  .maybeSingle()
+                wspConfig = (cfgRow?.whatsapp_config ?? {}) as WhatsappClinicaConfig
+              }
+              const provider = getWhatsappProviderForClinica(wspConfig)
+              const to = toWhatsAppE164(from)
+              if (to) {
+                const sent = await provider.sendWhatsApp({ to, body: texto })
+                await supabase.from('mensajes_inbox').insert({
+                  conversacion_id: conv.id,
+                  clinica_id: conv.clinica_id,
+                  direccion: 'saliente',
+                  contenido: texto,
+                  tipo: 'texto',
+                  estado_whatsapp: sent.ok ? 'enviado' : 'fallido',
+                  wamid: sent.providerMessageId ?? null,
+                })
+                await supabase
+                  .from('conversaciones')
+                  .update({ ultimo_mensaje_at: new Date().toISOString() })
+                  .eq('id', conv.id)
+              }
+            }
+          } catch (e) {
+            Sentry.captureException(e, { tags: { webhook: 'whatsapp-agente' } })
+            console.error('[whatsapp/webhook/meta] agente falló', e)
+          }
+        }
       }
     }
   }

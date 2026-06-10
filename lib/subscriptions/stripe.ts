@@ -24,7 +24,11 @@ function toFormData(obj: Record<string, string | number | undefined>): string {
 
 // ─── Plan → Stripe price ID mapping ──────────────────────────────────────────
 // These env vars must be set with the actual Stripe price IDs
-function getPriceId(plan: Plan): string {
+function getPriceId(plan: Plan, anual = false): string {
+  if (anual) {
+    if (plan === 'pro') return process.env.STRIPE_PRICE_PRO_ANUAL ?? getPriceId(plan, false)
+    if (plan === 'clinica') return process.env.STRIPE_PRICE_CLINICA_ANUAL ?? getPriceId(plan, false)
+  }
   const ids: Record<Plan, string | undefined> = {
     free:    undefined,
     pro:     process.env.STRIPE_PRICE_PRO,
@@ -41,8 +45,9 @@ export async function createCheckoutSession(
   clinicaId: string,
   plan: Plan,
   returnUrl: string,
+  anual = false,
 ): Promise<{ url: string }> {
-  const priceId = getPriceId(plan)
+  const priceId = getPriceId(plan, anual)
 
   const body = toFormData({
     'line_items[0][price]':    priceId,
@@ -203,6 +208,37 @@ export async function handleStripeWebhook(
         .from('subscriptions')
         .update({ estado: 'cancelada', updated_at: new Date().toISOString() })
         .eq('stripe_subscription_id', sub.id)
+      break
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as { subscription?: string }
+      if (!invoice.subscription) break
+      await supabase
+        .from('subscriptions')
+        .update({ estado: 'pausada', updated_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', invoice.subscription)
+      break
+    }
+
+    case 'invoice.payment_action_required': {
+      const invoice = event.data.object as { subscription?: string }
+      if (!invoice.subscription) break
+      await supabase
+        .from('subscriptions')
+        .update({ estado: 'pausada', updated_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', invoice.subscription)
+      break
+    }
+
+    case 'invoice.payment_succeeded': {
+      // Payment retry succeeded — reactivate subscription
+      const invoice = event.data.object as { subscription?: string }
+      if (!invoice.subscription) break
+      await supabase
+        .from('subscriptions')
+        .update({ estado: 'activa', updated_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', invoice.subscription)
       break
     }
 

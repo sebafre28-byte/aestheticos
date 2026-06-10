@@ -58,7 +58,7 @@
 
 - [x] 4.1 Paginación en lista de pacientes (`/pacientes`) — ya implementada con `.range()`
 - [x] 4.2 Paginación en lista de servicios — ya implementada con `.range()`
-- [ ] 4.3 Lazy load de citas en agenda (pospuesto a M8 QA)
+- [x] 4.3 Lazy load de citas en agenda — queries por rango visible + cache con TTL
 - [x] 4.4 Índices DB: compuestos para citas, pacientes y servicios (migración 024)
 
 ---
@@ -79,31 +79,49 @@
 **Objetivo**: Saber en producción qué falla, cuándo y por qué.
 
 - [x] 6.1 Instalar Sentry (`@sentry/nextjs`)
-- [ ] 6.2 Capturar errores en API routes, crons y webhooks
-- [ ] 6.3 Alertas por email cuando falla un cron o webhook
-- [ ] 6.4 Dashboard básico de salud del sistema
+- [x] 6.2 Capturar errores en API routes, crons y webhooks
+- [x] 6.3 Alertas por email cuando falla un cron o webhook
+- [x] 6.4 Dashboard básico de salud del sistema
 
 ---
 
 ## MÓDULO 7 — CRONS Y RECORDATORIOS MEJORADOS
 **Objetivo**: Recordatorios WhatsApp/email llegan en el momento correcto.
 
-- [ ] 7.1 Evaluar Vercel Pro (crons horarios) vs BullMQ (Redis)
-- [ ] 7.2 Si BullMQ: deployar Redis (Upstash) + worker
-- [ ] 7.3 Si Vercel Pro: actualizar `vercel.json` a `0 * * * *` (cada hora)
-- [ ] 7.4 Lógica correcta: ventana 24h ± 30min y 2h ± 15min
-- [ ] 7.5 Evitar duplicados: check en `whatsapp_logs` antes de enviar
+- [x] 7.1 Evaluar Vercel Pro (crons horarios) vs BullMQ (Redis)
+- [x] 7.2 GitHub Actions como scheduler horario gratuito (alternativa a Vercel Pro)
+- [x] 7.3 Lógica correcta: ventanas 22-26h y 0.5-3.5h con deduplicación
+- [x] 7.4 Evitar duplicados: check en `whatsapp_logs` antes de enviar
 
 ---
 
 ## MÓDULO 8 — QA Y BETA
 **Objetivo**: 3–5 clínicas reales prueban el sistema 1 semana antes del launch.
 
-- [ ] 8.1 Test RLS policies (script Supabase que valida aislamiento entre tenants)
-- [ ] 8.2 Fix race condition booking simultáneo (transaction lock)
+- [x] 8.1 Test RLS policies — `scripts/test-rls.ts` + `scripts/test-rls.sql` (dry-run y modo --full)
+- [x] 8.2 Fix race condition booking simultáneo — `044_booking_advisory_lock.sql` (pg_advisory_xact_lock + GIST exclusion_violation handler)
 - [ ] 8.3 Onboarding de 3 clínicas beta
 - [ ] 8.4 Recoger feedback y corregir bugs críticos
-- [ ] 8.5 Stress test: 100 reservas simultáneas en booking público
+- [x] 8.5 Stress test: 100 reservas simultáneas — `scripts/stress-test-booking.js`
+
+---
+
+## MÓDULO 10 — WIZARD "INICIAR CITA"
+**Objetivo**: Guía paso a paso que el profesional sigue al momento de atender a un paciente.
+
+**Flujo**: Profesional ve la cita en el calendario → botón "Iniciar cita" → se abre un wizard modal/pantalla completa con pasos secuenciales.
+
+**Pasos del wizard (configurables por clínica):**
+- [ ] 10.1 Diseño UX del wizard: layout paso a paso, barra de progreso, navegación anterior/siguiente
+- [ ] 10.2 Paso 1 — Datos del paciente: completar datos faltantes (nombre, RUT, teléfono, email, fecha de nacimiento)
+- [ ] 10.3 Paso 2 — Ficha clínica: anamnesis, motivo de consulta, alergias, antecedentes
+- [ ] 10.4 Paso 3 — Fotos (antes): cámara o subida de archivos, organizadas por zona/tipo
+- [ ] 10.5 Paso 4 — Consentimiento informado: mostrar documento, firma digital o checkbox de aceptación
+- [ ] 10.6 Paso 5 — Protocolo del servicio: checklist de pasos del tratamiento a realizar
+- [ ] 10.7 Paso 6 — Notas clínicas: campo libre para el profesional (ya existe, integrarlo aquí)
+- [ ] 10.8 Paso 7 — Fotos (después): misma UI que fotos antes
+- [ ] 10.9 Paso 8 — Cierre: marcar cita como completada, cobro pendiente, agendar seguimiento
+- [ ] 10.10 Pasos configurables por clínica (admin puede activar/desactivar pasos desde Configuración)
 
 ---
 
@@ -122,10 +140,11 @@ M0 Emails            ██████████ 100%  ✅ COMPLETO
 M1 Seguridad         ██████████ 100%  ✅ COMPLETO
 M2 Inbox WhatsApp    █████████░  90%  ✅ (falta prueba e2e con WhatsApp real)
 M3 Notas clínicas    ██████████ 100%  ✅ COMPLETO
-M4 Performance       █████████░  90%  ✅ (lazy load agenda pospuesto)
+M4 Performance       ██████████ 100%  ✅ COMPLETO
 M5 Invitación equipo ████░░░░░░  40%  (API existe, sin UI)
 M6 Monitoreo         ░░░░░░░░░░   0%
 M7 Crons mejorados   ████░░░░░░  40%  (estructura existe, timing malo)
-M8 QA y Beta         ░░░░░░░░░░   0%
+M8 QA y Beta         ████████░░  80%  (falta onboarding beta y feedback)
 M9 Launch            ░░░░░░░░░░   0%
+M10 Wizard cita      ░░░░░░░░░░   0%  (backlog)
 ```

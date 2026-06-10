@@ -2,7 +2,7 @@ name: Crons horarios
 
 on:
   schedule:
-    - cron: '0 * * * *'  # cada hora
+    - cron: '0 12,0 * * *'  # 2x al día: 9h y 21h Chile (UTC-3)
   workflow_dispatch:      # permite correr manualmente desde GitHub
 
 jobs:

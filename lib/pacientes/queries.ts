@@ -3,6 +3,7 @@
 
 import { subDays } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { normalizarRut } from '@/lib/utils/rut'
 
 export type PacienteRow = {
   id: string
@@ -89,7 +90,10 @@ export async function getPacientes({
       .order('created_at', { ascending: false })
       .range(from, to)
 
-    if (termino) query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${termino}%`)
+    if (termino) {
+      const terminoRut = termino.replace(/\./g, '').replace(/-/g, '')
+      query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${terminoRut}%,email.ilike.%${termino}%`)
+    }
     if (filtro === 'activos') query = query.eq('activo', true)
     if (filtro === 'nuevos') query = query.gte('created_at', subDays(new Date(), 30).toISOString())
 
@@ -124,7 +128,8 @@ export async function getPacientes({
     .range(from, to)
 
   if (termino) {
-    query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${termino}%`)
+    const terminoRut = termino.replace(/\./g, '').replace(/-/g, '')
+    query = query.or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${terminoRut}%,email.ilike.%${termino}%`)
   }
 
   if (filtro === 'activos') {
@@ -182,6 +187,37 @@ export async function getPacientes({
   }
 }
 
+export type PacienteExportRow = Pick<
+  PacienteRow,
+  'nombre' | 'rut' | 'telefono' | 'email' | 'fecha_nacimiento' | 'created_at'
+>
+
+// Trae TODOS los pacientes de la clínica (sin paginar) para exportar a CSV,
+// en lotes de 1000 para no toparse con el límite de Supabase.
+export async function getTodosPacientesParaExport(): Promise<PacienteExportRow[]> {
+  const supabase = createClient()
+  const pageSize = 1000
+  const todos: PacienteExportRow[] = []
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from('pacientes')
+      .select('nombre, rut, telefono, email, fecha_nacimiento, created_at')
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1)
+
+    if (error) {
+      console.error('Error getTodosPacientesParaExport:', error)
+      break
+    }
+    const rows = (data ?? []) as PacienteExportRow[]
+    todos.push(...rows)
+    if (rows.length < pageSize) break
+  }
+
+  return todos
+}
+
 export async function getPacienteDetalle(pacienteId: string): Promise<{
   paciente: PacienteRow | null
   historial: HistorialCitaPaciente[]
@@ -226,12 +262,13 @@ export async function crearPaciente(input: PacienteInput): Promise<PacienteRow |
   if (!clinicaId) return null
 
   const supabase = createClient()
+  const rawRut = input.rut?.trim()
   const payload = {
     clinica_id: clinicaId,
     nombre: input.nombre.trim(),
     telefono: input.telefono.trim(),
     email: input.email?.trim() || null,
-    rut: input.rut?.trim() || null,
+    rut: rawRut ? normalizarRut(rawRut) : null,
     fecha_nacimiento: input.fecha_nacimiento || null,
     genero: input.genero?.trim() || null,
     direccion: input.direccion?.trim() || null,
@@ -248,11 +285,12 @@ export async function crearPaciente(input: PacienteInput): Promise<PacienteRow |
 
 export async function actualizarPaciente(pacienteId: string, input: PacienteInput): Promise<PacienteRow | null> {
   const supabase = createClient()
+  const rawRut = input.rut?.trim()
   const payload = {
     nombre: input.nombre.trim(),
     telefono: input.telefono.trim(),
     email: input.email?.trim() || null,
-    rut: input.rut?.trim() || null,
+    rut: rawRut ? normalizarRut(rawRut) : null,
     fecha_nacimiento: input.fecha_nacimiento || null,
     genero: input.genero?.trim() || null,
     direccion: input.direccion?.trim() || null,
@@ -300,6 +338,15 @@ export async function toggleActivoPaciente(pacienteId: string, activo: boolean):
     return false
   }
   return true
+}
+
+export async function contarCitasPaciente(pacienteId: string): Promise<number> {
+  const supabase = createClient()
+  const { count } = await supabase
+    .from('citas')
+    .select('id', { count: 'exact', head: true })
+    .eq('paciente_id', pacienteId)
+  return count ?? 0
 }
 
 export async function eliminarPaciente(pacienteId: string): Promise<boolean> {

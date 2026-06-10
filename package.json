@@ -11,6 +11,7 @@
     "whatsapp-worker": "tsx scripts/whatsapp-worker.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
     "@marsidev/react-turnstile": "^1.5.2",
     "@sentry/nextjs": "^10.56.0",
     "@supabase/ssr": "^0.10.3",

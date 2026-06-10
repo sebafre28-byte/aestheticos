@@ -14,10 +14,10 @@ import {
   BarChart2,
   Settings,
   LogOut,
-  ChevronUp,
   User,
-  CalendarDays,
+  ChevronUp,
   Shield,
+  CalendarDays,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -103,23 +103,30 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       {/* Logo SimpliClinic */}
       <div className="px-4 pt-5 pb-4 border-b border-white/10">
         <div className="flex items-center gap-2.5 justify-between">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {logoClinica ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoClinica} width={28} height={28} className="w-7 h-7 rounded-lg object-cover shrink-0" alt="logo" />
-            ) : (
-              <LogoIcon />
-            )}
-            <div className="min-w-0">
-              <p className="text-[14px] font-bold text-white leading-tight tracking-tight truncate">
-                {nombreClinica || 'SimpliClinic'}
-              </p>
-              <p className="text-[10px] leading-tight" style={{ color: '#60A5FA' }}>
-                Tu clínica, más simple.
-              </p>
-            </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              aria-label="Cerrar menú"
+              className="md:hidden absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          )}
+          {logoClinica ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoClinica} width={28} height={28} className="w-7 h-7 rounded-lg object-cover" alt="logo" />
+          ) : (
+            <LogoIcon />
+          )}
+          <div className="min-w-0">
+            <p className="text-[14px] font-bold text-white leading-tight tracking-tight truncate">
+              {nombreClinica || 'SimpliClinic'}
+            </p>
+            <p className="text-[10px] leading-tight" style={{ color: '#60A5FA' }}>
+              Tu clínica, más simple.
+            </p>
           </div>
-          <NotificationBell />
+          <NotificationBell dark />
         </div>
       </div>
 
@@ -147,6 +154,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={cn(
                 "flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors group",
                 isActive ? "text-white" : "hover:bg-white/10"
@@ -167,57 +175,60 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       {/* Separador */}
       <div className="mx-3 border-t border-white/10" />
 
-      {/* Footer del usuario — popover */}
+      {/* Footer del usuario con popover */}
       <div className="px-3 py-3 relative" ref={popoverRef}>
-        {/* Popover menu */}
+        {/* Popover */}
         {popoverAbierto && (
-          <div
-            className="absolute bottom-full left-3 right-3 mb-2 rounded-xl border border-white/10 overflow-hidden shadow-xl"
-            style={{ backgroundColor: '#0F1D40' }}
-          >
-            <Link
-              href="/mi-cuenta"
-              onClick={() => setPopoverAbierto(false)}
-              className="flex items-center gap-2.5 h-9 px-3 text-[13px] font-medium transition-colors hover:bg-white/10"
-              style={{ color: 'rgba(255,255,255,0.80)' }}
-            >
-              <User className="size-[14px] shrink-0 opacity-70" />
-              Mi perfil
-            </Link>
-            <Link
-              href="/mi-cuenta?tab=google"
-              onClick={() => setPopoverAbierto(false)}
-              className="flex items-center gap-2.5 h-9 px-3 text-[13px] font-medium transition-colors hover:bg-white/10"
-              style={{ color: 'rgba(255,255,255,0.80)' }}
-            >
-              <CalendarDays className="size-[14px] shrink-0 opacity-70" />
-              Google Calendar
-            </Link>
-            <Link
-              href="/mi-cuenta?tab=seguridad"
-              onClick={() => setPopoverAbierto(false)}
-              className="flex items-center gap-2.5 h-9 px-3 text-[13px] font-medium transition-colors hover:bg-white/10"
-              style={{ color: 'rgba(255,255,255,0.80)' }}
-            >
-              <Shield className="size-[14px] shrink-0 opacity-70" />
-              Seguridad
-            </Link>
-            <div className="border-t border-white/10" />
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 h-9 px-3 text-[13px] font-medium transition-colors hover:bg-red-500/15"
-              style={{ color: '#FCA5A5' }}
-            >
-              <LogOut className="size-[14px] shrink-0 opacity-70" />
-              Cerrar sesión
-            </button>
+          <div className="absolute bottom-full left-0 right-0 mx-0 mb-1 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+              <p className="text-[13px] font-semibold text-gray-900 truncate">{nombreUsuario}</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">{rolUsuario || 'Administrador'}</p>
+            </div>
+            <div className="py-1">
+              <Link
+                href="/mi-cuenta"
+                onClick={() => setPopoverAbierto(false)}
+                className="flex items-center gap-2.5 h-9 px-4 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <User className="size-[14px] text-gray-400 shrink-0" />
+                Mi perfil
+              </Link>
+              <Link
+                href="/mi-cuenta?tab=google"
+                onClick={() => setPopoverAbierto(false)}
+                className="flex items-center gap-2.5 h-9 px-4 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <CalendarDays className="size-[14px] text-gray-400 shrink-0" />
+                Google Calendar
+              </Link>
+              <Link
+                href="/mi-cuenta?tab=seguridad"
+                onClick={() => setPopoverAbierto(false)}
+                className="flex items-center gap-2.5 h-9 px-4 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Shield className="size-[14px] text-gray-400 shrink-0" />
+                Seguridad
+              </Link>
+            </div>
+            <div className="border-t border-gray-100 py-1">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 h-9 px-4 text-[13px] text-red-500 hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="size-[14px] shrink-0" />
+                Cerrar sesión
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Trigger button */}
+        {/* Botón del usuario */}
         <button
           onClick={() => setPopoverAbierto(v => !v)}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors hover:bg-white/10"
+          className={cn(
+            "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors",
+            popoverAbierto ? "bg-white/10" : "hover:bg-white/10"
+          )}
         >
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold"
@@ -233,13 +244,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
               {rolUsuario || 'Administrador'}
             </p>
           </div>
-          <ChevronUp
-            className="size-[14px] shrink-0 transition-transform duration-200"
-            style={{
-              color: 'rgba(255,255,255,0.40)',
-              transform: popoverAbierto ? 'rotate(0deg)' : 'rotate(180deg)',
-            }}
-          />
+          <ChevronUp className={cn("size-3.5 shrink-0 transition-transform", !popoverAbierto && "rotate-180")} style={{ color: 'rgba(255,255,255,0.40)' }} />
         </button>
       </div>
     </aside>

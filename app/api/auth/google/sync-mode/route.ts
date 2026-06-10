@@ -1,28 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 
-export async function POST(req: NextRequest) {
+type SyncMode = 'push_only' | 'pull_only' | 'bidirectional'
+const VALID_SYNC_MODES: SyncMode[] = ['push_only', 'pull_only', 'bidirectional']
+
+export async function PATCH(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { syncMode } = await req.json() as { syncMode: string }
-  if (!['exportar', 'importar', 'bidireccional'].includes(syncMode)) {
-    return NextResponse.json({ error: 'Modo inválido' }, { status: 400 })
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const sb = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  )
+  const sync_mode = (body as Record<string, unknown>)?.sync_mode
+  if (!VALID_SYNC_MODES.includes(sync_mode as SyncMode)) {
+    return NextResponse.json(
+      { error: 'sync_mode must be one of: push_only, pull_only, bidirectional' },
+      { status: 400 }
+    )
+  }
 
-  const { error } = await sb
+  const { error } = await supabase
     .from('google_calendar_tokens')
-    .update({ sync_mode: syncMode })
+    .update({ sync_mode })
     .eq('user_id', user.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
   return NextResponse.json({ ok: true })
 }

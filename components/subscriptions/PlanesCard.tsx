@@ -13,6 +13,7 @@ import {
   type Plan,
 } from '@/lib/subscriptions/queries'
 import { getClinicaId } from '@/lib/onboarding/queries'
+import { clearSubscripcionCache } from '@/lib/subscriptions/useSubscripcion'
 
 // ─── Plan feature lists ────────────────────────────────────────────────────────
 
@@ -210,6 +211,7 @@ export default function PlanesCard() {
           .then(r => r.json())
           .then(data => {
             if (data.synced) {
+              clearSubscripcionCache()
               getSubscription().then(updated => {
                 setSubscription(updated)
                 // Clear the URL param
@@ -232,7 +234,7 @@ export default function PlanesCard() {
       const res  = await fetch('/api/stripe/checkout', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ clinica_id: clinicaId, plan }),
+        body:    JSON.stringify({ clinica_id: clinicaId, plan, anual }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error al crear sesión de pago')

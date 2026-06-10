@@ -9,6 +9,9 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createClient()
 
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
   const { data, error } = await supabase
     .from('mensajes_inbox')
     .select('id, direccion, contenido, tipo, estado_whatsapp, enviado_por, created_at')

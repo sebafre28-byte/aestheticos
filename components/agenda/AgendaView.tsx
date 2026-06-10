@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   format, addDays, subDays, startOfWeek, endOfWeek,
   addWeeks, subWeeks, isSameDay, addMonths, subMonths,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useSubscripcion } from '@/lib/subscriptions/useSubscripcion'
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/DatePicker'
 import type {
   CitaConRelaciones, ProfesionalRow, ServicioRow, EstadoCita, PagoEstado, PagoMetodo,
 } from '@/lib/agenda/queries'
@@ -84,6 +85,22 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   const [bloqueoProfeIdInicial, setBloqueoProfeIdInicial] = useState<string | undefined>()
   const [bloqueoParaEditar, setBloqueoParaEditar] = useState<BloqueoProfesional | undefined>()
 
+  const [horariosConfig, setHorariosConfig] = useState<HorariosConfig | null>(null)
+
+  // Update working hours when fecha changes
+  useEffect(() => {
+    if (!horariosConfig) return
+    const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+    const diaNombre = diasSemana[fechaActual.getDay()]
+    const horarioDia = horariosConfig[diaNombre]
+    if (horarioDia?.activo && horarioDia.desde && horarioDia.hasta) {
+      const [hInicio] = horarioDia.desde.split(':').map(Number)
+      const [hFin] = horarioDia.hasta.split(':').map(Number)
+      if (!isNaN(hInicio)) setHoraInicioLaboral(hInicio)
+      if (!isNaN(hFin)) setHoraFinLaboral(hFin)
+    }
+  }, [fechaActual, horariosConfig])
+
   // ─── Cargar datos ─────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
@@ -97,16 +114,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       setServicios(servs)
 
       if (config.horarios) {
-        const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
-        const hoy = new Date()
-        const diaNombre = diasSemana[hoy.getDay()]
-        const horarioDia = (config.horarios as HorariosConfig)[diaNombre]
-        if (horarioDia?.activo && horarioDia.desde && horarioDia.hasta) {
-          const [hInicio] = horarioDia.desde.split(':').map(Number)
-          const [hFin] = horarioDia.hasta.split(':').map(Number)
-          if (!isNaN(hInicio)) setHoraInicioLaboral(hInicio)
-          if (!isNaN(hFin)) setHoraFinLaboral(hFin)
-        }
+        setHorariosConfig(config.horarios as HorariosConfig)
       }
     }
     init()
@@ -114,7 +122,17 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
   useEffect(() => {
     cargarCitas()
-  }, [fechaActual, vista])
+  }, [fechaActual, vista]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Recargar cuando el usuario empieza o termina una búsqueda (rango diferente)
+  const busquedaActivaRef = useRef(false)
+  useEffect(() => {
+    const ahora = !!busqueda.trim()
+    if (ahora !== busquedaActivaRef.current) {
+      busquedaActivaRef.current = ahora
+      cargarCitas()
+    }
+  }, [busqueda]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const supabase = createClient()
@@ -122,7 +140,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
     const channel = supabase
       .channel('agenda-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_citas' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'citas' }, () => {
         clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => cargarCitas(), 800)
       })
@@ -148,7 +166,12 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
       const profeFilter = isVistaProfe && profesionalPropio ? profesionalPropio : undefined
 
-      if (vista === 'dia' || vista === 'lista') {
+      if (vista === 'lista' && busqueda.trim()) {
+        // Búsqueda activa: cargar rango amplio para mostrar todas las citas del paciente
+        const inicio = format(subMonths(fechaActual, 3), 'yyyy-MM-dd')
+        const fin    = format(addMonths(fechaActual, 3), 'yyyy-MM-dd')
+        datos = await getCitasDelMes(inicio, fin, profeFilter)
+      } else if (vista === 'dia' || vista === 'lista') {
         const [citasDia, bloquesDia] = await Promise.all([
           getCitasDelDia(fechaStr, profeFilter),
           getBloqueos(fechaStr),
@@ -276,6 +299,27 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   }
 
   // ─── Abrir modal de nueva cita ────────────────────────────────────────────
+  function wallClockMinutes(iso: string): number {
+    const m = iso.match(/T(\d{2}):(\d{2})/)
+    if (!m) return 0
+    return parseInt(m[1]) * 60 + parseInt(m[2])
+  }
+
+  function wallClockAddMinutes(iso: string, delta: number): string {
+    const datePart = iso.slice(0, 10)
+    const m = iso.match(/T(\d{2}):(\d{2})/)
+    if (!m) return iso
+    const totalMin = parseInt(m[1]) * 60 + parseInt(m[2]) + delta
+    const days = Math.floor(totalMin / (24 * 60))
+    const remMin = ((totalMin % (24 * 60)) + 24 * 60) % (24 * 60)
+    const hh = Math.floor(remMin / 60).toString().padStart(2, '0')
+    const mm = (remMin % 60).toString().padStart(2, '0')
+    if (days === 0) return `${datePart}T${hh}:${mm}:00`
+    const d = new Date(`${datePart}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + days)
+    return `${d.toISOString().slice(0, 10)}T${hh}:${mm}:00`
+  }
+
   function abrirNuevaCita() {
     setProfesionalModalId(undefined)
     setFechaHoraModal(undefined)
@@ -295,10 +339,11 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     const inicioNuevo = new Date(horaDestino)
     const finNuevo = new Date(inicioNuevo.getTime() + duracionMs)
 
+    // Use wall-clock ISO to avoid timezone shift bugs
     const actualizada = await editarCita(cita.id, {
       profesional_id: profesionalId,
-      inicio: inicioNuevo.toISOString(),
-      fin: finNuevo.toISOString(),
+      inicio: wallClockAddMinutes(cita.inicio, Math.round((inicioNuevo.getTime() - inicioActual.getTime()) / 60_000)),
+      fin: wallClockAddMinutes(cita.fin, Math.round((finNuevo.getTime() - finActual.getTime()) / 60_000)),
     })
     if (!actualizada) return
 
@@ -315,13 +360,12 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
   async function redimensionarCita(cita: CitaConRelaciones, deltaMinutos: number) {
     if (deltaMinutos === 0) return
-    const inicio = new Date(cita.inicio)
-    const finActual = new Date(cita.fin)
-    const finNuevo = new Date(finActual.getTime() + deltaMinutos * 60_000)
-    if (finNuevo <= inicio) return
+    const inicioMin = wallClockMinutes(cita.inicio)
+    const finMin = wallClockMinutes(cita.fin) + deltaMinutos
+    if (finMin <= inicioMin) return
 
     const actualizada = await editarCita(cita.id, {
-      fin: finNuevo.toISOString(),
+      fin: wallClockAddMinutes(cita.fin, deltaMinutos),
     })
     if (!actualizada) return
     setCitas((prev) => prev.map((item) => (item.id === cita.id ? actualizada : item)))
@@ -429,12 +473,23 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   })()
 
   // ─── Citas con búsqueda aplicada (todas las vistas) ──────────────────────
+  // Vista lista muestra historial completo incluyendo canceladas.
+  // Día/semana/mes solo muestran citas activas (sin canceladas ni no_asistio).
+  const citasBase = vista === 'lista'
+    ? citas
+    : citas.filter(c => c.estado !== 'cancelada' && c.estado !== 'no_asistio')
+
   const citasFiltradas = busqueda.trim()
-    ? citas.filter((c) =>
-        c.pacientes?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-        c.servicios?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
-      )
-    : citas
+    ? citasBase.filter((c) => {
+        const q = busqueda.toLowerCase()
+        return (
+          c.pacientes?.nombre?.toLowerCase().includes(q) ||
+          c.pacientes?.rut?.toLowerCase().includes(q) ||
+          c.pacientes?.email?.toLowerCase().includes(q) ||
+          c.servicios?.nombre?.toLowerCase().includes(q)
+        )
+      })
+    : citasBase
 
   // ─── Vista lista: citas filtradas y ordenadas ─────────────────────────────
   const citasLista = [...citasFiltradas]
@@ -454,7 +509,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       <div className="flex items-center justify-between shrink-0 flex-wrap gap-2">
         <div>
           <h1 className="text-[18px] font-semibold text-gray-900">Agenda</h1>
-          <p className="text-[12px] text-gray-400 mt-0.5 capitalize">{etiquetaFecha}</p>
+          <p className="text-[13px] font-semibold text-gray-700 mt-0.5 capitalize">{etiquetaFecha}</p>
           {/* Mini-resumen del día */}
           {(vista === 'dia' || vista === 'lista') && citas.length > 0 && (() => {
             const pendientes = citas.filter((c) => c.estado === 'pendiente').length
@@ -480,7 +535,10 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
               type="text"
               placeholder="Buscar paciente…"
               value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              onChange={(e) => {
+                setBusqueda(e.target.value)
+                if (e.target.value.trim()) setVista('lista')
+              }}
               className="h-8 pl-8 pr-3 rounded-lg border border-gray-100 bg-white text-[12px] text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 w-[160px] focus:w-[200px] transition-all"
             />
           </div>
@@ -504,6 +562,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
                       return
                     }
                     setVista(id)
+                    setBusqueda('')
                   }}
                   title={bloqueado ? 'Requiere plan Pro — Ver planes' : undefined}
                   className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium transition-colors ${mobileHidden ? 'hidden md:flex' : 'flex'} ${
@@ -548,17 +607,13 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             </button>
           </div>
 
-          <div className="hidden md:flex items-center bg-white border border-gray-100 rounded-lg px-2 gap-2 h-8">
-            <input
-              type="date"
+          <div className="hidden md:block w-[180px]">
+            <DatePicker
               value={fechaJump}
-              onChange={(e) => {
-                setFechaJump(e.target.value)
-                if (e.target.value) {
-                  setFechaActual(new Date(`${e.target.value}T09:00:00`))
-                }
+              onChange={(v) => {
+                setFechaJump(v)
+                setFechaActual(new Date(`${v}T09:00:00`))
               }}
-              className="text-[12px] text-gray-600 outline-none"
             />
           </div>
 

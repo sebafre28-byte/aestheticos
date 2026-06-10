@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import {
   CalendarDays, Clock3, DollarSign, Users, TrendingUp, TrendingDown,
-  RotateCcw, AlertCircle, Banknote, Plus,
+  RotateCcw, AlertCircle, Banknote, Plus, LinkIcon,
 } from 'lucide-react'
+import { BookingLinkBanner } from '@/components/dashboard/BookingLinkBanner'
 import SaludoHeader from '@/components/dashboard/SaludoHeader'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { ProximasCitas } from '@/components/dashboard/ProximasCitas'
@@ -29,9 +30,9 @@ function variacionPct(actual: number, anterior: number): { pct: number; subio: b
 }
 
 function OcupacionColor({ tasa }: { tasa: number }) {
-  if (tasa > 80) return <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
-  if (tasa >= 50) return <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
-  return <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+  if (tasa >= 70) return <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+  if (tasa >= 40) return <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
+  return <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
 }
 
 export default async function DashboardPage() {
@@ -51,6 +52,15 @@ export default async function DashboardPage() {
   if (rol === 'recepcionista') {
     return <DashboardCoord data={data} />
   }
+
+  // Fetch clinic slug for booking link
+  const { data: clinicaData } = await supabase
+    .from('clinicas')
+    .select('slug')
+    .maybeSingle()
+  const bookingSlug = clinicaData?.slug ?? null
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
+  const bookingUrl = bookingSlug ? `${appUrl}/book/${bookingSlug}` : null
 
   const varIngresos = variacionPct(data.ingresosMes, data.ingresosMesAnterior)
   const ticketPromedio = data.citasMes.completadas > 0
@@ -77,13 +87,16 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
+      {/* Booking link banner */}
+      {bookingUrl && <BookingLinkBanner url={bookingUrl} />}
+
       {/* Zona B — 4 KPI Cards */}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         {/* KPI 1: Citas hoy */}
         <MetricCard
           title="Citas hoy"
           value={String(data.citasHoy.total)}
-          detail={`${data.citasHoy.confirmadas} conf · ${data.citasHoy.pendientes} pend · ${data.citasHoy.completadas} comp`}
+          detail={`${data.citasHoy.confirmadas} conf · ${data.citasHoy.pendientes} pend · ${formatCLP(data.ingresosHoy)} hoy`}
           icon={CalendarDays}
           accent="primary"
         />
@@ -117,11 +130,11 @@ export default async function DashboardPage() {
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${Math.min(100, data.ocupacionSemanal.tasa)}%`,
-                  backgroundColor: data.ocupacionSemanal.tasa > 80 ? '#F87171' : data.ocupacionSemanal.tasa >= 50 ? '#FBBF24' : '#34D399',
+                  backgroundColor: data.ocupacionSemanal.tasa >= 70 ? '#34D399' : data.ocupacionSemanal.tasa >= 40 ? '#FBBF24' : '#F87171',
                 }}
               />
             </div>
-            <p className="text-[11px] text-slate-400">{data.ocupacionSemanal.realizadas}/{data.ocupacionSemanal.slotsDisponibles} slots completados</p>
+            <p className="text-[11px] text-slate-400">{data.ocupacionSemanal.realizadas} de {data.ocupacionSemanal.slotsDisponibles} citas posibles</p>
           </div>
         </div>
 

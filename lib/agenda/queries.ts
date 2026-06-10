@@ -17,11 +17,11 @@ async function triggerCitaJobs(citaId: string, action: 'schedule' | 'cancel' | '
   }
 }
 
-function triggerGoogleSync(citaId: string, action: 'create' | 'update' | 'delete'): void {
+function triggerGoogleSync(citaId: string, action: 'create' | 'update' | 'delete' = 'update'): void {
   fetch('/api/citas/sync-google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ citaId, action }),
+    body: JSON.stringify({ cita_id: citaId, action }),
   }).catch(() => {})
 }
 
@@ -365,7 +365,7 @@ export async function getPacientesBusqueda(query: string): Promise<PacienteRow[]
   const { data, error } = await supabase
     .from('pacientes')
     .select('*')
-    .or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%`)
+    .or(`nombre.ilike.%${termino}%,telefono.ilike.%${termino}%,rut.ilike.%${termino}%,email.ilike.%${termino}%`)
     .eq('activo', true)
     .limit(10)
     .order('nombre', { ascending: true })
@@ -383,12 +383,15 @@ export async function crearPacienteRapido(
   nombre: string,
   telefono: string,
   clinicaId: string,
-  email?: string
+  email?: string,
+  rut?: string
 ): Promise<PacienteRow | null> {
   const supabase = createClient()
+  const { normalizarRut } = await import('@/lib/utils/rut')
 
   const insertData: Record<string, string> = { nombre: nombre.trim(), telefono: telefono.trim(), clinica_id: clinicaId }
   if (email?.trim()) insertData.email = email.trim()
+  if (rut?.trim()) insertData.rut = normalizarRut(rut.trim())
 
   const { data, error } = await supabase
     .from('pacientes')
@@ -501,6 +504,9 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
       console.error('Error crearCita fallback:', error)
       return null
     }
+    invalidateAgendaCache()
+    await triggerCitaJobs((nueva as CitaConRelaciones).id, 'schedule')
+    triggerGoogleSync((nueva as CitaConRelaciones).id, 'create')
     dispararNotificacionCita(nueva as CitaConRelaciones).catch(() => {})
     return nueva as CitaConRelaciones
   }
@@ -528,7 +534,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
 function dispararNotificacionCita(cita: CitaConRelaciones) {
   const base = typeof window !== 'undefined'
     ? window.location.origin
-    : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpliclinic.vercel.app')
+    : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl')
   const paciente = cita.pacientes as { nombre: string; email?: string | null; telefono?: string | null } | null
   const profesional = cita.profesionales as { nombre: string } | null
   const servicio = cita.servicios as { nombre: string } | null
@@ -678,6 +684,7 @@ export async function editarCita(
 
     await triggerCitaJobs(citaId, debeReprogramar ? 'reschedule' : 'cancel')
   }
+  triggerGoogleSync(citaId, 'update')
 
   if (!actualizadaRpc) {
     const { data: actualizadaFallback, error: errorFallback } = await supabase
@@ -706,7 +713,6 @@ export async function editarCita(
     return null
   }
   invalidateAgendaCache()
-  triggerGoogleSync(citaId, 'update')
   return actualizada as CitaConRelaciones
 }
 
@@ -728,7 +734,7 @@ export async function actualizarEstadoCita(
     return false
   }
   invalidateAgendaCache()
-  triggerGoogleSync(citaId, estado === 'cancelada' ? 'delete' : 'update')
+  triggerGoogleSync(citaId, 'update')
   return true
 }
 

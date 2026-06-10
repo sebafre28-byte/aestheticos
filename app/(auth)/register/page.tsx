@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { ArrowRight, CheckCircle, Eye, EyeOff, Mail } from "lucide-react"
 import { SimpliClinicLogo } from '@/components/ui/SimpliClinicLogo'
@@ -26,6 +27,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -55,6 +57,28 @@ export default function RegisterPage() {
       return
     }
 
+    // Si confirm email está desactivado en Supabase, la sesión ya existe → ir directo al dashboard
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      // Email de bienvenida en background
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo: 'bienvenida',
+          destinatario: email,
+          datos: {
+            nombre,
+            clinica_nombre,
+            dashboard_url: `${window.location.origin}/dashboard`,
+          },
+        }),
+      }).catch(() => {})
+      router.push('/dashboard')
+      return
+    }
+
+    // Si requiere confirmación, mostrar pantalla "Revisa tu email"
     setSuccess(true)
     setLoading(false)
   }
@@ -73,7 +97,7 @@ export default function RegisterPage() {
           <div className="mb-8">
             <div className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 rounded-full px-3 py-1 mb-5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[12px] font-medium text-blue-300">14 días gratis · Sin tarjeta</span>
+              <span className="text-[12px] font-medium text-blue-300">7 días gratis · Sin tarjeta</span>
             </div>
             <h2 className="text-[32px] font-extrabold text-white leading-[1.2] tracking-tight mb-4">
               Todo lo que necesita<br />tu clínica, en un lugar.
@@ -132,7 +156,7 @@ export default function RegisterPage() {
             <>
               <div className="mb-8">
                 <h1 className="text-[26px] font-extrabold text-gray-900 tracking-tight">Crea tu cuenta gratis</h1>
-                <p className="text-[14px] text-gray-500 mt-1">14 días sin costo · Sin tarjeta de crédito</p>
+                <p className="text-[14px] text-gray-500 mt-1">7 días sin costo · Sin tarjeta de crédito</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">

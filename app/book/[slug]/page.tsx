@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, use } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { CheckCircle2, ChevronLeft, Loader2, MapPin, Phone, Mail, Clock, DollarSign } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, Loader2, MapPin, Phone, Mail, Clock, DollarSign, Check } from 'lucide-react'
 import { Turnstile } from '@marsidev/react-turnstile'
+import { format } from 'date-fns'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -208,14 +209,30 @@ function getInitials(nombre: string): string {
 
 function StepIndicator({ paso, total }: { paso: number; total: number }) {
   return (
-    <div className="flex items-center gap-1.5 justify-center mb-6">
+    <div className="flex items-center gap-2 justify-center mb-6">
       {Array.from({ length: total }).map((_, i) => (
-        <div
-          key={i}
-          className={`h-1.5 rounded-full transition-all duration-300 ${
-            i < paso ? 'bg-[#2563EB] w-8' : i === paso ? 'bg-[#2563EB] w-8' : 'bg-gray-200 w-4'
-          }`}
-        />
+        i < paso ? (
+          <div
+            key={i}
+            className="w-7 h-7 rounded-full bg-[#2563EB] flex items-center justify-center flex-shrink-0"
+          >
+            <Check className="w-4 h-4 text-white" strokeWidth={3} />
+          </div>
+        ) : i === paso ? (
+          <div
+            key={i}
+            className="w-7 h-7 rounded-full bg-[#2563EB] flex items-center justify-center flex-shrink-0"
+          >
+            <span className="text-white text-xs font-bold">{i + 1}</span>
+          </div>
+        ) : (
+          <div
+            key={i}
+            className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 opacity-50"
+          >
+            <span className="text-gray-500 text-xs font-bold">{i + 1}</span>
+          </div>
+        )
       ))}
     </div>
   )
@@ -310,13 +327,13 @@ function PasoProfesionalFecha({
     : profesionales
   const today = toLocalDate(new Date(), tz)
 
-  // Build 28-day calendar starting from the Monday on or before today
+  // Build 42-day calendar starting from the Monday on or before today
   const startDow = today.getDay() // 0=sun
   const daysFromMonday = startDow === 0 ? 6 : startDow - 1
   const calStart = new Date(today)
   calStart.setDate(today.getDate() - daysFromMonday)
 
-  const calDays: Date[] = Array.from({ length: 28 }, (_, i) => {
+  const calDays: Date[] = Array.from({ length: 42 }, (_, i) => {
     const d = new Date(calStart)
     d.setDate(calStart.getDate() + i)
     return d
@@ -324,7 +341,7 @@ function PasoProfesionalFecha({
 
   // Group by weeks (rows of 7)
   const weeks: Date[][] = []
-  for (let i = 0; i < 28; i += 7) {
+  for (let i = 0; i < 42; i += 7) {
     weeks.push(calDays.slice(i, i + 7))
   }
 
@@ -705,7 +722,7 @@ function PasoDatos({
       setError(rpcError.message || 'No se pudo crear la reserva.')
       return
     }
-    const result = data as { cita_id?: string; ok?: boolean; error?: string }
+    const result = data as { cita_id?: string; cancel_token?: string; ok?: boolean; error?: string }
     if (!result?.cita_id && !result?.ok) {
       setError(result?.error || 'No se pudo crear la reserva.')
       return
@@ -713,7 +730,7 @@ function PasoDatos({
 
     // Notify patient + clinic admin (non-critical)
     const base = window.location.origin
-    fetch(`${base}/api/notificar-cita`, {
+    fetch(`${base}/api/book/notificar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -733,8 +750,9 @@ function PasoDatos({
           direccion: clinica.direccion,
           logo_url: clinica.logo_url,
         },
-        inicio: inicio.toISOString(),
-        fin: fin.toISOString(),
+        inicio: format(inicio, "yyyy-MM-dd'T'HH:mm:ss"),
+        fin: format(fin, "yyyy-MM-dd'T'HH:mm:ss"),
+        cancel_token: result.cancel_token,
       }),
     }).catch((err) => console.warn('[booking] notificar-cita error (non-critical):', err))
 

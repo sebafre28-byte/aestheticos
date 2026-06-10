@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { clinica_id, plan } = body as { clinica_id?: string; plan?: Plan }
+    const { clinica_id, plan, anual } = body as { clinica_id?: string; plan?: Plan; anual?: boolean }
 
     if (!clinica_id || !plan) {
       return NextResponse.json({ error: 'clinica_id y plan son requeridos' }, { status: 400 })
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const returnUrl = `${request.nextUrl.origin}/configuracion`
-    const { url } = await createCheckoutSession(clinica_id, plan, returnUrl)
+    const { url } = await createCheckoutSession(clinica_id, plan, returnUrl, anual ?? false)
 
     return NextResponse.json({ url })
   } catch (err) {

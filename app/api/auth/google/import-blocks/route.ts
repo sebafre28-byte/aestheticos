@@ -1,23 +1,24 @@
 // Imports Google Calendar events as bloqueos for the linked profesional.
-// Called when sync_mode is 'importar' or 'bidireccional'.
+// Called when sync_mode is 'pull_only' or 'bidirectional'.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { getTokenForUser, getValidAccessToken, listCalendarEvents } from '@/lib/google-calendar/client'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getValidToken, listCalendarEvents } from '@/lib/google-calendar/client'
 
 export async function POST() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-  const sb = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  )
+  const sb = createAdminClient()
 
-  // Resolve clinica_id
-  const { data: ucData } = await supabase.from('usuarios_clinica').select('clinica_id, profesional_id').eq('user_id', user.id).maybeSingle()
+  // Resolve clinica_id and profesional_id
+  const { data: ucData } = await supabase
+    .from('usuarios_clinica')
+    .select('clinica_id, profesional_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
   let clinicaId = ucData?.clinica_id as string | null
   const profesionalId = ucData?.profesional_id as string | null
   if (!clinicaId) {
@@ -27,10 +28,16 @@ export async function POST() {
   if (!clinicaId) return NextResponse.json({ error: 'Clínica no encontrada' }, { status: 400 })
   if (!profesionalId) return NextResponse.json({ error: 'Usuario sin profesional vinculado. Vincula tu perfil en Configuración → Equipo.' }, { status: 400 })
 
-  const token = await getTokenForUser(user.id, clinicaId)
+  const { data: token } = await sb
+    .from('google_calendar_tokens')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('clinica_id', clinicaId)
+    .maybeSingle()
+
   if (!token) return NextResponse.json({ error: 'Google Calendar no conectado' }, { status: 400 })
 
-  const accessToken = await getValidAccessToken(token)
+  const accessToken = await getValidToken(token)
   if (!accessToken) return NextResponse.json({ error: 'No se pudo obtener token válido. Reconecta Google Calendar.' }, { status: 500 })
 
   const timeMin = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -38,7 +45,7 @@ export async function POST() {
 
   const events = await listCalendarEvents(accessToken, token.calendar_id, timeMin, timeMax)
 
-  // Filter out events that were created by SimpliClinic (have simpliclinic_cita_id)
+  // Filter out events created by SimpliClinic
   const externalEvents = events.filter(e => !e.extendedProperties?.private?.simpliclinic_cita_id)
 
   // Get existing gcal bloqueos to avoid duplicates

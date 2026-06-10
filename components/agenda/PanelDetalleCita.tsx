@@ -16,6 +16,9 @@ import { SeccionCobroCita } from './SeccionCobroCita'
 import { useDialogA11y } from './useDialogA11y'
 import { useRol } from '@/lib/auth/useRol'
 import { getNotasClinicas, crearNotaClinica, eliminarNotaClinica, type NotaClinica } from '@/lib/pacientes/queries'
+import { getClinicaBasica } from '@/lib/onboarding/queries'
+import MiniPanelFichas from '@/components/fichas/MiniPanelFichas'
+import WizardIniciarCita from '@/components/agenda/WizardIniciarCita'
 
 // Configuración visual del badge prominente de estado
 const estadoConfig: Record<EstadoCita, {
@@ -177,6 +180,7 @@ export function PanelDetalleCita({
   const [guardandoNota, setGuardandoNota] = useState(false)
   const [notasClinicas, setNotasClinicas] = useState<NotaClinica[]>([])
   const [confirmarCambio, setConfirmarCambio] = useState<AccionEstado | null>(null)
+  const [wizardAbierto, setWizardAbierto] = useState(false)
   const { rol } = useRol()
   const puedeEscribirNotas = rol === 'admin' || rol === 'profesional'
 
@@ -238,8 +242,51 @@ export function PanelDetalleCita({
     if (!ok) {
       setEstadoActual(cita.estado)
       onEstadoActualizado(cita.id, cita.estado)
+    } else if (nuevoEstado === 'cancelada') {
+      // Enviar emails de cancelación al paciente y al admin en background
+      enviarEmailsCancelacion().catch(() => {})
     }
     setActualizando(null)
+  }
+
+  async function enviarEmailsCancelacion() {
+    const clinica = await getClinicaBasica()
+    if (!clinica) return
+
+    const inicio = parseISO(cita.inicio)
+    const datos = {
+      paciente_nombre:   paciente?.nombre ?? 'Paciente',
+      paciente_email:    paciente?.email ?? undefined,
+      paciente_telefono: paciente?.telefono ?? undefined,
+      servicio_nombre:   servicio?.nombre ?? 'Servicio',
+      profesional_nombre: cita.profesionales?.nombre ?? '',
+      fecha: format(inicio, "EEEE d 'de' MMMM yyyy", { locale: es }),
+      hora:  format(inicio, 'HH:mm'),
+      clinica_nombre:    clinica.nombre,
+      clinica_email:     clinica.email ?? undefined,
+      clinica_telefono:  clinica.telefono ?? undefined,
+      canal: 'agenda' as const,
+    }
+
+    const base = window.location.origin
+
+    // Email al paciente (solo si tiene email)
+    if (datos.paciente_email) {
+      fetch(`${base}/api/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'cancelacion_cita', destinatario: datos.paciente_email, datos }),
+      }).catch(() => {})
+    }
+
+    // Email al admin
+    if (clinica.email) {
+      fetch(`${base}/api/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'cancelacion_cita', destinatario: clinica.email, datos }),
+      }).catch(() => {})
+    }
   }
 
   function handleAccion(accion: AccionEstado) {
@@ -301,7 +348,7 @@ export function PanelDetalleCita({
         role="dialog"
         aria-modal="true"
         aria-label={isVistaProfe ? 'Detalle de mi cita' : 'Detalle de cita'}
-        className="fixed top-0 right-0 h-full w-[380px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-100 animate-slide-in-right"
+        className="fixed top-0 right-0 h-full w-full sm:w-[380px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-100 animate-slide-in-right"
       >
 
         {/* Header */}
@@ -536,7 +583,7 @@ export function PanelDetalleCita({
                       {puedeEscribirNotas && (
                         <button
                           onClick={() => borrarNota(nota.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 flex-shrink-0"
+                          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 flex-shrink-0"
                         >
                           <Trash2 className="size-3 text-red-400" />
                         </button>
@@ -583,6 +630,9 @@ export function PanelDetalleCita({
               </div>
             </div>
           )}
+
+          {/* ── Fichas clínicas (mini panel) ── */}
+          {paciente?.id && <MiniPanelFichas pacienteId={paciente.id} />}
 
           {/* ── Historial del paciente ── */}
           <div className="px-5 py-4">
@@ -657,28 +707,42 @@ export function PanelDetalleCita({
         </div>
 
         {/* Footer con acciones principales */}
-        <div className="px-5 py-4 border-t border-gray-100 flex gap-2 shrink-0">
-          {!isVistaProfe && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEditar(cita)}
-              className="flex-1 text-[12px] gap-1.5"
-            >
-              <Edit2 className="size-3.5" />
-              Editar cita
-            </Button>
-          )}
-          {paciente?.telefono && (
+        <div className="px-5 py-4 border-t border-gray-100 shrink-0 space-y-2">
+          {/* Botón Iniciar cita — solo para pendiente/confirmada */}
+          {(estadoActual === 'pendiente' || estadoActual === 'confirmada') && (
             <Button
               size="sm"
-              onClick={abrirWhatsApp}
-              className={`text-[12px] gap-1.5 bg-teal-500 hover:bg-teal-600 text-white border-0 ${isVistaProfe ? 'flex-1' : ''}`}
+              onClick={() => setWizardAbierto(true)}
+              className="w-full text-[12px] gap-1.5 border-0 text-white font-semibold"
+              style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}
             >
-              <MessageCircle className="size-3.5" />
-              WhatsApp
+              <CheckCircle className="size-3.5" />
+              Iniciar cita
             </Button>
           )}
+          <div className="flex gap-2">
+            {!isVistaProfe && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEditar(cita)}
+                className="flex-1 text-[12px] gap-1.5"
+              >
+                <Edit2 className="size-3.5" />
+                Editar cita
+              </Button>
+            )}
+            {paciente?.telefono && (
+              <Button
+                size="sm"
+                onClick={abrirWhatsApp}
+                className={`text-[12px] gap-1.5 bg-teal-500 hover:bg-teal-600 text-white border-0 ${isVistaProfe ? 'flex-1' : ''}`}
+              >
+                <MessageCircle className="size-3.5" />
+                WhatsApp
+              </Button>
+            )}
+          </div>
         </div>
       </div>
       {/* Modal de confirmación para acciones destructivas */}
@@ -717,6 +781,19 @@ export function PanelDetalleCita({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Wizard Iniciar Cita */}
+      {wizardAbierto && (
+        <WizardIniciarCita
+          cita={cita}
+          onCerrar={() => setWizardAbierto(false)}
+          onCompletada={(citaId) => {
+            setEstadoActual('completada')
+            onEstadoActualizado(citaId, 'completada')
+            setWizardAbierto(false)
+          }}
+        />
       )}
     </>
   )

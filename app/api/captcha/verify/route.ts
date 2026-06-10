@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(req: NextRequest) {
   const { token } = await req.json()
   const secret = process.env.TURNSTILE_SECRET_KEY
-  if (!secret) return NextResponse.json({ success: true }) // dev mode: skip
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'TURNSTILE_SECRET_KEY no configurado' }, { status: 500 })
+    }
+    return NextResponse.json({ success: true }) // dev mode only
+  }
 
   const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
     method: 'POST',

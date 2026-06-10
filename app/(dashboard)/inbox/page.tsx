@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MessageSquare, Send, Phone, MoreVertical, Search, Archive, UserCheck, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { PlanGate } from '@/components/subscriptions/PlanGate'
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -18,7 +19,7 @@ type Conversacion = {
   id: string
   telefono: string
   paciente_nombre: string | null
-  estado: 'activa' | 'archivada' | 'spam'
+  estado: 'activa' | 'archivada' | 'spam' | 'humano'
   no_leidos: number
   ultimo_mensaje_at: string
   ultimo_mensaje: string
@@ -273,7 +274,8 @@ export default function InboxPage() {
   const inicial = seleccionada ? iniciales(seleccionada.paciente_nombre, seleccionada.telefono) : ''
 
   return (
-    <div className="relative flex h-[calc(100vh-0px)] bg-white overflow-hidden">
+    <PlanGate feature="inbox">
+    <div className="relative flex h-[calc(100dvh-3.5rem)] md:h-screen bg-white overflow-hidden">
       {/* ── Left: conversation list ── */}
       <div className={`${mostrarChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-shrink-0 border-r border-gray-200 flex-col`}>
         {/* Header */}
@@ -322,7 +324,7 @@ export default function InboxPage() {
           {/* Chat header */}
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-white">
             <div className="flex items-center gap-3">
-              <button onClick={() => setMostrarChat(false)} className="md:hidden mr-2 p-1.5 rounded-lg hover:bg-gray-100">
+              <button onClick={() => setMostrarChat(false)} className="md:hidden mr-2 w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
               <div className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white text-sm font-semibold`}>
@@ -350,6 +352,26 @@ export default function InboxPage() {
               </button>
             </div>
           </div>
+
+          {/* Banner: conversación escalada por el agente IA */}
+          {seleccionada.estado === 'humano' && (
+            <div className="px-6 py-2 bg-violet-50 border-b border-violet-100 flex items-center justify-between">
+              <p className="text-xs text-violet-800">
+                🤖 El agente IA derivó esta conversación a tu equipo. El agente no responderá hasta que la devuelvas.
+              </p>
+              <button
+                onClick={async () => {
+                  const supabase = createClient()
+                  await supabase.from('conversaciones').update({ estado: 'activa' }).eq('id', seleccionada.id)
+                  setConversaciones(prev => prev.map(c => c.id === seleccionada.id ? { ...c, estado: 'activa' as const } : c))
+                  setSeleccionada(prev => prev ? { ...prev, estado: 'activa' as const } : prev)
+                }}
+                className="text-xs font-medium text-violet-700 hover:text-violet-900 underline whitespace-nowrap ml-3"
+              >
+                Devolver al agente IA
+              </button>
+            </div>
+          )}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-50">
@@ -404,5 +426,6 @@ export default function InboxPage() {
         </div>
       )}
     </div>
+    </PlanGate>
   )
 }

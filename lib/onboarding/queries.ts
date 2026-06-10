@@ -12,6 +12,7 @@ export type ClinicaBasica = {
   sitio_web: string | null
   logo_url: string | null
   slug: string | null
+  tipo: string | null
 }
 
 export type HorarioDia = { activo: boolean; desde: string; hasta: string }
@@ -33,11 +34,63 @@ export type { RecordatoriosWspConfig } from '@/lib/whatsapp/recordatorio-config'
 export { TEMPLATE_RECORDATORIO_DEFAULT } from '@/lib/whatsapp/recordatorio-config'
 import type { RecordatoriosWspConfig } from '@/lib/whatsapp/recordatorio-config'
 
+export type RecordatoriosEmailConfig = {
+  manana: boolean         // recordatorio día anterior
+  hoy: boolean            // recordatorio mismo día
+  hoy_horas_antes: number // 1, 2 o 3 horas antes
+  post_cita: boolean      // email post-consulta
+}
+
+export const RECORDATORIOS_EMAIL_DEFAULT: RecordatoriosEmailConfig = {
+  manana: true,
+  hoy: true,
+  hoy_horas_antes: 2,
+  post_cita: true,
+}
+
+export type AgenteWspConfig = {
+  activo: boolean
+  nombre_asistente?: string
+  tono?: 'cercano' | 'formal'
+  instrucciones_extra?: string
+}
+
+export type WhatsappClinicaConfig = {
+  provider?: 'meta' | 'twilio'
+  // Meta
+  phone_number_id?: string
+  access_token?: string
+  verify_token?: string
+  // Twilio
+  account_sid?: string
+  auth_token?: string
+  from_number?: string
+  // Shared
+  numero_display?: string
+  activo?: boolean
+}
+
+export type WizardPasosConfig = {
+  ficha: boolean
+  fotos: boolean
+  notas: boolean
+}
+
+export const WIZARD_PASOS_DEFAULT: WizardPasosConfig = {
+  ficha: true,
+  fotos: true,
+  notas: true,
+}
+
 export type ClinicaConfiguracion = {
   plantillas?: PlantillaWsp[]
   recordatorios?: RecordatorioConfig[]
   horarios?: HorariosConfig
   recordatorios_wsp?: RecordatoriosWspConfig
+  recordatorios_email?: RecordatoriosEmailConfig
+  agente_wsp?: AgenteWspConfig
+  whatsapp_config?: WhatsappClinicaConfig
+  wizard_pasos?: WizardPasosConfig
 }
 
 const PLANTILLAS_DEFAULT: PlantillaWsp[] = [
@@ -86,6 +139,7 @@ export async function actualizarClinicaBasica(input: {
   sitio_web?: string
   logo_url?: string
   horarios?: HorariosConfig
+  tipo?: string
 }): Promise<ClinicaBasica | null> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -255,3 +309,46 @@ export async function getOnboardingCounts(): Promise<{
 }
 
 export { PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT }
+
+export async function getWhatsappClinicaConfig(): Promise<WhatsappClinicaConfig> {
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return {}
+
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('clinicas')
+    .select('whatsapp_config')
+    .eq('id', clinicaId)
+    .single()
+
+  if (error || !data) return {}
+  return (data.whatsapp_config ?? {}) as WhatsappClinicaConfig
+}
+
+export async function guardarWhatsappConfig(config: WhatsappClinicaConfig): Promise<boolean> {
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return false
+
+  const supabase = createClient()
+
+  // Merge with existing config
+  const { data: existing } = await supabase
+    .from('clinicas')
+    .select('whatsapp_config')
+    .eq('id', clinicaId)
+    .single()
+
+  const current = (existing?.whatsapp_config ?? {}) as WhatsappClinicaConfig
+  const merged = { ...current, ...config }
+
+  const { error } = await supabase
+    .from('clinicas')
+    .update({ whatsapp_config: merged })
+    .eq('id', clinicaId)
+
+  if (error) {
+    console.error('guardarWhatsappConfig:', error)
+    return false
+  }
+  return true
+}
