@@ -18,6 +18,7 @@ import { useRol } from '@/lib/auth/useRol'
 import { getNotasClinicas, crearNotaClinica, eliminarNotaClinica, type NotaClinica } from '@/lib/pacientes/queries'
 import { getClinicaBasica } from '@/lib/onboarding/queries'
 import MiniPanelFichas from '@/components/fichas/MiniPanelFichas'
+import WizardIniciarCita from '@/components/agenda/WizardIniciarCita'
 
 // Configuración visual del badge prominente de estado
 const estadoConfig: Record<EstadoCita, {
@@ -179,6 +180,7 @@ export function PanelDetalleCita({
   const [guardandoNota, setGuardandoNota] = useState(false)
   const [notasClinicas, setNotasClinicas] = useState<NotaClinica[]>([])
   const [confirmarCambio, setConfirmarCambio] = useState<AccionEstado | null>(null)
+  const [wizardAbierto, setWizardAbierto] = useState(false)
   const { rol } = useRol()
   const puedeEscribirNotas = rol === 'admin' || rol === 'profesional'
 
@@ -705,28 +707,42 @@ export function PanelDetalleCita({
         </div>
 
         {/* Footer con acciones principales */}
-        <div className="px-5 py-4 border-t border-gray-100 flex gap-2 shrink-0">
-          {!isVistaProfe && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEditar(cita)}
-              className="flex-1 text-[12px] gap-1.5"
-            >
-              <Edit2 className="size-3.5" />
-              Editar cita
-            </Button>
-          )}
-          {paciente?.telefono && (
+        <div className="px-5 py-4 border-t border-gray-100 shrink-0 space-y-2">
+          {/* Botón Iniciar cita — solo para pendiente/confirmada */}
+          {(estadoActual === 'pendiente' || estadoActual === 'confirmada') && (
             <Button
               size="sm"
-              onClick={abrirWhatsApp}
-              className={`text-[12px] gap-1.5 bg-teal-500 hover:bg-teal-600 text-white border-0 ${isVistaProfe ? 'flex-1' : ''}`}
+              onClick={() => setWizardAbierto(true)}
+              className="w-full text-[12px] gap-1.5 border-0 text-white font-semibold"
+              style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}
             >
-              <MessageCircle className="size-3.5" />
-              WhatsApp
+              <CheckCircle className="size-3.5" />
+              Iniciar cita
             </Button>
           )}
+          <div className="flex gap-2">
+            {!isVistaProfe && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEditar(cita)}
+                className="flex-1 text-[12px] gap-1.5"
+              >
+                <Edit2 className="size-3.5" />
+                Editar cita
+              </Button>
+            )}
+            {paciente?.telefono && (
+              <Button
+                size="sm"
+                onClick={abrirWhatsApp}
+                className={`text-[12px] gap-1.5 bg-teal-500 hover:bg-teal-600 text-white border-0 ${isVistaProfe ? 'flex-1' : ''}`}
+              >
+                <MessageCircle className="size-3.5" />
+                WhatsApp
+              </Button>
+            )}
+          </div>
         </div>
       </div>
       {/* Modal de confirmación para acciones destructivas */}
@@ -765,6 +781,19 @@ export function PanelDetalleCita({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Wizard Iniciar Cita */}
+      {wizardAbierto && (
+        <WizardIniciarCita
+          cita={cita}
+          onCerrar={() => setWizardAbierto(false)}
+          onCompletada={(citaId) => {
+            setEstadoActual('completada')
+            onEstadoActualizado(citaId, 'completada')
+            setWizardAbierto(false)
+          }}
+        />
       )}
     </>
   )

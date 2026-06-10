@@ -98,11 +98,30 @@
 ## MÓDULO 8 — QA Y BETA
 **Objetivo**: 3–5 clínicas reales prueban el sistema 1 semana antes del launch.
 
-- [ ] 8.1 Test RLS policies (script Supabase que valida aislamiento entre tenants)
-- [ ] 8.2 Fix race condition booking simultáneo (transaction lock)
+- [x] 8.1 Test RLS policies — `scripts/test-rls.ts` + `scripts/test-rls.sql` (dry-run y modo --full)
+- [x] 8.2 Fix race condition booking simultáneo — `044_booking_advisory_lock.sql` (pg_advisory_xact_lock + GIST exclusion_violation handler)
 - [ ] 8.3 Onboarding de 3 clínicas beta
 - [ ] 8.4 Recoger feedback y corregir bugs críticos
-- [ ] 8.5 Stress test: 100 reservas simultáneas en booking público
+- [x] 8.5 Stress test: 100 reservas simultáneas — `scripts/stress-test-booking.js`
+
+---
+
+## MÓDULO 10 — WIZARD "INICIAR CITA"
+**Objetivo**: Guía paso a paso que el profesional sigue al momento de atender a un paciente.
+
+**Flujo**: Profesional ve la cita en el calendario → botón "Iniciar cita" → se abre un wizard modal/pantalla completa con pasos secuenciales.
+
+**Pasos del wizard (configurables por clínica):**
+- [ ] 10.1 Diseño UX del wizard: layout paso a paso, barra de progreso, navegación anterior/siguiente
+- [ ] 10.2 Paso 1 — Datos del paciente: completar datos faltantes (nombre, RUT, teléfono, email, fecha de nacimiento)
+- [ ] 10.3 Paso 2 — Ficha clínica: anamnesis, motivo de consulta, alergias, antecedentes
+- [ ] 10.4 Paso 3 — Fotos (antes): cámara o subida de archivos, organizadas por zona/tipo
+- [ ] 10.5 Paso 4 — Consentimiento informado: mostrar documento, firma digital o checkbox de aceptación
+- [ ] 10.6 Paso 5 — Protocolo del servicio: checklist de pasos del tratamiento a realizar
+- [ ] 10.7 Paso 6 — Notas clínicas: campo libre para el profesional (ya existe, integrarlo aquí)
+- [ ] 10.8 Paso 7 — Fotos (después): misma UI que fotos antes
+- [ ] 10.9 Paso 8 — Cierre: marcar cita como completada, cobro pendiente, agendar seguimiento
+- [ ] 10.10 Pasos configurables por clínica (admin puede activar/desactivar pasos desde Configuración)
 
 ---
 
@@ -125,6 +144,7 @@ M4 Performance       ██████████ 100%  ✅ COMPLETO
 M5 Invitación equipo ████░░░░░░  40%  (API existe, sin UI)
 M6 Monitoreo         ░░░░░░░░░░   0%
 M7 Crons mejorados   ████░░░░░░  40%  (estructura existe, timing malo)
-M8 QA y Beta         ░░░░░░░░░░   0%
+M8 QA y Beta         ████████░░  80%  (falta onboarding beta y feedback)
 M9 Launch            ░░░░░░░░░░   0%
+M10 Wizard cita      ░░░░░░░░░░   0%  (backlog)
 ```
