@@ -43,7 +43,7 @@ export async function POST() {
 
   // Get existing gcal bloqueos to avoid duplicates
   const { data: existing } = await sb
-    .from('bloqueos')
+    .from('agenda_bloqueos')
     .select('gcal_event_id')
     .eq('profesional_id', profesionalId)
     .not('gcal_event_id', 'is', null)
@@ -57,7 +57,7 @@ export async function POST() {
     const end = ev.end.dateTime ?? `${ev.end.date}T09:00:00`
     if (!start || !end) continue
 
-    const { error } = await sb.from('bloqueos').insert({
+    const { error } = await sb.from('agenda_bloqueos').insert({
       clinica_id: clinicaId,
       profesional_id: profesionalId,
       inicio: start,
