@@ -833,6 +833,7 @@ function SeccionWhatsApp() {
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
   const [feedbackCred, setFeedbackCred] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
   const [mostrarToken, setMostrarToken] = useState(false)
+  const [mostrarGuia, setMostrarGuia] = useState(false)
 
   useEffect(() => {
     Promise.all([getClinicaConfig(), getWhatsappClinicaConfig()]).then(([cfg, wsp]) => {
@@ -938,6 +939,114 @@ function SeccionWhatsApp() {
             {conectado ? "Activo" : "Inactivo"}
           </span>
         </div>
+      </div>
+
+      {/* Guía de configuración */}
+      <div className="mb-6">
+        <button
+          type="button"
+          onClick={() => setMostrarGuia((v) => !v)}
+          className="flex items-center gap-1.5 text-[12px] font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+        >
+          {mostrarGuia ? "Ocultar guía ↑" : "Ver guía de configuración →"}
+        </button>
+
+        {mostrarGuia && (
+          <div className="mt-3 bg-amber-50/60 rounded-xl border border-amber-100 p-5">
+            <p className="text-[13px] font-semibold text-gray-900 mb-4">
+              {provider === "meta"
+                ? "¿Cómo obtener tus credenciales de Meta?"
+                : "¿Cómo obtener tus credenciales de Twilio?"}
+            </p>
+
+            {provider === "meta" ? (
+              <ol className="space-y-3">
+                {[
+                  {
+                    n: 1,
+                    titulo: "Crear una app en Meta for Developers",
+                    desc: 'Entra a developers.facebook.com → "Mis apps" → "Crear app". Tipo: "Empresa" → sigue el flujo y asígnale un nombre.',
+                  },
+                  {
+                    n: 2,
+                    titulo: "Agregar WhatsApp a tu app",
+                    desc: 'En el panel de tu app → "Agregar producto" → "WhatsApp" → "Configurar".',
+                  },
+                  {
+                    n: 3,
+                    titulo: "Obtener el Phone Number ID",
+                    desc: 'Ve a WhatsApp → Configuración → Números de teléfono. Copia el "ID de número de teléfono" (empieza con números, ej: 123456789) → Pégalo en el campo "Phone Number ID".',
+                  },
+                  {
+                    n: 4,
+                    titulo: "Obtener el Access Token",
+                    desc: 'Ve a WhatsApp → Configuración → API Setup. Copia el "Temporary access token" (empieza con "EAA..."). Para producción: crea un token permanente en "System Users" del Business Manager → Pégalo en el campo "Access Token".',
+                  },
+                  {
+                    n: 5,
+                    titulo: "Configurar el webhook",
+                    desc: 'Ve a WhatsApp → Configuración → Webhook. URL de devolución de llamada: la URL del webhook de arriba. Token de verificación: escribe cualquier texto secreto y anótalo → Pégalo también en el campo "Verify Token" de este formulario. Suscríbete a: messages.',
+                  },
+                  {
+                    n: 6,
+                    titulo: "Agregar tu número de teléfono",
+                    desc: 'En el mismo panel agrega y verifica tu número de WhatsApp Business → Escríbelo en "Número de display" (ej: +56912345678).',
+                  },
+                ].map((paso) => (
+                  <li key={paso.n} className="flex gap-3">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-amber-200 text-amber-800 text-[11px] font-bold flex items-center justify-center mt-0.5">
+                      {paso.n}
+                    </span>
+                    <div>
+                      <p className="text-[12px] font-semibold text-gray-800">{paso.titulo}</p>
+                      <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{paso.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <ol className="space-y-3">
+                {[
+                  {
+                    n: 1,
+                    titulo: "Crear cuenta en Twilio",
+                    desc: 'Entra a twilio.com → "Sign up" (es gratis para empezar). Verifica tu email y número de teléfono.',
+                  },
+                  {
+                    n: 2,
+                    titulo: "Obtener Account SID y Auth Token",
+                    desc: 'En el Dashboard de Twilio (inicio) verás: "Account SID" (empieza con "AC...") y "Auth Token" (clic en el ojo para revelarlo) → Pégalos en los campos correspondientes.',
+                  },
+                  {
+                    n: 3,
+                    titulo: "Activar el Sandbox de WhatsApp (para pruebas)",
+                    desc: 'Menú izquierdo → Messaging → Try it out → Send a WhatsApp message. Sigue las instrucciones para conectar tu número personal al sandbox. El número del sandbox aparece como "From" (ej: whatsapp:+14155238886) → Pégalo en el campo "From Number".',
+                  },
+                  {
+                    n: 4,
+                    titulo: "Configurar el webhook",
+                    desc: 'En Messaging → Settings → WhatsApp Sandbox Settings. "When a message comes in": la URL del webhook de arriba. Método: HTTP POST.',
+                  },
+                  {
+                    n: 5,
+                    titulo: "Para producción (número propio)",
+                    desc: "Messaging → Senders → WhatsApp Senders → solicita un número aprobado por Meta (requiere Business Verification, puede tardar días).",
+                  },
+                ].map((paso) => (
+                  <li key={paso.n} className="flex gap-3">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-amber-200 text-amber-800 text-[11px] font-bold flex items-center justify-center mt-0.5">
+                      {paso.n}
+                    </span>
+                    <div>
+                      <p className="text-[12px] font-semibold text-gray-800">{paso.titulo}</p>
+                      <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{paso.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Formulario de credenciales */}
