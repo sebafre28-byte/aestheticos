@@ -1,576 +1,357 @@
-// Agente IA de agendamiento por WhatsApp.
-// Recibe mensajes entrantes, conversa con el paciente y puede consultar
-// disponibilidad, crear, listar y cancelar citas usando herramientas
-// con acceso scoped a la clínica. WhatsApp-first: el paciente agenda
-// todo por chat sin tocar la web.
+// Agente IA de agendamiento — maneja mensajes entrantes y ejecuta herramientas de agenda.
 import 'server-only'
-import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-// Sonnet: mejor relación calidad/costo para agendamiento (~3x más barato que Opus)
-const MODEL = 'claude-sonnet-4-6'
-const MAX_TOOL_ITERATIONS = 8
-const HISTORY_LIMIT = 30
-const CLINIC_TZ = 'America/Santiago'
-
-// ─── Tipos ────────────────────────────────────────────────────
-
-type HorarioDia = { activo: boolean; desde: string; hasta: string }
-
-type AgenteWspConfig = {
-  activo?: boolean
-  nombre_asistente?: string
-  tono?: 'cercano' | 'formal'
-  instrucciones_extra?: string
+export type AgenteInput = {
+  supabase: SupabaseClient
+  clinicaId: string
+  /** Mensaje del paciente en texto plano */
+  mensaje: string
+  /** Historial previo de la conversación (opcional) */
+  historial?: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
-type CitaProxima = {
-  cita_id: string
-  fecha: string
-  hora: string
-  estado: string
-  servicio: string | null
-  profesional: string | null
+export type AgenteOutput = {
+  respuesta: string
+  herramientasUsadas: string[]
 }
 
-type ClinicaAgente = {
+// ─── Tipos Anthropic Messages API ─────────────────────────────────────────────
+
+type AnthropicTool = {
+  name: string
+  description: string
+  input_schema: {
+    type: 'object'
+    properties: Record<string, { type: string; description?: string }>
+    required?: string[]
+  }
+}
+
+type AnthropicTextBlock = { type: 'text'; text: string }
+type AnthropicToolUseBlock = { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
+type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock
+
+type AnthropicMessage = {
+  role: 'user' | 'assistant'
+  content: string | AnthropicContentBlock[] | Array<{ type: 'tool_result'; tool_use_id: string; content: string }>
+}
+
+type AnthropicResponse = {
   id: string
-  nombre: string
-  telefono: string | null
-  direccion: string | null
-  configuracion: {
-    horarios?: Record<string, HorarioDia>
-    agente_wsp?: AgenteWspConfig
-  } | null
+  type: 'message'
+  role: 'assistant'
+  content: AnthropicContentBlock[]
+  stop_reason: 'end_turn' | 'tool_use' | 'max_tokens' | string
 }
 
-export type RespuestaAgente = {
-  texto: string | null
-  escalado: boolean
-}
+// ─── Herramientas disponibles ─────────────────────────────────────────────────
 
-// ─── Helpers de fecha (wall-clock Santiago) ───────────────────
-
-const DIAS_ES: Record<number, string> = {
-  0: 'domingo', 1: 'lunes', 2: 'martes', 3: 'miércoles',
-  4: 'jueves', 5: 'viernes', 6: 'sábado',
-}
-
-function nowSantiago(): { fecha: string; hora: string; diaSemana: string } {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: CLINIC_TZ,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).formatToParts(new Date())
-  const get = (t: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === t)?.value ?? '00'
-  const fecha = `${get('year')}-${get('month')}-${get('day')}`
-  const [y, m, d] = fecha.split('-').map(Number)
-  const diaSemana = DIAS_ES[new Date(y, m - 1, d).getDay()]
-  return { fecha, hora: `${get('hour')}:${get('minute')}`, diaSemana }
-}
-
-function diaSemanaDe(fechaIso: string): string {
-  const [y, m, d] = fechaIso.split('-').map(Number)
-  return DIAS_ES[new Date(y, m - 1, d).getDay()]
-}
-
-/** Wall-clock stored as timestamptz: toISOString() recovers the original wall-clock. */
-function wallClockOf(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 19)
-}
-
-// ─── Disponibilidad ───────────────────────────────────────────
-
-async function calcularSlots(
-  supabase: SupabaseClient,
-  clinica: ClinicaAgente,
-  fecha: string,
-  servicioId: string,
-  profesionalId?: string,
-): Promise<{ profesional_id: string; profesional: string; horas: string[] }[] | { error: string }> {
-  const horarios = clinica.configuracion?.horarios
-  const dia = diaSemanaDe(fecha)
-  const horarioDia = horarios?.[dia]
-  if (!horarioDia?.activo) return { error: `La clínica no atiende los ${dia}.` }
-
-  const { data: servicio } = await supabase
-    .from('servicios')
-    .select('id, nombre, duracion_minutos, buffer_minutos')
-    .eq('id', servicioId)
-    .eq('clinica_id', clinica.id)
-    .maybeSingle()
-  if (!servicio) return { error: 'Servicio no encontrado.' }
-  const duracion = servicio.duracion_minutos ?? 60
-
-  let profQuery = supabase
-    .from('profesionales')
-    .select('id, nombre')
-    .eq('clinica_id', clinica.id)
-    .eq('activo', true)
-  if (profesionalId) profQuery = profQuery.eq('id', profesionalId)
-  const { data: profesionales } = await profQuery
-  if (!profesionales?.length) return { error: 'No hay profesionales disponibles.' }
-
-  // Citas del día (wall-clock range)
-  const { data: citas } = await supabase
-    .from('citas')
-    .select('profesional_id, inicio, fin')
-    .eq('clinica_id', clinica.id)
-    .gte('inicio', `${fecha}T00:00:00`)
-    .lte('inicio', `${fecha}T23:59:59`)
-    .not('estado', 'in', '("cancelada","no_asistio")')
-
-  const ocupados = (citas ?? []).map(c => ({
-    profesional_id: c.profesional_id as string,
-    inicio: wallClockOf(c.inicio as string),
-    fin: wallClockOf(c.fin as string),
-  }))
-
-  const [desdeH, desdeM] = horarioDia.desde.split(':').map(Number)
-  const [hastaH, hastaM] = horarioDia.hasta.split(':').map(Number)
-  const hoy = nowSantiago()
-
-  return profesionales.map(p => {
-    const horas: string[] = []
-    let cur = desdeH * 60 + desdeM
-    const fin = hastaH * 60 + hastaM
-    while (cur + duracion <= fin) {
-      const h = String(Math.floor(cur / 60)).padStart(2, '0')
-      const m = String(cur % 60).padStart(2, '0')
-      const slotIni = `${fecha}T${h}:${m}:00`
-      const finMin = cur + duracion
-      const slotFin = `${fecha}T${String(Math.floor(finMin / 60)).padStart(2, '0')}:${String(finMin % 60).padStart(2, '0')}:00`
-      const choca = ocupados.some(o =>
-        o.profesional_id === p.id && slotIni < o.fin && slotFin > o.inicio,
-      )
-      const esPasado = fecha === hoy.fecha && `${h}:${m}` <= hoy.hora
-      if (!choca && !esPasado) horas.push(`${h}:${m}`)
-      cur += duracion
-    }
-    return { profesional_id: p.id as string, profesional: p.nombre as string, horas }
-  })
-}
-
-// ─── Citas del paciente (matching por teléfono) ───────────────
-
-async function citasProximasPorTelefono(
-  supabase: SupabaseClient,
-  clinicaId: string,
-  telefono: string,
-  hastaFecha?: string,
-): Promise<CitaProxima[] | null> {
-  const digits = telefono.replace(/\D/g, '')
-  const { data: pacientes } = await supabase
-    .from('pacientes')
-    .select('id, nombre, telefono')
-    .eq('clinica_id', clinicaId)
-  const match = (pacientes ?? []).filter(p =>
-    (p.telefono as string | null)?.replace(/\D/g, '').endsWith(digits.slice(-9)),
-  )
-  if (!match.length) return null
-
-  const hoy = nowSantiago()
-  let query = supabase
-    .from('citas')
-    .select('id, inicio, estado, servicios(nombre), profesionales(nombre)')
-    .eq('clinica_id', clinicaId)
-    .in('paciente_id', match.map(p => p.id))
-    .gte('inicio', `${hoy.fecha}T00:00:00`)
-    .not('estado', 'in', '("cancelada","no_asistio")')
-    .order('inicio', { ascending: true })
-    .limit(10)
-  if (hastaFecha) query = query.lte('inicio', `${hastaFecha}T23:59:59`)
-  const { data: citas } = await query
-
-  return (citas ?? []).map(c => {
-    const wall = wallClockOf(c.inicio as string)
-    const serv = Array.isArray(c.servicios) ? c.servicios[0] : c.servicios
-    const prof = Array.isArray(c.profesionales) ? c.profesionales[0] : c.profesionales
-    return {
-      cita_id: c.id as string,
-      fecha: wall.slice(0, 10),
-      hora: wall.slice(11, 16),
-      estado: c.estado as string,
-      servicio: (serv as { nombre?: string } | null)?.nombre ?? null,
-      profesional: (prof as { nombre?: string } | null)?.nombre ?? null,
-    }
-  })
-}
-
-// ─── Definición de herramientas ───────────────────────────────
-
-const TOOLS: Anthropic.Tool[] = [
+const tools: AnthropicTool[] = [
   {
-    name: 'consultar_disponibilidad',
-    description: 'Consulta los horarios disponibles para un servicio en una fecha. Llámala SIEMPRE antes de proponer horas al paciente — nunca inventes horarios. Si el paciente no indicó profesional, omite profesional_id para ver disponibilidad de todos.',
+    name: 'buscar_disponibilidad',
+    description: 'Busca los horarios disponibles para un servicio y/o profesional en una fecha determinada.',
     input_schema: {
       type: 'object',
       properties: {
         fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD' },
-        servicio_id: { type: 'string', description: 'ID del servicio (de la lista de servicios)' },
-        profesional_id: { type: 'string', description: 'ID del profesional (opcional)' },
+        servicio_id: { type: 'string', description: 'UUID del servicio (opcional)' },
+        profesional_id: { type: 'string', description: 'UUID del profesional (opcional)' },
       },
-      required: ['fecha', 'servicio_id'],
+      required: ['fecha'],
     },
   },
   {
     name: 'crear_cita',
-    description: 'Crea una cita confirmada. Llámala SOLO cuando el paciente haya confirmado explícitamente servicio, profesional, fecha y hora, y te haya dado su nombre completo. La hora debe ser una de las devueltas por consultar_disponibilidad.',
+    description: 'Crea una nueva cita para un paciente en el sistema.',
     input_schema: {
       type: 'object',
       properties: {
-        servicio_id: { type: 'string' },
-        profesional_id: { type: 'string' },
-        fecha: { type: 'string', description: 'YYYY-MM-DD' },
-        hora: { type: 'string', description: 'HH:MM (de consultar_disponibilidad)' },
-        nombre_paciente: { type: 'string', description: 'Nombre completo del paciente' },
-        email_paciente: { type: 'string', description: 'Email del paciente (opcional)' },
+        paciente_id: { type: 'string', description: 'UUID del paciente' },
+        servicio_id: { type: 'string', description: 'UUID del servicio' },
+        profesional_id: { type: 'string', description: 'UUID del profesional' },
+        inicio: { type: 'string', description: 'Fecha y hora de inicio en formato ISO 8601' },
+        fin: { type: 'string', description: 'Fecha y hora de fin en formato ISO 8601' },
       },
-      required: ['servicio_id', 'profesional_id', 'fecha', 'hora', 'nombre_paciente'],
+      required: ['paciente_id', 'servicio_id', 'profesional_id', 'inicio', 'fin'],
     },
   },
   {
-    name: 'listar_citas_paciente',
-    description: 'Lista las citas próximas del paciente (identificado por su número de WhatsApp). Úsala cuando pregunte por sus citas o quiera cancelar/reagendar.',
-    input_schema: { type: 'object', properties: {} },
+    name: 'buscar_paciente',
+    description: 'Busca un paciente por número de teléfono o nombre.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        telefono: { type: 'string', description: 'Número de teléfono del paciente' },
+        nombre: { type: 'string', description: 'Nombre del paciente (búsqueda parcial)' },
+      },
+    },
+  },
+  {
+    name: 'listar_servicios',
+    description: 'Lista los servicios disponibles en la clínica.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+    },
   },
   {
     name: 'confirmar_cita',
-    description: 'Confirma una cita pendiente del paciente (cambia su estado a confirmada). Úsala cuando el paciente confirme asistencia, por ejemplo al responder "sí" o "confirmo" a un recordatorio. El cita_id viene de listar_citas_paciente o del contexto de citas próximas.',
+    description: 'Confirma una cita pendiente cuando el paciente dice SI, confirmo, ok, etc.',
     input_schema: {
       type: 'object',
-      properties: { cita_id: { type: 'string' } },
+      properties: {
+        cita_id: { type: 'string', description: 'UUID de la cita a confirmar' },
+      },
       required: ['cita_id'],
-    },
-  },
-  {
-    name: 'cancelar_cita',
-    description: 'Cancela una cita del paciente. Confirma con el paciente antes de cancelar. El cita_id viene de listar_citas_paciente.',
-    input_schema: {
-      type: 'object',
-      properties: { cita_id: { type: 'string' } },
-      required: ['cita_id'],
-    },
-  },
-  {
-    name: 'escalar_a_humano',
-    description: 'Deriva la conversación al equipo humano de la clínica. Úsala cuando el paciente lo pida, esté molesto, tenga una consulta médica/clínica que no puedes responder, o lleves varias vueltas sin poder resolver su solicitud.',
-    input_schema: {
-      type: 'object',
-      properties: { motivo: { type: 'string', description: 'Resumen breve para el equipo' } },
-      required: ['motivo'],
     },
   },
 ]
 
-// ─── Ejecución de herramientas ────────────────────────────────
+// ─── Ejecución de herramientas ────────────────────────────────────────────────
 
-async function ejecutarTool(
+async function ejecutarHerramienta(
   name: string,
   input: Record<string, unknown>,
-  ctx: { supabase: SupabaseClient; clinica: ClinicaAgente; telefono: string; conversacionId: string },
-): Promise<{ result: string; escalado?: boolean }> {
-  const { supabase, clinica, telefono } = ctx
+  supabase: SupabaseClient,
+  clinicaId: string,
+): Promise<unknown> {
+  switch (name) {
+    case 'buscar_disponibilidad': {
+      const { fecha, servicio_id, profesional_id } = input as {
+        fecha: string
+        servicio_id?: string
+        profesional_id?: string
+      }
+      let query = supabase
+        .from('citas')
+        .select('id, inicio, fin, profesional_id, servicio_id')
+        .eq('clinica_id', clinicaId)
+        .gte('inicio', `${fecha}T00:00:00`)
+        .lt('inicio', `${fecha}T23:59:59`)
+        .in('estado', ['pendiente', 'confirmada'])
 
-  if (name === 'consultar_disponibilidad') {
-    const r = await calcularSlots(
-      supabase, clinica,
-      String(input.fecha), String(input.servicio_id),
-      input.profesional_id ? String(input.profesional_id) : undefined,
-    )
-    return { result: JSON.stringify(r) }
-  }
+      if (profesional_id) query = query.eq('profesional_id', profesional_id)
+      if (servicio_id) query = query.eq('servicio_id', servicio_id)
 
-  if (name === 'crear_cita') {
-    const inicio = `${input.fecha}T${input.hora}:00`
-    const { data: servicio } = await supabase
-      .from('servicios')
-      .select('duracion_minutos')
-      .eq('id', String(input.servicio_id))
-      .eq('clinica_id', clinica.id)
-      .maybeSingle()
-    if (!servicio) return { result: JSON.stringify({ error: 'Servicio no encontrado' }) }
-    const dur = servicio.duracion_minutos ?? 60
-    const [h, m] = String(input.hora).split(':').map(Number)
-    const finMin = h * 60 + m + dur
-    const fin = `${input.fecha}T${String(Math.floor(finMin / 60)).padStart(2, '0')}:${String(finMin % 60).padStart(2, '0')}:00`
-
-    const { data, error } = await supabase.rpc('crear_reserva_publica', {
-      p_clinica_id: clinica.id,
-      p_servicio_id: String(input.servicio_id),
-      p_profesional_id: String(input.profesional_id),
-      p_inicio: inicio,
-      p_fin: fin,
-      p_paciente_nombre: String(input.nombre_paciente),
-      p_paciente_telefono: telefono,
-      p_paciente_email: input.email_paciente ? String(input.email_paciente) : null,
-      p_notas: 'Agendada vía WhatsApp (agente IA)',
-      p_paciente_rut: null,
-    })
-    if (error) return { result: JSON.stringify({ error: error.message }) }
-    const res = data as { cita_id?: string; ok?: boolean; error?: string }
-    if (!res?.cita_id && !res?.ok) return { result: JSON.stringify({ error: res?.error ?? 'No se pudo crear la cita' }) }
-    return { result: JSON.stringify({ ok: true, cita_id: res.cita_id }) }
-  }
-
-  if (name === 'listar_citas_paciente') {
-    const items = await citasProximasPorTelefono(supabase, clinica.id, telefono)
-    if (items === null) return { result: JSON.stringify({ citas: [], nota: 'Paciente no registrado aún con este número' }) }
-    return { result: JSON.stringify({ citas: items }) }
-  }
-
-  if (name === 'confirmar_cita') {
-    // Verify the cita belongs to this clinic and a patient with this phone
-    const { data: cita } = await supabase
-      .from('citas')
-      .select('id, estado, pacientes(telefono)')
-      .eq('id', String(input.cita_id))
-      .eq('clinica_id', clinica.id)
-      .maybeSingle()
-    if (!cita) return { result: JSON.stringify({ error: 'Cita no encontrada' }) }
-    const pac = Array.isArray(cita.pacientes) ? cita.pacientes[0] : cita.pacientes
-    const pacTel = ((pac as { telefono?: string | null } | null)?.telefono ?? '').replace(/\D/g, '')
-    const digits = telefono.replace(/\D/g, '')
-    if (!pacTel || !pacTel.endsWith(digits.slice(-9))) {
-      return { result: JSON.stringify({ error: 'La cita no pertenece a este paciente' }) }
-    }
-    if (cita.estado === 'confirmada') return { result: JSON.stringify({ ok: true, nota: 'La cita ya estaba confirmada' }) }
-    if (cita.estado !== 'pendiente') {
-      return { result: JSON.stringify({ error: `La cita no se puede confirmar (estado actual: ${cita.estado})` }) }
+      const { data, error } = await query
+      if (error) return { ok: false, error: error.message }
+      return { ok: true, citas_ocupadas: data ?? [] }
     }
 
-    const { error } = await supabase
-      .from('citas')
-      .update({ estado: 'confirmada' })
-      .eq('id', cita.id)
-    if (error) return { result: JSON.stringify({ error: error.message }) }
-    return { result: JSON.stringify({ ok: true }) }
-  }
+    case 'crear_cita': {
+      const { paciente_id, servicio_id, profesional_id, inicio, fin } = input as {
+        paciente_id: string
+        servicio_id: string
+        profesional_id: string
+        inicio: string
+        fin: string
+      }
+      const { data, error } = await supabase
+        .from('citas')
+        .insert({
+          clinica_id: clinicaId,
+          paciente_id,
+          servicio_id,
+          profesional_id,
+          inicio,
+          fin,
+          estado: 'pendiente',
+        })
+        .select('id, inicio, fin, estado')
+        .single()
 
-  if (name === 'cancelar_cita') {
-    // Verify the cita belongs to this clinic and a patient with this phone
-    const { data: cita } = await supabase
-      .from('citas')
-      .select('id, estado, pacientes(telefono)')
-      .eq('id', String(input.cita_id))
-      .eq('clinica_id', clinica.id)
-      .maybeSingle()
-    if (!cita) return { result: JSON.stringify({ error: 'Cita no encontrada' }) }
-    const pac = Array.isArray(cita.pacientes) ? cita.pacientes[0] : cita.pacientes
-    const pacTel = ((pac as { telefono?: string | null } | null)?.telefono ?? '').replace(/\D/g, '')
-    const digits = telefono.replace(/\D/g, '')
-    if (!pacTel || !pacTel.endsWith(digits.slice(-9))) {
-      return { result: JSON.stringify({ error: 'La cita no pertenece a este paciente' }) }
+      if (error) return { ok: false, error: error.message }
+      return { ok: true, cita: data }
     }
-    if (cita.estado === 'cancelada') return { result: JSON.stringify({ error: 'La cita ya estaba cancelada' }) }
 
-    const { error } = await supabase
-      .from('citas')
-      .update({ estado: 'cancelada' })
-      .eq('id', cita.id)
-    if (error) return { result: JSON.stringify({ error: error.message }) }
-    return { result: JSON.stringify({ ok: true }) }
-  }
+    case 'buscar_paciente': {
+      const { telefono, nombre } = input as { telefono?: string; nombre?: string }
+      let query = supabase
+        .from('pacientes')
+        .select('id, nombre, telefono, email')
+        .eq('clinica_id', clinicaId)
 
-  if (name === 'escalar_a_humano') {
-    await ctx.supabase
-      .from('conversaciones')
-      .update({ estado: 'humano', no_leidos: 99 })
-      .eq('id', ctx.conversacionId)
-    return {
-      result: JSON.stringify({ ok: true, nota: 'Conversación derivada al equipo. Despídete indicando que una persona del equipo le responderá pronto.' }),
-      escalado: true,
+      if (telefono) query = query.ilike('telefono', `%${(telefono as string).replace(/\D/g, '')}%`)
+      else if (nombre) query = query.ilike('nombre', `%${nombre}%`)
+
+      const { data, error } = await query.limit(5)
+      if (error) return { ok: false, error: error.message }
+      return { ok: true, pacientes: data ?? [] }
     }
-  }
 
-  return { result: JSON.stringify({ error: `Herramienta desconocida: ${name}` }) }
+    case 'listar_servicios': {
+      const { data, error } = await supabase
+        .from('servicios')
+        .select('id, nombre, duracion_minutos, precio')
+        .eq('clinica_id', clinicaId)
+        .eq('activo', true)
+        .order('nombre')
+
+      if (error) return { ok: false, error: error.message }
+      return { ok: true, servicios: data ?? [] }
+    }
+
+    case 'confirmar_cita': {
+      const { cita_id } = input as { cita_id: string }
+      const { error } = await supabase
+        .from('citas')
+        .update({ estado: 'confirmada' })
+        .eq('id', cita_id)
+        .eq('clinica_id', clinicaId)
+        .eq('estado', 'pendiente')
+      if (error) {
+        return { ok: false, error: error.message }
+      } else {
+        return { ok: true, mensaje: 'Cita confirmada exitosamente' }
+      }
+    }
+
+    default:
+      return { ok: false, error: `Herramienta desconocida: ${name}` }
+  }
 }
 
-// ─── System prompt ────────────────────────────────────────────
+// ─── Llamada a la API de Anthropic ───────────────────────────────────────────
 
-function buildSystemPrompt(
-  clinica: ClinicaAgente,
-  servicios: { id: string; nombre: string; duracion_minutos: number | null; precio: number | null }[],
-  profesionales: { id: string; nombre: string; especialidad: string | null }[],
-  citasProximas?: CitaProxima[] | null,
-): string {
-  const ahora = nowSantiago()
-  const agenteCfg = clinica.configuracion?.agente_wsp
-  const tono = agenteCfg?.tono === 'formal' ? 'formal' : 'cercano'
-  const nombreAsistente = agenteCfg?.nombre_asistente?.trim()
-  const instruccionesExtra = agenteCfg?.instrucciones_extra?.trim()
-  const horarios = clinica.configuracion?.horarios
-  const horariosTxt = horarios
-    ? Object.entries(horarios)
-        .map(([dia, h]) => `- ${dia}: ${h.activo ? `${h.desde} a ${h.hasta}` : 'cerrado'}`)
-        .join('\n')
-    : '(no configurados — escala a humano si preguntan)'
+async function callAnthropicAPI(
+  systemPrompt: string,
+  messages: AnthropicMessage[],
+): Promise<AnthropicResponse> {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY no configurada')
 
-  const citasTxt = citasProximas?.length
-    ? `\nCITAS PRÓXIMAS DE ESTE PACIENTE (próximos 14 días — úsalas como contexto, no necesitas llamar listar_citas_paciente para estas):
-${citasProximas.map(c => `- ${c.fecha} a las ${c.hora} — ${c.servicio ?? 'servicio'}${c.profesional ? ` con ${c.profesional}` : ''} — estado: ${c.estado} (cita_id: ${c.cita_id})`).join('\n')}\n`
-    : ''
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: 1024,
+      system: systemPrompt,
+      tools,
+      messages,
+    }),
+  })
 
-  return `Eres el asistente virtual de agendamiento de "${clinica.nombre}", una clínica en Chile. Atiendes a pacientes por WhatsApp.${nombreAsistente ? ` Te llamas ${nombreAsistente}.` : ''}
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Anthropic API error ${res.status}: ${body}`)
+  }
 
-Hoy es ${ahora.diaSemana} ${ahora.fecha} y son las ${ahora.hora} (hora de Chile).
-
-DATOS DE LA CLÍNICA
-${clinica.direccion ? `Dirección: ${clinica.direccion}` : ''}
-${clinica.telefono ? `Teléfono: ${clinica.telefono}` : ''}
-
-Horarios de atención:
-${horariosTxt}
-
-SERVICIOS (usa estos IDs en las herramientas):
-${servicios.map(s => `- ${s.nombre} (id: ${s.id}) — ${s.duracion_minutos ?? 60} min${s.precio ? `, $${Number(s.precio).toLocaleString('es-CL')}` : ''}`).join('\n')}
-
-PROFESIONALES (usa estos IDs en las herramientas):
-${profesionales.map(p => `- ${p.nombre}${p.especialidad ? ` (${p.especialidad})` : ''} (id: ${p.id})`).join('\n')}
-${citasTxt}
-TU TRABAJO
-Ayudar al paciente a: agendar una cita, consultar sus citas, cancelar o reagendar, y responder preguntas básicas sobre servicios, precios y horarios.
-
-RESPUESTAS A RECORDATORIOS
-- Si el paciente responde a un recordatorio de cita con mensajes tipo "sí", "si", "confirmo", "ok", "dale": identifica su cita (usa el contexto de CITAS PRÓXIMAS si está disponible, o llama listar_citas_paciente) y usa confirmar_cita para confirmarla. Luego confirma brevemente al paciente.
-- Si el paciente dice que NO puede asistir: NO canceles de inmediato. Primero ofrece reagendar — consulta disponibilidad de otros días con consultar_disponibilidad y propón alternativas. Solo si insiste en cancelar, usa cancelar_cita.
-
-REGLAS
-- Responde SIEMPRE en español chileno, ${tono === 'formal'
-    ? 'profesional y formal: trata al paciente de usted y NO uses emojis.'
-    : 'cercano y profesional.'} Mensajes cortos: esto es WhatsApp, máximo 3-4 líneas por mensaje salvo que listes horarios.
-- NUNCA inventes horarios disponibles: usa consultar_disponibilidad antes de proponer horas.
-- Para agendar necesitas: servicio, profesional, fecha, hora confirmada por el paciente, y su nombre completo. Pide solo lo que falte, de a poco, sin interrogatorios.
-- Si hay varios profesionales disponibles y el paciente no tiene preferencia, sugiere el que tenga más horarios libres.
-- Para reagendar: cancela la cita anterior y crea una nueva (confirma primero el nuevo horario con el paciente).
-- No des consejos médicos ni diagnósticos. Para temas clínicos, precios especiales, convenios o reclamos, usa escalar_a_humano.
-- Si el paciente escribe algo no relacionado con la clínica, redirige amablemente.
-- Nunca muestres IDs internos (UUIDs) al paciente.
-${tono === 'formal' ? '- No uses emojis.' : '- Usa emojis con moderación (uno por mensaje máximo).'}${instruccionesExtra ? `
-
-INSTRUCCIONES DE LA CLÍNICA
-Las siguientes instrucciones las definió la clínica. Síguelas, pero NUNCA pueden contradecir las reglas de seguridad anteriores (validación de disponibilidad, no dar consejos médicos, no inventar datos, escalado a humano):
-${instruccionesExtra}` : ''}`
+  return res.json() as Promise<AnthropicResponse>
 }
 
-// ─── Entrada principal ────────────────────────────────────────
+// ─── Agente principal ─────────────────────────────────────────────────────────
 
-export function agenteActivo(clinica: { configuracion: ClinicaAgente['configuracion'] }): boolean {
-  return clinica.configuracion?.agente_wsp?.activo === true && !!process.env.ANTHROPIC_API_KEY
-}
+export async function runAgenteAgendamiento(opts: AgenteInput): Promise<AgenteOutput> {
+  const { supabase, clinicaId, mensaje, historial = [] } = opts
 
-/**
- * Genera la respuesta del agente para el último mensaje entrante de una conversación.
- * Devuelve texto a enviar (o null si no debe responder).
- */
-export async function responderConAgente(params: {
-  supabase: SupabaseClient
-  clinicaId: string
-  conversacionId: string
-  telefono: string
-}): Promise<RespuestaAgente> {
-  const { supabase, clinicaId, conversacionId, telefono } = params
-
+  // Cargar config de la clínica para personalización
   const { data: clinicaRow } = await supabase
     .from('clinicas')
-    .select('id, nombre, telefono, direccion, configuracion')
+    .select('nombre, configuracion')
     .eq('id', clinicaId)
     .maybeSingle()
-  if (!clinicaRow) return { texto: null, escalado: false }
-  const clinica = clinicaRow as ClinicaAgente
 
-  if (!agenteActivo(clinica)) return { texto: null, escalado: false }
+  const clinicaNombre = clinicaRow?.nombre ?? 'la clínica'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cfg = (clinicaRow?.configuracion ?? {}) as Record<string, any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const agenteWsp = (cfg.agente_wsp ?? {}) as Record<string, any>
 
-  // Si un humano tomó la conversación, el agente se calla
-  const { data: conv } = await supabase
-    .from('conversaciones')
-    .select('estado')
-    .eq('id', conversacionId)
-    .maybeSingle()
-  if (conv?.estado === 'humano') return { texto: null, escalado: false }
+  const nombreAsistente: string = agenteWsp.nombre_asistente ?? 'Asistente'
+  const tono: 'cercano' | 'formal' = agenteWsp.tono === 'formal' ? 'formal' : 'cercano'
+  const instruccionesExtra: string | undefined = agenteWsp.instrucciones_extra || undefined
 
-  // Contexto proactivo: citas del paciente en los próximos 14 días
-  const hoy = nowSantiago()
-  const [y, m, d] = hoy.fecha.split('-').map(Number)
-  const limite = new Date(y, m - 1, d + 14)
-  const hastaFecha = `${limite.getFullYear()}-${String(limite.getMonth() + 1).padStart(2, '0')}-${String(limite.getDate()).padStart(2, '0')}`
+  const tonoInstruccion =
+    tono === 'formal'
+      ? 'Usa un tono formal y de respeto, dirígete al paciente de "usted".'
+      : 'Usa un tono cercano y amigable, dirígete al paciente de "tú".'
 
-  const [{ data: servicios }, { data: profesionales }, { data: historial }, citasProximas] = await Promise.all([
-    supabase.from('servicios')
-      .select('id, nombre, duracion_minutos, precio')
-      .eq('clinica_id', clinicaId).eq('activo', true).order('nombre'),
-    supabase.from('profesionales')
-      .select('id, nombre, especialidad')
-      .eq('clinica_id', clinicaId).eq('activo', true).order('nombre'),
-    supabase.from('mensajes_inbox')
-      .select('direccion, contenido, created_at')
-      .eq('conversacion_id', conversacionId)
-      .order('created_at', { ascending: false })
-      .limit(HISTORY_LIMIT),
-    citasProximasPorTelefono(supabase, clinicaId, telefono, hastaFecha).catch(() => null),
-  ])
+  let systemPrompt = `Eres ${nombreAsistente}, el asistente virtual de agendamiento de ${clinicaNombre}.
+Tu rol es ayudar a los pacientes a agendar, consultar y confirmar citas por WhatsApp.
+${tonoInstruccion}
+- Sé conciso y claro en tus respuestas.
+- Antes de crear una cita, verifica la disponibilidad.
+- Si el paciente no está registrado, pregunta sus datos básicos.
+- Confirma siempre los detalles antes de crear una cita.
+- No inventes información; usa las herramientas para obtener datos reales.`
 
-  if (!servicios?.length || !profesionales?.length) return { texto: null, escalado: false }
+  if (instruccionesExtra) {
+    systemPrompt += `\n\nInstrucciones adicionales:\n${instruccionesExtra}`
+  }
 
-  // Historial cronológico → mensajes Claude (colapsando roles consecutivos)
-  const ordenado = (historial ?? []).reverse()
-  const messages: Anthropic.MessageParam[] = []
-  for (const m of ordenado) {
-    const role: 'user' | 'assistant' = m.direccion === 'entrante' ? 'user' : 'assistant'
-    const contenido = String(m.contenido ?? '').trim()
-    if (!contenido) continue
-    const last = messages[messages.length - 1]
-    if (last && last.role === role && typeof last.content === 'string') {
-      last.content = `${last.content}\n${contenido}`
-    } else {
-      messages.push({ role, content: contenido })
+  const herramientasUsadas: string[] = []
+
+  const messages: AnthropicMessage[] = [
+    ...historial.map((h) => ({ role: h.role, content: h.content })),
+    { role: 'user', content: mensaje },
+  ]
+
+  // Bucle agente: continúa hasta que Claude no use más herramientas
+  let iteraciones = 0
+  const MAX_ITERACIONES = 8
+
+  while (iteraciones < MAX_ITERACIONES) {
+    iteraciones++
+
+    const response = await callAnthropicAPI(systemPrompt, messages)
+
+    // Acumular respuesta en el historial
+    messages.push({ role: 'assistant', content: response.content })
+
+    // Si terminó sin usar herramientas, retornar
+    if (response.stop_reason === 'end_turn') {
+      const texto = response.content
+        .filter((b): b is AnthropicTextBlock => b.type === 'text')
+        .map((b) => b.text)
+        .join('\n')
+        .trim()
+
+      return { respuesta: texto, herramientasUsadas }
     }
-  }
-  if (!messages.length || messages[0].role !== 'user') {
-    // Claude exige que el primer mensaje sea del usuario
-    while (messages.length && messages[0].role !== 'user') messages.shift()
-    if (!messages.length) return { texto: null, escalado: false }
-  }
-  if (messages[messages.length - 1].role !== 'user') return { texto: null, escalado: false }
 
-  const client = new Anthropic()
-  const system = buildSystemPrompt(clinica, servicios, profesionales, citasProximas)
-  const ctx = { supabase, clinica, telefono, conversacionId }
-  let escalado = false
+    // Procesar tool_use blocks
+    const toolUseBlocks = response.content.filter(
+      (b): b is AnthropicToolUseBlock => b.type === 'tool_use',
+    )
 
-  try {
-    for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-      const response = await client.messages.create({
-        model: MODEL,
-        max_tokens: 1024,
-        system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-        tools: TOOLS,
-        messages,
+    if (toolUseBlocks.length === 0) {
+      // stop_reason no es end_turn pero tampoco hay herramientas (max_tokens?)
+      const texto = response.content
+        .filter((b): b is AnthropicTextBlock => b.type === 'text')
+        .map((b) => b.text)
+        .join('\n')
+        .trim()
+      return { respuesta: texto || 'Lo siento, no pude procesar tu solicitud en este momento.', herramientasUsadas }
+    }
+
+    // Ejecutar cada herramienta y construir tool_result
+    const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
+    for (const toolUse of toolUseBlocks) {
+      herramientasUsadas.push(toolUse.name)
+      const result = await ejecutarHerramienta(
+        toolUse.name,
+        toolUse.input,
+        supabase,
+        clinicaId,
+      )
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        content: JSON.stringify(result),
       })
-
-      if (response.stop_reason !== 'tool_use') {
-        const texto = response.content
-          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-          .map(b => b.text)
-          .join('\n')
-          .trim()
-        return { texto: texto || null, escalado }
-      }
-
-      messages.push({ role: 'assistant', content: response.content })
-      const results: Anthropic.ToolResultBlockParam[] = []
-      for (const block of response.content) {
-        if (block.type !== 'tool_use') continue
-        const r = await ejecutarTool(block.name, block.input as Record<string, unknown>, ctx)
-        if (r.escalado) escalado = true
-        results.push({ type: 'tool_result', tool_use_id: block.id, content: r.result })
-      }
-      messages.push({ role: 'user', content: results })
     }
-    // Loop agotado: respuesta de cortesía
-    return { texto: 'Dame un momento, una persona del equipo te ayudará a la brevedad 🙏', escalado }
-  } catch (e) {
-    console.error('[whatsapp/agente] error', e)
-    return { texto: null, escalado }
+
+    messages.push({ role: 'user', content: toolResults })
+  }
+
+  return {
+    respuesta: 'Lo siento, no pude completar tu solicitud. Por favor, contacta directamente a la clínica.',
+    herramientasUsadas,
   }
 }
