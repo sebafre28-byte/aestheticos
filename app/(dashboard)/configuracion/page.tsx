@@ -19,10 +19,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
-  crearProfesional, getClinicaId, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
+  crearProfesional, getClinicaId, TEMPLATE_RECORDATORIO_DEFAULT,
   RECORDATORIOS_EMAIL_DEFAULT,
   getWhatsappClinicaConfig, guardarWhatsappConfig,
-  type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig, type RecordatoriosWspConfig,
+  type ClinicaBasica,
   type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig, type WhatsappClinicaConfig,
 } from "@/lib/onboarding/queries"
 import {
@@ -850,21 +850,27 @@ function SeccionEquipo() {
 
 function SeccionWhatsApp() {
   const [config, setConfig] = useState<WhatsappClinicaConfig>({})
-  const [plantillas, setPlantillas] = useState<PlantillaWsp[]>(PLANTILLAS_DEFAULT)
-  const [editandoId, setEditandoId] = useState<string | null>(null)
-  const [textoEdit, setTextoEdit] = useState("")
   const [cargando, setCargando] = useState(true)
-  const [guardando, setGuardando] = useState(false)
   const [guardandoCredenciales, setGuardandoCredenciales] = useState(false)
-  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
   const [feedbackCred, setFeedbackCred] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
   const [mostrarToken, setMostrarToken] = useState(false)
   const [mostrarGuia, setMostrarGuia] = useState(false)
 
+  // ── Agente IA state ──
+  const [agenteActivo, setAgenteActivo] = useState(false)
+  const [agenteNombre, setAgenteNombre] = useState("")
+  const [agenteTono, setAgenteTono] = useState<'cercano' | 'formal'>('cercano')
+  const [agenteInstrucciones, setAgenteInstrucciones] = useState("")
+  const [guardandoAgente, setGuardandoAgente] = useState(false)
+  const [feedbackAgente, setFeedbackAgente] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+
   useEffect(() => {
     Promise.all([getClinicaConfig(), getWhatsappClinicaConfig()]).then(([cfg, wsp]) => {
-      if (cfg.plantillas?.length) setPlantillas(cfg.plantillas)
       setConfig(wsp ?? {})
+      setAgenteActivo(cfg.agente_wsp?.activo === true)
+      setAgenteNombre(cfg.agente_wsp?.nombre_asistente ?? "")
+      setAgenteTono(cfg.agente_wsp?.tono === 'formal' ? 'formal' : 'cercano')
+      setAgenteInstrucciones(cfg.agente_wsp?.instrucciones_extra ?? "")
       setCargando(false)
     })
   }, [])
@@ -886,30 +892,25 @@ function SeccionWhatsApp() {
     }
   }
 
-  function iniciarEdicion(pl: PlantillaWsp) {
-    setEditandoId(pl.id)
-    setTextoEdit(pl.texto)
-  }
-
-  function cancelarEdicion() {
-    setEditandoId(null)
-    setTextoEdit("")
-  }
-
-  async function guardarPlantilla(id: string) {
-    const nuevas = plantillas.map((p) => p.id === id ? { ...p, texto: textoEdit } : p)
-    setGuardando(true)
-    setFeedback(null)
+  async function guardarAgente() {
+    setGuardandoAgente(true)
+    setFeedbackAgente(null)
     const cfg = await getClinicaConfig()
-    const ok = await actualizarClinicaConfig({ ...cfg, plantillas: nuevas })
-    setGuardando(false)
+    const ok = await actualizarClinicaConfig({
+      ...cfg,
+      agente_wsp: {
+        activo: agenteActivo,
+        nombre_asistente: agenteNombre.trim() || undefined,
+        tono: agenteTono,
+        instrucciones_extra: agenteInstrucciones.trim() || undefined,
+      },
+    })
+    setGuardandoAgente(false)
     if (ok) {
-      setPlantillas(nuevas)
-      setEditandoId(null)
-      setFeedback({ tipo: "ok", msg: "Plantilla guardada." })
-      setTimeout(() => setFeedback(null), 2500)
+      setFeedbackAgente({ tipo: "ok", msg: "Configuración del agente guardada." })
+      setTimeout(() => setFeedbackAgente(null), 3000)
     } else {
-      setFeedback({ tipo: "error", msg: "No se pudo guardar." })
+      setFeedbackAgente({ tipo: "error", msg: "No se pudo guardar." })
     }
   }
 
@@ -920,7 +921,7 @@ function SeccionWhatsApp() {
 
   return (
     <div>
-      <SectionHeader title="WhatsApp Business" subtitle="Conexión y credenciales por clínica" />
+      <SectionHeader title="WhatsApp Business" subtitle="Conexión, credenciales y agente IA de agendamiento" />
 
       {/* Webhook URL */}
       <div className="bg-blue-50/60 rounded-xl border border-blue-100 p-4 mb-6">
@@ -1223,37 +1224,92 @@ function SeccionWhatsApp() {
         </div>
       </div>
 
-      <Feedback f={feedback} />
-
-      <p className="text-[13px] font-semibold text-gray-900 mb-3">Plantillas de mensajes</p>
-      <div className="space-y-3">
-        {plantillas.map((pl) => (
-          <div key={pl.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[13px] font-semibold text-gray-900">{pl.nombre}</p>
-              <button onClick={() => editandoId === pl.id ? cancelarEdicion() : iniciarEdicion(pl)}
-                className="text-[12px] text-[#2563EB] font-medium hover:underline">
-                {editandoId === pl.id ? "Cancelar" : "Editar"}
-              </button>
-            </div>
-            {editandoId === pl.id ? (
-              <div>
-                <textarea value={textoEdit} onChange={(e) => setTextoEdit(e.target.value)} rows={3}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none" />
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-[11px] text-gray-400">Variables: {"{nombre}"} {"{fecha}"} {"{hora}"} {"{clinica}"}</p>
-                  <Button onClick={() => guardarPlantilla(pl.id)} disabled={guardando}
-                    className="h-7 text-[12px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
-                    {guardando ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
-                    Guardar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-[12px] text-gray-500 leading-relaxed">{pl.texto}</p>
-            )}
+      {/* ── AGENTE IA ─────────────────────────────────────────────────────────── */}
+      <div className="border-t border-gray-100 pt-6">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
+            <MessageCircle className="size-4 text-violet-600" />
           </div>
-        ))}
+          <div>
+            <p className="text-[14px] font-semibold text-gray-900">Agente IA de agendamiento</p>
+            <p className="text-[12px] text-gray-400">Responde automáticamente por WhatsApp: agenda, cancela y reagenda citas por chat</p>
+          </div>
+          <div className="ml-auto">
+            <Toggle activo={agenteActivo} onChange={() => setAgenteActivo(v => !v)} />
+          </div>
+        </div>
+        {agenteActivo && (
+          <div className="pl-9 space-y-4">
+            <div className="bg-violet-50 rounded-xl border border-violet-100 p-4 text-[12px] text-violet-900 space-y-1">
+              <p>✓ Los pacientes pueden agendar, consultar y cancelar citas escribiendo por WhatsApp.</p>
+              <p>✓ El agente conoce tus servicios, profesionales y horarios, y solo ofrece horas realmente disponibles.</p>
+              <p>✓ Si el paciente lo pide o el tema es clínico, deriva la conversación a tu equipo (aparece en el Inbox).</p>
+              <p className="text-violet-600">Requiere WhatsApp conectado. No olvides guardar los cambios.</p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-4">
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-1">Nombre del asistente</p>
+                <input
+                  type="text"
+                  value={agenteNombre}
+                  onChange={(e) => setAgenteNombre(e.target.value)}
+                  placeholder="ej: Sofi"
+                  className="h-8 w-full max-w-[240px] px-2.5 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                />
+              </div>
+
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-2">Tono de conversación</p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { label: "Cercano", value: 'cercano' },
+                    { label: "Formal",  value: 'formal' },
+                  ] as const).map((op) => (
+                    <button
+                      key={op.value}
+                      type="button"
+                      onClick={() => setAgenteTono(op.value)}
+                      className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${agenteTono === op.value ? "border-violet-600 bg-violet-50 text-violet-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  {agenteTono === 'formal' ? 'Trata a los pacientes de usted, sin emojis.' : 'Trato cercano y profesional, estilo chileno.'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-1">Instrucciones adicionales</p>
+                <p className="text-[12px] text-gray-400 mb-2">Reglas propias de tu clínica que el agente debe seguir</p>
+                <textarea
+                  value={agenteInstrucciones}
+                  onChange={(e) => setAgenteInstrucciones(e.target.value)}
+                  rows={4}
+                  placeholder="ej: No agendar primeras horas del lunes. Los tratamientos láser requieren evaluación previa."
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-[13px] text-gray-900 leading-relaxed placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
+                />
+              </div>
+            </div>
+
+            <a
+              href="/configuracion/agente-test"
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-700 hover:text-violet-900"
+            >
+              <MessageCircle className="size-3.5" />
+              Probar el agente en el simulador →
+            </a>
+          </div>
+        )}
+
+        <Feedback f={feedbackAgente} />
+        <div className="flex justify-end mt-4">
+          <Button onClick={guardarAgente} disabled={guardandoAgente} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+            {guardandoAgente ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Guardar configuración del agente"}
+          </Button>
+        </div>
       </div>
     </div>
   )
@@ -1373,12 +1429,6 @@ function SeccionRecordatorios() {
   // ── Email state ──
   const [emailCfg, setEmailCfg] = useState<RecordatoriosEmailConfig>(RECORDATORIOS_EMAIL_DEFAULT)
 
-  // ── Agente IA state ──
-  const [agenteActivo, setAgenteActivo] = useState(false)
-  const [agenteNombre, setAgenteNombre] = useState("")
-  const [agenteTono, setAgenteTono] = useState<'cercano' | 'formal'>('cercano')
-  const [agenteInstrucciones, setAgenteInstrucciones] = useState("")
-
   // ── Preview modal ──
   const [previewTipo, setPreviewTipo] = useState<PreviewTipo | null>(null)
 
@@ -1399,10 +1449,6 @@ function SeccionRecordatorios() {
       if (cfg.recordatorios_email) {
         setEmailCfg(cfg.recordatorios_email)
       }
-      setAgenteActivo(cfg.agente_wsp?.activo === true)
-      setAgenteNombre(cfg.agente_wsp?.nombre_asistente ?? "")
-      setAgenteTono(cfg.agente_wsp?.tono === 'formal' ? 'formal' : 'cercano')
-      setAgenteInstrucciones(cfg.agente_wsp?.instrucciones_extra ?? "")
       setCargando(false)
     })
   }, [])
@@ -1421,12 +1467,6 @@ function SeccionRecordatorios() {
       ...cfg,
       recordatorios_wsp: { activo, minutos_antes: mins, template },
       recordatorios_email: emailCfg,
-      agente_wsp: {
-        activo: agenteActivo,
-        nombre_asistente: agenteNombre.trim() || undefined,
-        tono: agenteTono,
-        instrucciones_extra: agenteInstrucciones.trim() || undefined,
-      },
     })
     setGuardando(false)
     if (ok) {
@@ -1444,88 +1484,6 @@ function SeccionRecordatorios() {
   return (
     <div className="space-y-8">
 
-      {/* ── BLOQUE AGENTE IA ────────────────────────────────────────────────── */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-            <MessageCircle className="size-4 text-violet-600" />
-          </div>
-          <div>
-            <p className="text-[14px] font-semibold text-gray-900">Agente IA de agendamiento</p>
-            <p className="text-[12px] text-gray-400">Responde automáticamente por WhatsApp: agenda, cancela y reagenda citas por chat</p>
-          </div>
-          <div className="ml-auto">
-            <Toggle activo={agenteActivo} onChange={() => setAgenteActivo(v => !v)} />
-          </div>
-        </div>
-        {agenteActivo && (
-          <div className="pl-9 space-y-4">
-            <div className="bg-violet-50 rounded-xl border border-violet-100 p-4 text-[12px] text-violet-900 space-y-1">
-              <p>✓ Los pacientes pueden agendar, consultar y cancelar citas escribiendo por WhatsApp.</p>
-              <p>✓ El agente conoce tus servicios, profesionales y horarios, y solo ofrece horas realmente disponibles.</p>
-              <p>✓ Si el paciente lo pide o el tema es clínico, deriva la conversación a tu equipo (aparece en el Inbox).</p>
-              <p className="text-violet-600">Requiere WhatsApp conectado. No olvides guardar los cambios.</p>
-            </div>
-
-            {/* Personalización del agente */}
-            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-4">
-              <div>
-                <p className="text-[12px] font-semibold text-gray-700 mb-1">Nombre del asistente</p>
-                <input
-                  type="text"
-                  value={agenteNombre}
-                  onChange={(e) => setAgenteNombre(e.target.value)}
-                  placeholder="ej: Sofi"
-                  className="h-8 w-full max-w-[240px] px-2.5 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
-                />
-              </div>
-
-              <div>
-                <p className="text-[12px] font-semibold text-gray-700 mb-2">Tono de conversación</p>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { label: "Cercano", value: 'cercano' },
-                    { label: "Formal",  value: 'formal' },
-                  ] as const).map((op) => (
-                    <button
-                      key={op.value}
-                      type="button"
-                      onClick={() => setAgenteTono(op.value)}
-                      className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${agenteTono === op.value ? "border-violet-600 bg-violet-50 text-violet-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
-                    >
-                      {op.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[11px] text-gray-400 mt-1.5">
-                  {agenteTono === 'formal' ? 'Trata a los pacientes de usted, sin emojis.' : 'Trato cercano y profesional, estilo chileno.'}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-[12px] font-semibold text-gray-700 mb-1">Instrucciones adicionales</p>
-                <p className="text-[12px] text-gray-400 mb-2">Reglas propias de tu clínica que el agente debe seguir</p>
-                <textarea
-                  value={agenteInstrucciones}
-                  onChange={(e) => setAgenteInstrucciones(e.target.value)}
-                  rows={4}
-                  placeholder="ej: No agendar primeras horas del lunes. Los tratamientos láser requieren evaluación previa."
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-[13px] text-gray-900 leading-relaxed placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
-                />
-              </div>
-            </div>
-
-            <a
-              href="/configuracion/agente-test"
-              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-700 hover:text-violet-900"
-            >
-              <MessageCircle className="size-3.5" />
-              Probar el agente en el simulador →
-            </a>
-          </div>
-        )}
-      </div>
-
       {/* ── BLOQUE WHATSAPP ─────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center gap-2 mb-4">
@@ -1534,6 +1492,7 @@ function SeccionRecordatorios() {
           </div>
           <div>
             <p className="text-[14px] font-semibold text-gray-900">Recordatorios por WhatsApp</p>
+
             <p className="text-[12px] text-gray-400">Mensaje automático antes de cada cita</p>
           </div>
           <div className="ml-auto">
