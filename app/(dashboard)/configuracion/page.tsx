@@ -37,20 +37,46 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "equipo" | "horarios" | "disponibilidad" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
 
-const NAV: { id: SeccionId; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[] = [
-  { id: "clinica",       label: "Datos de la clínica",   icon: Building2 },
-  { id: "equipo",        label: "Equipo",                icon: Users },
-  { id: "horarios",       label: "Horarios de atención",  icon: Clock },
-  { id: "disponibilidad", label: "Disponibilidad",        icon: CalendarDays },
-  { id: "usuarios",       label: "Usuarios y roles",      icon: UserCog },
-  { id: "whatsapp",      label: "WhatsApp Business",     icon: MessageCircle },
-  { id: "recordatorios", label: "Recordatorios",         icon: Bell },
-  { id: "google",        label: "Google Calendar",       icon: CalendarDays },
-  { id: "plan",          label: "Plan y facturación",    icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
-  { id: "seguridad",     label: "Seguridad",             icon: Shield },
+type NavGroup = {
+  label: string
+  items: { id: SeccionId; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[]
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Clínica",
+    items: [
+      { id: "clinica",  label: "Datos generales",            icon: Building2 },
+      { id: "horarios", label: "Horarios y disponibilidad",  icon: Clock },
+    ],
+  },
+  {
+    label: "Equipo",
+    items: [
+      { id: "equipo",   label: "Profesionales",   icon: Users },
+      { id: "usuarios", label: "Usuarios y roles", icon: UserCog },
+    ],
+  },
+  {
+    label: "Comunicaciones",
+    items: [
+      { id: "whatsapp",      label: "WhatsApp Business", icon: MessageCircle },
+      { id: "recordatorios", label: "Recordatorios",     icon: Bell },
+      { id: "google",        label: "Google Calendar",   icon: CalendarDays },
+    ],
+  },
+  {
+    label: "Cuenta",
+    items: [
+      { id: "plan",      label: "Plan y facturación", icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
+      { id: "seguridad", label: "Seguridad",          icon: Shield },
+    ],
+  },
 ]
+
+const NAV = NAV_GROUPS.flatMap(g => g.items)
 
 const COLORES_PROF = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#EF4444", "#0EA5E9", "#14B8A6"]
 
@@ -2242,7 +2268,7 @@ function SeccionUsuarios() {
   )
 }
 
-// ─── Sección Horarios ────────────────────────────────────────────────────────
+// ─── Sección Horarios de la clínica ─────────────────────────────────────────
 
 const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
 
@@ -2256,7 +2282,7 @@ const HORARIOS_DEFAULT: HorariosConfig = {
   domingo:   { activo: false, desde: '09:00', hasta: '18:00' },
 }
 
-function SeccionHorarios() {
+function SeccionHorariosClinica() {
   const [horarios, setHorarios] = useState<HorariosConfig>(HORARIOS_DEFAULT)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -2309,7 +2335,7 @@ function SeccionHorarios() {
 
   return (
     <div>
-      <SectionHeader title="Horarios de atención" subtitle="Define los días y horarios en que atiendes pacientes" />
+      <p className="text-[12px] text-gray-400 mb-4">Define los días y horarios en que la clínica atiende pacientes.</p>
       <div className="space-y-2 mb-6">
         {DIAS.map((dia) => {
           const h = horarios[dia] ?? { activo: false, desde: '09:00', hasta: '18:00' }
@@ -2441,10 +2467,9 @@ function SeccionDisponibilidad() {
   if (profesionales.length === 0) {
     return (
       <div>
-        <SectionHeader title="Disponibilidad por profesional" subtitle="Configura el horario individual de cada profesional" />
         <div className="text-center py-12">
           <CalendarDays className="size-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-[13px] text-gray-500">No hay profesionales registrados.</p>
+          <p className="text-[13px] text-gray-500">No hay profesionales registrados. Agrega uno en <strong>Profesionales</strong>.</p>
         </div>
       </div>
     )
@@ -2454,8 +2479,7 @@ function SeccionDisponibilidad() {
 
   return (
     <div>
-      <SectionHeader title="Disponibilidad por profesional" subtitle="Configura el horario individual de cada profesional" />
-
+      <p className="text-[12px] text-gray-400 mb-4">Selecciona un profesional para configurar su disponibilidad semanal.</p>
       <div className="flex gap-2 flex-wrap mb-6">
         {profesionales.map((p) => {
           const initials = p.nombre.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
@@ -2529,6 +2553,32 @@ function SeccionDisponibilidad() {
   )
 }
 
+// ─── Sección Horarios unificada ───────────────────────────────────────────────
+
+function SeccionHorariosUnificada() {
+  const [tab, setTab] = useState<'clinica' | 'profesional'>('clinica')
+  return (
+    <div>
+      <SectionHeader title="Horarios y disponibilidad" subtitle="Configura los horarios de la clínica y de cada profesional" />
+      <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setTab('clinica')}
+          className={`h-7 px-4 rounded-md text-[12px] font-medium transition-colors ${tab === 'clinica' ? 'bg-white text-[#0B132B] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          Horarios de la clínica
+        </button>
+        <button
+          onClick={() => setTab('profesional')}
+          className={`h-7 px-4 rounded-md text-[12px] font-medium transition-colors ${tab === 'profesional' ? 'bg-white text-[#0B132B] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          Por profesional
+        </button>
+      </div>
+      {tab === 'clinica' ? <SeccionHorariosClinica /> : <SeccionDisponibilidad />}
+    </div>
+  )
+}
+
 // ─── Header card ─────────────────────────────────────────────────────────────
 
 function ClinicaHeaderCard() {
@@ -2582,7 +2632,7 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","disponibilidad","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
 
@@ -2600,8 +2650,7 @@ function ConfiguracionInner() {
   const SECCIONES: Record<SeccionId, React.ReactNode> = {
     clinica:        <SeccionClinica />,
     equipo:         <SeccionEquipo />,
-    horarios:       <SeccionHorarios />,
-    disponibilidad: <SeccionDisponibilidad />,
+    horarios:       <SeccionHorariosUnificada />,
     usuarios:       <SeccionUsuarios />,
     whatsapp:       <SeccionWhatsApp />,
     recordatorios:  <SeccionRecordatorios />,
@@ -2620,22 +2669,41 @@ function ConfiguracionInner() {
       <ClinicaHeaderCard />
 
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 flex-1 min-h-0">
-        <nav className="sm:w-[200px] w-full shrink-0 flex sm:flex-col gap-1 sm:gap-0 sm:space-y-0.5 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
-          {NAV.map((item) => {
-            const Icon = item.icon
-            const isActive = activa === item.id
-            return (
-              <button key={item.id} onClick={() => setActiva(item.id)}
-                className={`shrink-0 sm:w-full flex items-center gap-2.5 h-10 sm:h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left whitespace-nowrap border sm:border-0 ${isActive ? "bg-blue-50 text-[#2563EB] border-blue-100" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50 border-gray-100 bg-white sm:bg-transparent"}`}>
-                <Icon className={`size-[15px] shrink-0 ${isActive ? "text-[#2563EB]" : "text-gray-400"}`} />
-                <span className="sm:flex-1 truncate">{item.label}</span>
-                {item.badge && (
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${item.badgeColor}`}>{item.badge}</span>
-                )}
-              </button>
-            )
-          })}
-          <div className="shrink-0 sm:pt-3 sm:mt-3 sm:border-t border-gray-100">
+        <nav className="sm:w-[210px] w-full shrink-0 hidden sm:block">
+          {NAV_GROUPS.map((group, gi) => (
+            <div key={group.label} className={gi > 0 ? "mt-4" : ""}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-3 mb-1">{group.label}</p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon
+                  const isActive = activa === item.id
+                  return (
+                    <button key={item.id} onClick={() => setActiva(item.id)}
+                      className={`w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left ${isActive ? "bg-blue-50 text-[#2563EB]" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}>
+                      <Icon className={`size-[15px] shrink-0 ${isActive ? "text-[#2563EB]" : "text-gray-400"}`} />
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {item.badge && (
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${item.badgeColor}`}>{item.badge}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+          {/* Mobile: chips horizontales */}
+          <div className="sm:hidden flex gap-1 overflow-x-auto pb-2 -mx-4 px-4">
+            {NAV.map((item) => {
+              const isActive = activa === item.id
+              return (
+                <button key={item.id} onClick={() => setActiva(item.id)}
+                  className={`shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-lg text-[12px] font-medium whitespace-nowrap border transition-colors ${isActive ? "bg-blue-50 text-[#2563EB] border-blue-100" : "text-gray-500 border-gray-100 bg-white hover:bg-gray-50"}`}>
+                  {item.label}
+                </button>
+              )
+            })}
+          </div>
+          <div className="pt-3 mt-4 border-t border-gray-100">
             <BtnCerrarSesion />
           </div>
         </nav>

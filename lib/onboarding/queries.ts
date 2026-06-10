@@ -66,7 +66,7 @@ export type WhatsappClinicaConfig = {
   auth_token?: string
   from_number?: string
   // Shared
-  numero_display?: string  // e.g. "+56912345678" shown in UI
+  numero_display?: string
   activo?: boolean
 }
 
