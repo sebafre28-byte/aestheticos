@@ -275,7 +275,7 @@ export default function InboxPage() {
 
   return (
     <PlanGate feature="inbox">
-    <div className="relative flex h-[calc(100vh-0px)] bg-white overflow-hidden">
+    <div className="relative flex h-[calc(100dvh-3.5rem)] md:h-screen bg-white overflow-hidden">
       {/* ── Left: conversation list ── */}
       <div className={`${mostrarChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-shrink-0 border-r border-gray-200 flex-col`}>
         {/* Header */}
@@ -324,7 +324,7 @@ export default function InboxPage() {
           {/* Chat header */}
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-white">
             <div className="flex items-center gap-3">
-              <button onClick={() => setMostrarChat(false)} className="md:hidden mr-2 p-1.5 rounded-lg hover:bg-gray-100">
+              <button onClick={() => setMostrarChat(false)} className="md:hidden mr-2 w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
               <div className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white text-sm font-semibold`}>

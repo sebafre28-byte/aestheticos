@@ -412,7 +412,7 @@ export function ModalCita({
   const mostrarPreview = !!(pacienteSeleccionado && profesionalId && servicioId && fecha && hora)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCerrar} />
 
@@ -422,7 +422,7 @@ export function ModalCita({
         role="dialog"
         aria-modal="true"
         aria-label={esEdicion ? 'Editar cita' : 'Nueva cita'}
-        className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col"
+        className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 w-full sm:max-w-lg h-[95dvh] sm:h-auto sm:max-h-[90vh] flex flex-col"
       >
         {/* Header — fijo, no scrollea */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 rounded-t-2xl flex-shrink-0">

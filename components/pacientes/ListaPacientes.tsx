@@ -302,7 +302,7 @@ export function ListaPacientes({
                     </span>
                   </td>
                   <td className="px-3 py-3.5">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <AccionesMenu
                         paciente={paciente}
                         onEditar={() => onEditar(paciente)}
