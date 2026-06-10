@@ -70,6 +70,18 @@ export type WhatsappClinicaConfig = {
   activo?: boolean
 }
 
+export type WizardPasosConfig = {
+  ficha: boolean
+  fotos: boolean
+  notas: boolean
+}
+
+export const WIZARD_PASOS_DEFAULT: WizardPasosConfig = {
+  ficha: true,
+  fotos: true,
+  notas: true,
+}
+
 export type ClinicaConfiguracion = {
   plantillas?: PlantillaWsp[]
   recordatorios?: RecordatorioConfig[]
@@ -78,6 +90,7 @@ export type ClinicaConfiguracion = {
   recordatorios_email?: RecordatoriosEmailConfig
   agente_wsp?: AgenteWspConfig
   whatsapp_config?: WhatsappClinicaConfig
+  wizard_pasos?: WizardPasosConfig
 }
 
 const PLANTILLAS_DEFAULT: PlantillaWsp[] = [

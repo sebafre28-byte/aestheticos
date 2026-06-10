@@ -7,7 +7,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, ListChecks,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
@@ -20,10 +20,11 @@ import { Label } from "@/components/ui/label"
 import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
   crearProfesional, getClinicaId, TEMPLATE_RECORDATORIO_DEFAULT,
-  RECORDATORIOS_EMAIL_DEFAULT,
+  RECORDATORIOS_EMAIL_DEFAULT, WIZARD_PASOS_DEFAULT,
   getWhatsappClinicaConfig, guardarWhatsappConfig,
   type ClinicaBasica,
   type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig, type WhatsappClinicaConfig,
+  type WizardPasosConfig,
 } from "@/lib/onboarding/queries"
 import {
   getUsuariosClinica, invitarUsuario, actualizarRolUsuario, toggleActivoUsuario, eliminarUsuario,
@@ -37,7 +38,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "wizard"
 
 type NavGroup = {
   label: string
@@ -50,6 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "clinica",  label: "Datos generales",            icon: Building2 },
       { id: "horarios", label: "Horarios y disponibilidad",  icon: Clock },
+      { id: "wizard",   label: "Wizard de atención",         icon: ListChecks },
     ],
   },
   {
@@ -2586,12 +2588,93 @@ function BtnCerrarSesion() {
   )
 }
 
+// ─── Sección Wizard ──────────────────────────────────────────────────────────
+
+type WizardToggleItem = { key: keyof WizardPasosConfig; label: string; desc: string }
+const WIZARD_ITEMS: WizardToggleItem[] = [
+  { key: "ficha", label: "Ficha clínica",      desc: "Anamnesis, motivo de consulta, alergias y antecedentes" },
+  { key: "fotos", label: "Fotos antes/después", desc: "Captura o sube fotos del paciente durante la atención" },
+  { key: "notas", label: "Notas clínicas",      desc: "Campo libre para el profesional después del tratamiento" },
+]
+
+function SeccionWizard() {
+  const [pasos, setPasos] = useState<WizardPasosConfig>(WIZARD_PASOS_DEFAULT)
+  const [guardando, setGuardando] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+
+  useEffect(() => {
+    getClinicaConfig().then(cfg => {
+      if (cfg.wizard_pasos) setPasos({ ...WIZARD_PASOS_DEFAULT, ...cfg.wizard_pasos })
+    })
+  }, [])
+
+  async function guardar() {
+    setGuardando(true); setFeedback(null)
+    const cfg = await getClinicaConfig()
+    const ok = await actualizarClinicaConfig({ ...cfg, wizard_pasos: pasos })
+    setFeedback(ok ? { tipo: "ok", msg: "Configuración guardada." } : { tipo: "error", msg: "Error al guardar." })
+    setGuardando(false)
+  }
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader title="Wizard de atención" subtitle="Configura qué pasos aparecen al iniciar una cita" />
+      <div className="space-y-3">
+        {/* Paso fijo: Paciente */}
+        <div className="flex items-center justify-between p-3.5 rounded-xl border border-gray-100 bg-gray-50 opacity-60">
+          <div>
+            <p className="text-[13px] font-medium text-gray-700">Datos del paciente</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Verificar y completar datos básicos del paciente</p>
+          </div>
+          <div className="w-10 h-6 rounded-full bg-blue-500 flex items-center justify-end px-1 cursor-not-allowed">
+            <div className="w-4 h-4 rounded-full bg-white" />
+          </div>
+        </div>
+        {/* Pasos configurables */}
+        {WIZARD_ITEMS.map(item => (
+          <div key={item.key} className="flex items-center justify-between p-3.5 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
+            <div>
+              <p className="text-[13px] font-medium text-gray-700">{item.label}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{item.desc}</p>
+            </div>
+            <button
+              onClick={() => setPasos(p => ({ ...p, [item.key]: !p[item.key] }))}
+              className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 ${pasos[item.key] ? "bg-blue-500 justify-end" : "bg-gray-200 justify-start"}`}
+            >
+              <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+            </button>
+          </div>
+        ))}
+        {/* Paso fijo: Cierre */}
+        <div className="flex items-center justify-between p-3.5 rounded-xl border border-gray-100 bg-gray-50 opacity-60">
+          <div>
+            <p className="text-[13px] font-medium text-gray-700">Cierre de cita</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Marcar cita como completada y registrar cobro</p>
+          </div>
+          <div className="w-10 h-6 rounded-full bg-blue-500 flex items-center justify-end px-1 cursor-not-allowed">
+            <div className="w-4 h-4 rounded-full bg-white" />
+          </div>
+        </div>
+      </div>
+      {feedback && (
+        <p className={`text-[12px] ${feedback.tipo === "ok" ? "text-green-600" : "text-red-500"}`}>{feedback.msg}</p>
+      )}
+      <div className="flex gap-2">
+        <Button onClick={guardar} disabled={guardando} size="sm" className="bg-[#2563EB] text-white text-[13px]">
+          {guardando ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : null}
+          Guardar cambios
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","wizard"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
 
@@ -2616,6 +2699,7 @@ function ConfiguracionInner() {
     google:         <SeccionGoogleCalendar />,
     plan:           <SeccionPlan />,
     seguridad:      <SeccionSeguridad />,
+    wizard:         <SeccionWizard />,
   }
 
   return (
