@@ -129,6 +129,30 @@ export async function updateCalendarEvent(
   return res.ok
 }
 
+export async function listCalendarEvents(
+  accessToken: string,
+  calendarId: string,
+  timeMin: string,
+  timeMax: string
+): Promise<{ id: string; summary?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; extendedProperties?: { private?: Record<string, string> } }[]> {
+  const params = new URLSearchParams({
+    timeMin,
+    timeMax,
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: '250',
+  })
+  const res = await fetch(`${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    console.error('[gcal] listCalendarEvents failed', await res.text())
+    return []
+  }
+  const json = await res.json() as { items: unknown[] }
+  return (json.items ?? []) as ReturnType<typeof listCalendarEvents> extends Promise<infer T> ? T : never
+}
+
 export async function deleteCalendarEvent(
   accessToken: string,
   calendarId: string,
