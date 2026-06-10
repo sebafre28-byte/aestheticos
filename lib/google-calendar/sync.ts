@@ -12,9 +12,8 @@ function getServiceSupabase() {
 
 type Cita = {
   id: string
-  fecha: string
-  hora_inicio: string
-  hora_fin: string
+  inicio: string  // ISO timestamptz
+  fin: string     // ISO timestamptz
   paciente?: { nombre: string } | null
   servicio?: { nombre: string } | null
   profesional?: { nombre: string } | null
@@ -23,19 +22,17 @@ type Cita = {
 }
 
 function buildEvent(cita: Cita, clinicaNombre: string) {
-  const paciente = cita.paciente?.nombre ?? 'Paciente'
-  const servicio = cita.servicio?.nombre ?? 'Cita'
-  const start = `${cita.fecha}T${cita.hora_inicio}`
-  const end = `${cita.fecha}T${cita.hora_fin}`
+  const paciente = (cita.paciente as { nombre: string } | null)?.nombre ?? 'Paciente'
+  const servicio = (cita.servicio as { nombre: string } | null)?.nombre ?? 'Cita'
   return {
     summary: `${servicio} — ${paciente}`,
     description: [
-      cita.profesional ? `Profesional: ${cita.profesional.nombre}` : null,
+      (cita.profesional as { nombre: string } | null)?.nombre ? `Profesional: ${(cita.profesional as { nombre: string }).nombre}` : null,
       cita.notas ? `Notas: ${cita.notas}` : null,
       `Clínica: ${clinicaNombre}`,
     ].filter(Boolean).join('\n'),
-    start,
-    end,
+    start: cita.inicio,
+    end: cita.fin,
     extendedProperties: { private: { simpliclinic_cita_id: cita.id } },
   }
 }
@@ -71,7 +68,7 @@ export async function syncCitaToGoogle(
 
   const { data: cita } = await sb
     .from('citas')
-    .select('id, fecha, hora_inicio, hora_fin, google_event_id, notas, paciente:pacientes(nombre), servicio:servicios(nombre), profesional:profesionales(nombre)')
+    .select('id, inicio, fin, google_event_id, notas, paciente:pacientes(nombre), servicio:servicios(nombre), profesional:profesionales(nombre)')
     .eq('id', citaId)
     .maybeSingle()
 

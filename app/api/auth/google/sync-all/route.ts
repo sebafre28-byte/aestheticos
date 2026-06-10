@@ -45,8 +45,8 @@ export async function POST() {
     .from('citas')
     .select('id')
     .eq('clinica_id', clinicaId)
-    .gte('fecha', desde)
-    .lte('fecha', hasta)
+    .gte('inicio', `${desde}T00:00:00`)
+    .lte('inicio', `${hasta}T23:59:59`)
     .not('estado', 'eq', 'cancelada')
 
   if (!citas || citas.length === 0) return NextResponse.json({ synced: 0, failed: 0 })
