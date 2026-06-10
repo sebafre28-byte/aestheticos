@@ -1,6 +1,7 @@
 'use client'
 
 import { Menu } from 'lucide-react'
+import { NotificationBell } from './NotificationBell'
 
 type Props = {
   onOpenSidebar: () => void
@@ -19,7 +20,7 @@ export function MobileHeader({ onOpenSidebar }: Props) {
       >
         <Menu className="size-5" />
       </button>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-1">
         <svg width="26" height="26" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="32" height="32" rx="9" fill="white" />
           <rect x="13" y="7" width="6" height="18" rx="3" fill="#2563EB" />
@@ -27,6 +28,7 @@ export function MobileHeader({ onOpenSidebar }: Props) {
         </svg>
         <span className="text-[15px] font-bold text-white leading-tight tracking-tight">SimpliClinic</span>
       </div>
+      <NotificationBell />
     </header>
   )
 }

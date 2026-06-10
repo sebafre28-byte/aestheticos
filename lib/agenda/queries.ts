@@ -17,6 +17,14 @@ async function triggerCitaJobs(citaId: string, action: 'schedule' | 'cancel' | '
   }
 }
 
+function triggerGoogleSync(citaId: string, action: 'create' | 'update' | 'delete'): void {
+  fetch('/api/citas/sync-google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ citaId, action }),
+  }).catch(() => {})
+}
+
 /** Resultado típico de `.select()` en listas; evita que `withRetry` infiera `unknown`. */
 type SupabaseListResult<T> = { data: T[] | null; error: PostgrestError | null }
 
@@ -509,6 +517,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
   }
   invalidateAgendaCache()
   await triggerCitaJobs(citaCompleta.id, 'schedule')
+  triggerGoogleSync(citaCompleta.id, 'create')
 
   // Disparar notificaciones (no bloquea el flujo)
   dispararNotificacionCita(citaCompleta as CitaConRelaciones).catch(() => {})
@@ -697,6 +706,7 @@ export async function editarCita(
     return null
   }
   invalidateAgendaCache()
+  triggerGoogleSync(citaId, 'update')
   return actualizada as CitaConRelaciones
 }
 
@@ -718,6 +728,7 @@ export async function actualizarEstadoCita(
     return false
   }
   invalidateAgendaCache()
+  triggerGoogleSync(citaId, estado === 'cancelada' ? 'delete' : 'update')
   return true
 }
 
