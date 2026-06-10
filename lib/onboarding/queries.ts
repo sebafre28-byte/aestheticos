@@ -50,6 +50,9 @@ export const RECORDATORIOS_EMAIL_DEFAULT: RecordatoriosEmailConfig = {
 
 export type AgenteWspConfig = {
   activo: boolean
+  nombre_asistente?: string
+  tono?: 'cercano' | 'formal'
+  instrucciones_extra?: string
 }
 
 export type ClinicaConfiguracion = {
