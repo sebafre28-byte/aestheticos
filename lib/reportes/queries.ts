@@ -1,7 +1,6 @@
 // Queries de reportes: resumen mensual de citas, ingresos y top servicios (server-side).
 
 import { createClient } from '@/lib/supabase/server'
-import { getClinicaId } from '@/lib/onboarding/queries'
 import { montoIngresoCobrado } from '@/lib/cobros/utils'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -59,7 +58,7 @@ type CitaRaw = {
 
 export async function getReporteData(year: number, month: number): Promise<ReporteData> {
   const supabase = await createClient()
-  const clinicaId = await getClinicaId()
+  const { data: clinicaId } = await supabase.rpc('auth_clinica_id')
 
   const date = new Date(year, month - 1, 1)
   const rangeStart = startOfMonth(date)

@@ -2261,7 +2261,7 @@ function BtnCerrarSesion() {
     window.location.href = "/login"
   }
   return (
-    <button onClick={cerrar} className="w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+    <button onClick={cerrar} className="w-full flex items-center gap-2.5 h-10 sm:h-9 px-3 rounded-lg text-[13px] font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors whitespace-nowrap">
       <LogOut className="size-[15px] shrink-0" /> Cerrar sesión
     </button>
   )
@@ -2310,22 +2310,22 @@ function ConfiguracionInner() {
       <ClinicaHeaderCard />
 
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 flex-1 min-h-0">
-        <nav className="sm:w-[200px] w-full shrink-0 space-y-0.5">
+        <nav className="sm:w-[200px] w-full shrink-0 flex sm:flex-col gap-1 sm:gap-0 sm:space-y-0.5 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
           {NAV.map((item) => {
             const Icon = item.icon
             const isActive = activa === item.id
             return (
               <button key={item.id} onClick={() => setActiva(item.id)}
-                className={`w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left ${isActive ? "bg-blue-50 text-[#2563EB]" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}>
+                className={`shrink-0 sm:w-full flex items-center gap-2.5 h-10 sm:h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left whitespace-nowrap border sm:border-0 ${isActive ? "bg-blue-50 text-[#2563EB] border-blue-100" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50 border-gray-100 bg-white sm:bg-transparent"}`}>
                 <Icon className={`size-[15px] shrink-0 ${isActive ? "text-[#2563EB]" : "text-gray-400"}`} />
-                <span className="flex-1 truncate">{item.label}</span>
+                <span className="sm:flex-1 truncate">{item.label}</span>
                 {item.badge && (
                   <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${item.badgeColor}`}>{item.badge}</span>
                 )}
               </button>
             )
           })}
-          <div className="pt-3 mt-3 border-t border-gray-100">
+          <div className="shrink-0 sm:pt-3 sm:mt-3 sm:border-t border-gray-100">
             <BtnCerrarSesion />
           </div>
         </nav>
