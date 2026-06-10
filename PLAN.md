@@ -98,11 +98,11 @@
 ## MÓDULO 8 — QA Y BETA
 **Objetivo**: 3–5 clínicas reales prueban el sistema 1 semana antes del launch.
 
-- [ ] 8.1 Test RLS policies (script Supabase que valida aislamiento entre tenants)
-- [ ] 8.2 Fix race condition booking simultáneo (transaction lock)
+- [x] 8.1 Test RLS policies — `scripts/test-rls.ts` + `scripts/test-rls.sql` (dry-run y modo --full)
+- [x] 8.2 Fix race condition booking simultáneo — `044_booking_advisory_lock.sql` (pg_advisory_xact_lock + GIST exclusion_violation handler)
 - [ ] 8.3 Onboarding de 3 clínicas beta
 - [ ] 8.4 Recoger feedback y corregir bugs críticos
-- [ ] 8.5 Stress test: 100 reservas simultáneas en booking público
+- [x] 8.5 Stress test: 100 reservas simultáneas — `scripts/stress-test-booking.js`
 
 ---
 
@@ -144,7 +144,7 @@ M4 Performance       ██████████ 100%  ✅ COMPLETO
 M5 Invitación equipo ████░░░░░░  40%  (API existe, sin UI)
 M6 Monitoreo         ░░░░░░░░░░   0%
 M7 Crons mejorados   ████░░░░░░  40%  (estructura existe, timing malo)
-M8 QA y Beta         ░░░░░░░░░░   0%
+M8 QA y Beta         ████████░░  80%  (falta onboarding beta y feedback)
 M9 Launch            ░░░░░░░░░░   0%
 M10 Wizard cita      ░░░░░░░░░░   0%  (backlog)
 ```
