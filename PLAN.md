@@ -58,7 +58,7 @@
 
 - [x] 4.1 Paginación en lista de pacientes (`/pacientes`) — ya implementada con `.range()`
 - [x] 4.2 Paginación en lista de servicios — ya implementada con `.range()`
-- [ ] 4.3 Lazy load de citas en agenda (pospuesto a M8 QA)
+- [x] 4.3 Lazy load de citas en agenda — queries por rango visible + cache con TTL
 - [x] 4.4 Índices DB: compuestos para citas, pacientes y servicios (migración 024)
 
 ---
@@ -121,7 +121,7 @@ M0 Emails            ██████████ 100%  ✅ COMPLETO
 M1 Seguridad         ██████████ 100%  ✅ COMPLETO
 M2 Inbox WhatsApp    █████████░  90%  ✅ (falta prueba e2e con WhatsApp real)
 M3 Notas clínicas    ██████████ 100%  ✅ COMPLETO
-M4 Performance       █████████░  90%  ✅ (lazy load agenda pospuesto)
+M4 Performance       ██████████ 100%  ✅ COMPLETO
 M5 Invitación equipo ████░░░░░░  40%  (API existe, sin UI)
 M6 Monitoreo         ░░░░░░░░░░   0%
 M7 Crons mejorados   ████░░░░░░  40%  (estructura existe, timing malo)
