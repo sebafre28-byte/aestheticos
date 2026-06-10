@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import Image from 'next/image'
 import { getClinicaBasica } from '@/lib/onboarding/queries'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 
 type Props = {
   onOpenSidebar: () => void
@@ -54,6 +55,9 @@ export function MobileHeader({ onOpenSidebar }: Props) {
         <span className="text-[15px] font-bold text-white leading-tight tracking-tight truncate">
           {nombreClinica || 'SimpliClinic'}
         </span>
+      </div>
+      <div className="ml-auto -mr-1">
+        <NotificationBell dark />
       </div>
     </header>
   )
