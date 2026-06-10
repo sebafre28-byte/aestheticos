@@ -1037,6 +1037,9 @@ function SeccionRecordatorios() {
   // ── Email state ──
   const [emailCfg, setEmailCfg] = useState<RecordatoriosEmailConfig>(RECORDATORIOS_EMAIL_DEFAULT)
 
+  // ── Agente IA state ──
+  const [agenteActivo, setAgenteActivo] = useState(false)
+
   // ── Preview modal ──
   const [previewTipo, setPreviewTipo] = useState<PreviewTipo | null>(null)
 
@@ -1057,6 +1060,7 @@ function SeccionRecordatorios() {
       if (cfg.recordatorios_email) {
         setEmailCfg(cfg.recordatorios_email)
       }
+      setAgenteActivo(cfg.agente_wsp?.activo === true)
       setCargando(false)
     })
   }, [])
@@ -1075,6 +1079,7 @@ function SeccionRecordatorios() {
       ...cfg,
       recordatorios_wsp: { activo, minutos_antes: mins, template },
       recordatorios_email: emailCfg,
+      agente_wsp: { activo: agenteActivo },
     })
     setGuardando(false)
     if (ok) {
@@ -1091,6 +1096,32 @@ function SeccionRecordatorios() {
 
   return (
     <div className="space-y-8">
+
+      {/* ── BLOQUE AGENTE IA ────────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
+            <MessageCircle className="size-4 text-violet-600" />
+          </div>
+          <div>
+            <p className="text-[14px] font-semibold text-gray-900">Agente IA de agendamiento</p>
+            <p className="text-[12px] text-gray-400">Responde automáticamente por WhatsApp: agenda, cancela y reagenda citas por chat</p>
+          </div>
+          <div className="ml-auto">
+            <Toggle activo={agenteActivo} onChange={() => setAgenteActivo(v => !v)} />
+          </div>
+        </div>
+        {agenteActivo && (
+          <div className="pl-9">
+            <div className="bg-violet-50 rounded-xl border border-violet-100 p-4 text-[12px] text-violet-900 space-y-1">
+              <p>✓ Los pacientes pueden agendar, consultar y cancelar citas escribiendo por WhatsApp.</p>
+              <p>✓ El agente conoce tus servicios, profesionales y horarios, y solo ofrece horas realmente disponibles.</p>
+              <p>✓ Si el paciente lo pide o el tema es clínico, deriva la conversación a tu equipo (aparece en el Inbox).</p>
+              <p className="text-violet-600">Requiere WhatsApp conectado. No olvides guardar los cambios.</p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── BLOQUE WHATSAPP ─────────────────────────────────────────────────── */}
       <div>

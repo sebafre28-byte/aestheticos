@@ -48,12 +48,17 @@ export const RECORDATORIOS_EMAIL_DEFAULT: RecordatoriosEmailConfig = {
   post_cita: true,
 }
 
+export type AgenteWspConfig = {
+  activo: boolean
+}
+
 export type ClinicaConfiguracion = {
   plantillas?: PlantillaWsp[]
   recordatorios?: RecordatorioConfig[]
   horarios?: HorariosConfig
   recordatorios_wsp?: RecordatoriosWspConfig
   recordatorios_email?: RecordatoriosEmailConfig
+  agente_wsp?: AgenteWspConfig
 }
 
 const PLANTILLAS_DEFAULT: PlantillaWsp[] = [

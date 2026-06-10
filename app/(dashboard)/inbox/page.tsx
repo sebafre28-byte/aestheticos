@@ -19,7 +19,7 @@ type Conversacion = {
   id: string
   telefono: string
   paciente_nombre: string | null
-  estado: 'activa' | 'archivada' | 'spam'
+  estado: 'activa' | 'archivada' | 'spam' | 'humano'
   no_leidos: number
   ultimo_mensaje_at: string
   ultimo_mensaje: string
@@ -352,6 +352,26 @@ export default function InboxPage() {
               </button>
             </div>
           </div>
+
+          {/* Banner: conversación escalada por el agente IA */}
+          {seleccionada.estado === 'humano' && (
+            <div className="px-6 py-2 bg-violet-50 border-b border-violet-100 flex items-center justify-between">
+              <p className="text-xs text-violet-800">
+                🤖 El agente IA derivó esta conversación a tu equipo. El agente no responderá hasta que la devuelvas.
+              </p>
+              <button
+                onClick={async () => {
+                  const supabase = createClient()
+                  await supabase.from('conversaciones').update({ estado: 'activa' }).eq('id', seleccionada.id)
+                  setConversaciones(prev => prev.map(c => c.id === seleccionada.id ? { ...c, estado: 'activa' as const } : c))
+                  setSeleccionada(prev => prev ? { ...prev, estado: 'activa' as const } : prev)
+                }}
+                className="text-xs font-medium text-violet-700 hover:text-violet-900 underline whitespace-nowrap ml-3"
+              >
+                Devolver al agente IA
+              </button>
+            </div>
+          )}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-50">
