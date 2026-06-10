@@ -13,6 +13,7 @@ import { actualizarEstadoCita } from '@/lib/agenda/queries'
 import { crearNotaClinica } from '@/lib/pacientes/queries'
 import { crearFicha } from '@/lib/fichas/queries'
 import { TEMPLATES, TIPOS_TRATAMIENTO, type TipoTratamiento } from '@/lib/fichas/templates'
+import { getClinicaConfig, WIZARD_PASOS_DEFAULT, type WizardPasosConfig } from '@/lib/onboarding/queries'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -592,9 +593,28 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
   const [fichaId, setFichaId] = useState<string | null>(null)
   const [notaGuardada, setNotaGuardada] = useState(false)
   const [completada, setCompletada] = useState(false)
+  const [config, setConfig] = useState<WizardPasosConfig>(WIZARD_PASOS_DEFAULT)
+  const [cargandoConfig, setCargandoConfig] = useState(true)
+
+  useEffect(() => {
+    getClinicaConfig().then(cfg => {
+      if (cfg.wizard_pasos) setConfig({ ...WIZARD_PASOS_DEFAULT, ...cfg.wizard_pasos })
+      setCargandoConfig(false)
+    })
+  }, [])
 
   const paciente = cita.pacientes
-  const totalPasos = PASOS.length
+
+  // Construir lista de pasos activos según config
+  const pasosActivos: Paso[] = [
+    PASOS[0], // Paciente — siempre
+    ...(config.ficha ? [PASOS[1]] : []),
+    ...(config.fotos ? [PASOS[2]] : []),
+    ...(config.notas ? [PASOS[3]] : []),
+    PASOS[4], // Cierre — siempre
+  ]
+  const totalPasos = pasosActivos.length
+  const pasoActivo = pasosActivos[paso - 1]
 
   function handleCompletada() {
     setCompletada(true)
@@ -609,6 +629,12 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
   }, [])
+
+  if (cargandoConfig) return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white">
+      <Loader2 className="size-6 animate-spin text-gray-300" />
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col bg-white">
@@ -640,17 +666,18 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
             style={{ width: `${((paso - 1) / (totalPasos - 1)) * 100}%` }}
           />
         </div>
-        {/* Chips de pasos */}
+        {/* Chips de pasos activos */}
         <div className="flex justify-between">
-          {PASOS.map(p => {
+          {pasosActivos.map((p, idx) => {
             const Icono = p.icono
-            const activo = paso === p.id
-            const completo = paso > p.id
+            const numPaso = idx + 1
+            const activo = paso === numPaso
+            const completo = paso > numPaso
             return (
               <button
                 key={p.id}
-                onClick={() => completo && setPaso(p.id)}
-                className={`flex flex-col items-center gap-0.5 transition-opacity ${paso < p.id ? 'opacity-30' : ''} ${completo ? 'cursor-pointer' : 'cursor-default'}`}
+                onClick={() => completo && setPaso(numPaso)}
+                className={`flex flex-col items-center gap-0.5 transition-opacity ${paso < numPaso ? 'opacity-30' : ''} ${completo ? 'cursor-pointer' : 'cursor-default'}`}
               >
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${completo ? 'bg-[#2563EB]' : activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}>
                   {completo ? <Check className="size-3.5 text-white" /> : <Icono className={`size-3.5 ${activo ? 'text-white' : 'text-gray-400'}`} />}
@@ -679,14 +706,14 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
           ) : (
             <>
               <h2 className="text-[15px] font-semibold text-gray-900 mb-4">
-                {PASOS[paso - 1]?.titulo}
+                {pasoActivo?.titulo}
               </h2>
 
-              {paso === 1 && <PasoPaciente cita={cita} />}
-              {paso === 2 && <PasoFicha cita={cita} onFichaGuardada={id => setFichaId(id)} />}
-              {paso === 3 && <PasoFotos cita={cita} />}
-              {paso === 4 && <PasoNotas cita={cita} onNotaGuardada={() => setNotaGuardada(true)} />}
-              {paso === 5 && <PasoCierre cita={cita} onCompletada={handleCompletada} />}
+              {pasoActivo?.id === 1 && <PasoPaciente cita={cita} />}
+              {pasoActivo?.id === 2 && <PasoFicha cita={cita} onFichaGuardada={id => setFichaId(id)} />}
+              {pasoActivo?.id === 3 && <PasoFotos cita={cita} />}
+              {pasoActivo?.id === 4 && <PasoNotas cita={cita} onNotaGuardada={() => setNotaGuardada(true)} />}
+              {pasoActivo?.id === 5 && <PasoCierre cita={cita} onCompletada={handleCompletada} />}
             </>
           )}
         </div>

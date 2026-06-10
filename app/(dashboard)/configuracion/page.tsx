@@ -7,7 +7,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, ListChecks,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
@@ -20,9 +20,9 @@ import { Label } from "@/components/ui/label"
 import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
   crearProfesional, getClinicaId, TEMPLATE_RECORDATORIO_DEFAULT,
-  RECORDATORIOS_EMAIL_DEFAULT,
+  RECORDATORIOS_EMAIL_DEFAULT, WIZARD_PASOS_DEFAULT,
   getWhatsappClinicaConfig, guardarWhatsappConfig,
-  type ClinicaBasica,
+  type ClinicaBasica, type WizardPasosConfig,
   type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig, type WhatsappClinicaConfig,
 } from "@/lib/onboarding/queries"
 import {
@@ -37,7 +37,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "wizard"
 
 type NavGroup = {
   label: string
@@ -50,6 +50,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "clinica",  label: "Datos generales",            icon: Building2 },
       { id: "horarios", label: "Horarios y disponibilidad",  icon: Clock },
+      { id: "wizard",   label: "Wizard de atención",         icon: ListChecks },
     ],
   },
   {
@@ -1692,6 +1693,122 @@ function SeccionRecordatorios() {
   )
 }
 
+// ─── Sección Wizard ──────────────────────────────────────────────────────────
+
+const PASOS_WIZARD_CONFIG: {
+  key: keyof WizardPasosConfig
+  label: string
+  descripcion: string
+  bloqueado?: boolean
+}[] = [
+  { key: 'ficha', label: 'Ficha clínica',    descripcion: 'Formulario con campos según el tipo de tratamiento (botox, láser, facial, etc.)' },
+  { key: 'fotos', label: 'Fotos',            descripcion: 'Subir fotos antes y después de la sesión, vinculadas a la cita' },
+  { key: 'notas', label: 'Notas clínicas',   descripcion: 'Campo de texto libre para observaciones del profesional' },
+]
+
+function SeccionWizard() {
+  const [pasos, setPasos] = useState<WizardPasosConfig>(WIZARD_PASOS_DEFAULT)
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null)
+
+  useEffect(() => {
+    getClinicaConfig().then(cfg => {
+      if (cfg.wizard_pasos) setPasos({ ...WIZARD_PASOS_DEFAULT, ...cfg.wizard_pasos })
+      setCargando(false)
+    })
+  }, [])
+
+  async function guardar() {
+    setGuardando(true)
+    setFeedback(null)
+    const cfg = await getClinicaConfig()
+    const ok = await actualizarClinicaConfig({ ...cfg, wizard_pasos: pasos })
+    setGuardando(false)
+    if (ok) {
+      setFeedback({ tipo: 'ok', msg: 'Configuración guardada correctamente.' })
+      setTimeout(() => setFeedback(null), 3000)
+    } else {
+      setFeedback({ tipo: 'error', msg: 'No se pudo guardar.' })
+    }
+  }
+
+  if (cargando) return (
+    <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
+      <Loader2 className="size-4 animate-spin" /> Cargando…
+    </div>
+  )
+
+  return (
+    <div>
+      <SectionHeader
+        title="Wizard de atención"
+        subtitle="Elige qué pasos aparecen al iniciar una cita"
+      />
+
+      <div className="space-y-3 mb-6">
+        {/* Paso fijo: Paciente */}
+        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 opacity-60">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-semibold text-gray-900">Datos del paciente</p>
+              <p className="text-[12px] text-gray-500 mt-0.5">Revisión y completado de datos básicos — siempre activo</p>
+            </div>
+            <div className="shrink-0">
+              <div className="relative inline-flex h-5 w-9 items-center rounded-full bg-[#2563EB] cursor-not-allowed">
+                <span className="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow translate-x-[18px]" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pasos configurables */}
+        {PASOS_WIZARD_CONFIG.map(paso => (
+          <div key={paso.key} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[13px] font-semibold text-gray-900">{paso.label}</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">{paso.descripcion}</p>
+              </div>
+              <div className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPasos(p => ({ ...p, [paso.key]: !p[paso.key] }))}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none ${pasos[paso.key] ? 'bg-[#2563EB]' : 'bg-gray-200'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${pasos[paso.key] ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Paso fijo: Cierre */}
+        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 opacity-60">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-semibold text-gray-900">Cierre de cita</p>
+              <p className="text-[12px] text-gray-500 mt-0.5">Completar cita y registrar pago — siempre activo</p>
+            </div>
+            <div className="shrink-0">
+              <div className="relative inline-flex h-5 w-9 items-center rounded-full bg-[#2563EB] cursor-not-allowed">
+                <span className="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow translate-x-[18px]" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Feedback f={feedback} />
+      <div className="flex justify-end">
+        <Button onClick={guardar} disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}>
+          {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : 'Guardar configuración'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Sección Google Calendar ──────────────────────────────────────────────────
 
 type SyncMode = 'push_only' | 'pull_only' | 'bidirectional'
@@ -2591,7 +2708,7 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","wizard"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
 
@@ -2614,6 +2731,7 @@ function ConfiguracionInner() {
     whatsapp:       <SeccionWhatsApp />,
     recordatorios:  <SeccionRecordatorios />,
     google:         <SeccionGoogleCalendar />,
+    wizard:         <SeccionWizard />,
     plan:           <SeccionPlan />,
     seguridad:      <SeccionSeguridad />,
   }
