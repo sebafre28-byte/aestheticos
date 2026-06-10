@@ -14,6 +14,7 @@ import { crearNotaClinica } from '@/lib/pacientes/queries'
 import { crearFicha } from '@/lib/fichas/queries'
 import { TEMPLATES, TIPOS_TRATAMIENTO, type TipoTratamiento } from '@/lib/fichas/templates'
 import { createClient } from '@/lib/supabase/client'
+import { getClinicaConfig, WIZARD_PASOS_DEFAULT, type WizardPasosConfig } from '@/lib/onboarding/queries'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -587,14 +588,40 @@ function PasoCierre({
 
 // ─── Wizard principal ─────────────────────────────────────────────────────────
 
+// Mapeo de id de paso original → componente
+const PASO_ID_PACIENTE = 1
+const PASO_ID_FICHA    = 2
+const PASO_ID_FOTOS    = 3
+const PASO_ID_NOTAS    = 4
+const PASO_ID_CIERRE   = 5
+
+function buildPasosActivos(cfg: WizardPasosConfig): Paso[] {
+  return PASOS.filter(p => {
+    if (p.id === PASO_ID_PACIENTE || p.id === PASO_ID_CIERRE) return true
+    if (p.id === PASO_ID_FICHA)  return cfg.ficha
+    if (p.id === PASO_ID_FOTOS)  return cfg.fotos
+    if (p.id === PASO_ID_NOTAS)  return cfg.notas
+    return true
+  })
+}
+
 export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Props) {
-  const [paso, setPaso] = useState(1)
+  const [pasoIdx, setPasoIdx] = useState(0)
   const [fichaId, setFichaId] = useState<string | null>(null)
   const [notaGuardada, setNotaGuardada] = useState(false)
   const [completada, setCompletada] = useState(false)
+  const [pasosActivos, setPasosActivos] = useState<Paso[]>(PASOS)
 
   const paciente = cita.pacientes
-  const totalPasos = PASOS.length
+  const totalPasos = pasosActivos.length
+  const pasoActual = pasosActivos[pasoIdx]
+
+  useEffect(() => {
+    getClinicaConfig().then(cfg => {
+      const wizardCfg: WizardPasosConfig = { ...WIZARD_PASOS_DEFAULT, ...(cfg.wizard_pasos ?? {}) }
+      setPasosActivos(buildPasosActivos(wizardCfg))
+    })
+  }, [])
 
   function handleCompletada() {
     setCompletada(true)
@@ -633,24 +660,22 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
 
       {/* ── Barra de progreso + pasos ── */}
       <div className="px-5 py-3 border-b border-gray-100 shrink-0">
-        {/* Barra */}
         <div className="h-1.5 bg-gray-100 rounded-full mb-3">
           <div
             className="h-full rounded-full bg-[#2563EB] transition-all duration-300"
-            style={{ width: `${((paso - 1) / (totalPasos - 1)) * 100}%` }}
+            style={{ width: totalPasos > 1 ? `${(pasoIdx / (totalPasos - 1)) * 100}%` : '0%' }}
           />
         </div>
-        {/* Chips de pasos */}
         <div className="flex justify-between">
-          {PASOS.map(p => {
+          {pasosActivos.map((p, idx) => {
             const Icono = p.icono
-            const activo = paso === p.id
-            const completo = paso > p.id
+            const activo = pasoIdx === idx
+            const completo = pasoIdx > idx
             return (
               <button
                 key={p.id}
-                onClick={() => completo && setPaso(p.id)}
-                className={`flex flex-col items-center gap-0.5 transition-opacity ${paso < p.id ? 'opacity-30' : ''} ${completo ? 'cursor-pointer' : 'cursor-default'}`}
+                onClick={() => completo && setPasoIdx(idx)}
+                className={`flex flex-col items-center gap-0.5 transition-opacity ${pasoIdx < idx ? 'opacity-30' : ''} ${completo ? 'cursor-pointer' : 'cursor-default'}`}
               >
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${completo ? 'bg-[#2563EB]' : activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}>
                   {completo ? <Check className="size-3.5 text-white" /> : <Icono className={`size-3.5 ${activo ? 'text-white' : 'text-gray-400'}`} />}
@@ -679,14 +704,14 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
           ) : (
             <>
               <h2 className="text-[15px] font-semibold text-gray-900 mb-4">
-                {PASOS[paso - 1]?.titulo}
+                {pasoActual?.titulo}
               </h2>
 
-              {paso === 1 && <PasoPaciente cita={cita} />}
-              {paso === 2 && <PasoFicha cita={cita} onFichaGuardada={id => setFichaId(id)} />}
-              {paso === 3 && <PasoFotos cita={cita} />}
-              {paso === 4 && <PasoNotas cita={cita} onNotaGuardada={() => setNotaGuardada(true)} />}
-              {paso === 5 && <PasoCierre cita={cita} onCompletada={handleCompletada} />}
+              {pasoActual?.id === PASO_ID_PACIENTE && <PasoPaciente cita={cita} />}
+              {pasoActual?.id === PASO_ID_FICHA    && <PasoFicha cita={cita} onFichaGuardada={id => setFichaId(id)} />}
+              {pasoActual?.id === PASO_ID_FOTOS    && <PasoFotos cita={cita} />}
+              {pasoActual?.id === PASO_ID_NOTAS    && <PasoNotas cita={cita} onNotaGuardada={() => setNotaGuardada(true)} />}
+              {pasoActual?.id === PASO_ID_CIERRE   && <PasoCierre cita={cita} onCompletada={handleCompletada} />}
             </>
           )}
         </div>
@@ -696,18 +721,18 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
       {!completada && (
         <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between shrink-0 bg-white">
           <button
-            onClick={() => setPaso(p => Math.max(1, p - 1))}
-            disabled={paso === 1}
+            onClick={() => setPasoIdx(i => Math.max(0, i - 1))}
+            disabled={pasoIdx === 0}
             className="h-9 px-4 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
           >
             <ChevronLeft className="size-4" /> Anterior
           </button>
 
-          <span className="text-[12px] text-gray-400">{paso} / {totalPasos}</span>
+          <span className="text-[12px] text-gray-400">{pasoIdx + 1} / {totalPasos}</span>
 
-          {paso < totalPasos ? (
+          {pasoIdx < totalPasos - 1 ? (
             <button
-              onClick={() => setPaso(p => Math.min(totalPasos, p + 1))}
+              onClick={() => setPasoIdx(i => Math.min(totalPasos - 1, i + 1))}
               className="h-9 px-4 rounded-lg border-0 text-[13px] font-medium text-white flex items-center gap-1.5 transition-colors"
               style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
             >
