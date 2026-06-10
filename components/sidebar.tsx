@@ -87,6 +87,15 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       {/* Logo SimpliClinic */}
       <div className="px-4 pt-5 pb-4 border-b border-white/10">
         <div className="flex items-center gap-2.5">
+          {onClose && (
+            <button
+              onClick={onClose}
+              aria-label="Cerrar menú"
+              className="md:hidden absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          )}
           {logoClinica ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoClinica} width={28} height={28} className="w-7 h-7 rounded-lg object-cover" alt="logo" />
@@ -128,6 +137,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={cn(
                 "flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors group",
                 isActive ? "text-white" : "hover:bg-white/10"

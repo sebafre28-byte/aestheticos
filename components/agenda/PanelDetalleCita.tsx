@@ -346,7 +346,7 @@ export function PanelDetalleCita({
         role="dialog"
         aria-modal="true"
         aria-label={isVistaProfe ? 'Detalle de mi cita' : 'Detalle de cita'}
-        className="fixed top-0 right-0 h-full w-[380px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-100 animate-slide-in-right"
+        className="fixed top-0 right-0 h-full w-full sm:w-[380px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-100 animate-slide-in-right"
       >
 
         {/* Header */}
@@ -581,7 +581,7 @@ export function PanelDetalleCita({
                       {puedeEscribirNotas && (
                         <button
                           onClick={() => borrarNota(nota.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 flex-shrink-0"
+                          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 flex-shrink-0"
                         >
                           <Trash2 className="size-3 text-red-400" />
                         </button>

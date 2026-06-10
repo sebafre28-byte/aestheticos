@@ -35,10 +35,16 @@ export default async function ReportesPage({ searchParams }: { searchParams: Sea
 
   const { resumen, citas, topServicios, mesLabel } = reporte
 
-  const kpis = [
+  const kpis: { label: string; value: string | number; suffix: string; valueClassName?: string }[] = [
     { label: 'Total citas', value: resumen.totalCitas, suffix: '' },
     { label: 'Completadas', value: resumen.completadas, suffix: '' },
     { label: 'Canceladas', value: resumen.canceladas, suffix: '' },
+    {
+      label: 'Tasa de no-show',
+      value: `${resumen.tasaNoShow.toFixed(1).replace('.', ',')}%`,
+      suffix: '',
+      valueClassName: resumen.tasaNoShow > 15 ? 'text-amber-600' : undefined,
+    },
     { label: 'Ingresos totales', value: formatCLP(resumen.ingresosTotales), suffix: '' },
   ]
 
@@ -66,14 +72,14 @@ export default async function ReportesPage({ searchParams }: { searchParams: Sea
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 print:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 print:grid-cols-5">
         {kpis.map((kpi) => (
           <div
             key={kpi.label}
             className="rounded-xl border border-slate-200 bg-white p-5 print:shadow-none print:border-slate-300"
           >
             <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide">{kpi.label}</p>
-            <p className="mt-1.5 text-[24px] font-bold text-[#0B132B] leading-tight">
+            <p className={`mt-1.5 text-[24px] font-bold leading-tight ${kpi.valueClassName ?? 'text-[#0B132B]'}`}>
               {kpi.value}{kpi.suffix}
             </p>
           </div>
@@ -154,6 +160,12 @@ export default async function ReportesPage({ searchParams }: { searchParams: Sea
                 <span className="text-[12px] text-slate-500">Pacientes únicos</span>
                 <span className="text-[13px] font-semibold text-[#0B132B]">
                   {resumen.pacientesAtendidos}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-slate-500">No asistió</span>
+                <span className="text-[13px] font-semibold text-red-600">
+                  {resumen.noShows}
                 </span>
               </div>
               <div className="flex justify-between items-center">

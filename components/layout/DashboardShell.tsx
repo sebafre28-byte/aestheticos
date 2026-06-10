@@ -7,6 +7,7 @@ import { MobileHeader } from '@/components/layout/MobileHeader'
 import { TrialBanner } from '@/components/subscriptions/TrialBanner'
 import { usePresenceBroadcast } from '@/lib/auth/usePresence'
 import { useSubscripcion } from '@/lib/subscriptions/useSubscripcion'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -58,6 +59,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile top header */}
       <MobileHeader onOpenSidebar={() => setSidebarOpen(true)} />
+
+      {/* Desktop notification bell — fixed top-right */}
+      <div className="hidden md:block fixed top-3 right-4 z-40">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <NotificationBell />
+        </div>
+      </div>
 
       {/* Main content — push down on mobile for fixed header */}
       <div className="flex-1 flex flex-col overflow-hidden">
