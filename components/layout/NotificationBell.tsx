@@ -15,6 +15,11 @@ type Notificacion = {
   fecha: string // ISO timestamptz
 }
 
+type UsuarioInfo = {
+  rol: string | null
+  profesionalId: string | null
+}
+
 const LAST_SEEN_KEY = 'sc-notif-last-seen'
 const POLL_MS = 60_000
 const VENTANA_HORAS = 48
@@ -36,31 +41,68 @@ function nombreRelacion(rel: { nombre: string } | { nombre: string }[] | null): 
   return Array.isArray(rel) ? rel[0]?.nombre ?? null : rel.nombre
 }
 
-async function cargarNotificaciones(): Promise<Notificacion[]> {
+async function getUsuarioInfo(): Promise<UsuarioInfo> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { rol: null, profesionalId: null }
+
+  const { data } = await supabase
+    .from('usuarios_clinica')
+    .select('rol, profesional_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  return {
+    rol: data?.rol ?? null,
+    profesionalId: data?.profesional_id ?? null,
+  }
+}
+
+async function cargarNotificaciones(usuario: UsuarioInfo): Promise<Notificacion[]> {
   const supabase = createClient()
   const desde = new Date(Date.now() - VENTANA_HORAS * 3600_000).toISOString()
+  const esProfesional = usuario.rol === 'profesional' && !!usuario.profesionalId
+
+  let nuevasQuery = supabase
+    .from('citas')
+    .select('id, created_at, pacientes(nombre), servicios(nombre)')
+    .eq('estado', 'pendiente')
+    .gte('created_at', desde)
+    .order('created_at', { ascending: false })
+    .limit(15)
+
+  let canceladasQuery = supabase
+    .from('citas')
+    .select('id, updated_at, pacientes(nombre)')
+    .eq('estado', 'cancelada')
+    .gte('updated_at', desde)
+    .order('updated_at', { ascending: false })
+    .limit(15)
+
+  // Profesionales solo ven sus propias citas
+  if (esProfesional) {
+    nuevasQuery = nuevasQuery.eq('profesional_id', usuario.profesionalId!)
+    canceladasQuery = canceladasQuery.eq('profesional_id', usuario.profesionalId!)
+  }
 
   const [nuevas, noLeidas, canceladas] = await Promise.all([
-    supabase
-      .from('citas')
-      .select('id, created_at, pacientes(nombre), servicios(nombre)')
-      .eq('estado', 'pendiente')
-      .gte('created_at', desde)
-      .order('created_at', { ascending: false })
-      .limit(15),
-    supabase
-      .from('conversaciones')
-      .select('id, telefono, no_leidos, ultimo_mensaje_at, pacientes(nombre)')
-      .gt('no_leidos', 0)
-      .order('ultimo_mensaje_at', { ascending: false })
-      .limit(15),
-    supabase
-      .from('citas')
-      .select('id, updated_at, pacientes(nombre)')
-      .eq('estado', 'cancelada')
-      .gte('updated_at', desde)
-      .order('updated_at', { ascending: false })
-      .limit(15),
+    nuevasQuery,
+    // Mensajes: profesionales solo ven conversaciones asignadas a ellos
+    esProfesional
+      ? supabase
+          .from('conversaciones')
+          .select('id, telefono, no_leidos, ultimo_mensaje_at, pacientes(nombre)')
+          .gt('no_leidos', 0)
+          .eq('asignado_a', usuario.profesionalId!)
+          .order('ultimo_mensaje_at', { ascending: false })
+          .limit(15)
+      : supabase
+          .from('conversaciones')
+          .select('id, telefono, no_leidos, ultimo_mensaje_at, pacientes(nombre)')
+          .gt('no_leidos', 0)
+          .order('ultimo_mensaje_at', { ascending: false })
+          .limit(15),
+    canceladasQuery,
   ])
 
   const items: Notificacion[] = []
@@ -119,13 +161,19 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
     const v = window.localStorage.getItem(LAST_SEEN_KEY)
     return v ? Number(v) : 0
   })
+  const [usuario, setUsuario] = useState<UsuarioInfo>({ rol: null, profesionalId: null })
   const containerRef = useRef<HTMLDivElement>(null)
 
+  useEffect(() => {
+    getUsuarioInfo().then(setUsuario)
+  }, [])
+
   const refrescar = useCallback(() => {
-    cargarNotificaciones()
+    if (usuario.rol === null) return // esperar a que cargue el rol
+    cargarNotificaciones(usuario)
       .then(setNotificaciones)
       .catch(() => { /* silencioso: sin sesión o sin red */ })
-  }, [])
+  }, [usuario])
 
   // Carga inicial + polling cada 60s
   useEffect(() => {
