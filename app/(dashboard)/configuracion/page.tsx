@@ -895,6 +895,29 @@ function SeccionWhatsApp() {
     <div>
       <SectionHeader title="WhatsApp Business" subtitle="Conexión y credenciales por clínica" />
 
+      {/* Webhook URL */}
+      <div className="bg-blue-50/60 rounded-xl border border-blue-100 p-4 mb-6">
+        <div className="flex items-start gap-3">
+          <Link2 className="size-4 text-[#2563EB] mt-0.5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-semibold text-[#2563EB] mb-1">URL del webhook</p>
+            <p className="text-[11px] text-gray-500 mb-2">Pega esta URL al configurar el webhook en Meta o Twilio:</p>
+            <div className="flex items-center gap-2">
+              <code className="text-[11px] bg-white border border-blue-100 rounded-lg px-2.5 py-1 text-gray-700 font-mono truncate flex-1">
+                {typeof window !== "undefined" ? `${window.location.origin}/api/whatsapp/webhook` : "https://simpliclinic.cl/api/whatsapp/webhook"}
+              </code>
+              <button
+                type="button"
+                onClick={() => typeof window !== "undefined" && navigator.clipboard.writeText(`${window.location.origin}/api/whatsapp/webhook`)}
+                className="h-7 px-2.5 rounded-lg border border-blue-200 bg-white text-[11px] font-medium text-[#2563EB] hover:bg-blue-50 transition-colors shrink-0 flex items-center gap-1.5"
+              >
+                <Copy className="size-3" /> Copiar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Estado de conexión */}
       <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-6">
         <div className="flex items-center gap-4">
