@@ -1039,6 +1039,9 @@ function SeccionRecordatorios() {
 
   // ── Agente IA state ──
   const [agenteActivo, setAgenteActivo] = useState(false)
+  const [agenteNombre, setAgenteNombre] = useState("")
+  const [agenteTono, setAgenteTono] = useState<'cercano' | 'formal'>('cercano')
+  const [agenteInstrucciones, setAgenteInstrucciones] = useState("")
 
   // ── Preview modal ──
   const [previewTipo, setPreviewTipo] = useState<PreviewTipo | null>(null)
@@ -1061,6 +1064,9 @@ function SeccionRecordatorios() {
         setEmailCfg(cfg.recordatorios_email)
       }
       setAgenteActivo(cfg.agente_wsp?.activo === true)
+      setAgenteNombre(cfg.agente_wsp?.nombre_asistente ?? "")
+      setAgenteTono(cfg.agente_wsp?.tono === 'formal' ? 'formal' : 'cercano')
+      setAgenteInstrucciones(cfg.agente_wsp?.instrucciones_extra ?? "")
       setCargando(false)
     })
   }, [])
@@ -1079,7 +1085,12 @@ function SeccionRecordatorios() {
       ...cfg,
       recordatorios_wsp: { activo, minutos_antes: mins, template },
       recordatorios_email: emailCfg,
-      agente_wsp: { activo: agenteActivo },
+      agente_wsp: {
+        activo: agenteActivo,
+        nombre_asistente: agenteNombre.trim() || undefined,
+        tono: agenteTono,
+        instrucciones_extra: agenteInstrucciones.trim() || undefined,
+      },
     })
     setGuardando(false)
     if (ok) {
@@ -1112,13 +1123,69 @@ function SeccionRecordatorios() {
           </div>
         </div>
         {agenteActivo && (
-          <div className="pl-9">
+          <div className="pl-9 space-y-4">
             <div className="bg-violet-50 rounded-xl border border-violet-100 p-4 text-[12px] text-violet-900 space-y-1">
               <p>✓ Los pacientes pueden agendar, consultar y cancelar citas escribiendo por WhatsApp.</p>
               <p>✓ El agente conoce tus servicios, profesionales y horarios, y solo ofrece horas realmente disponibles.</p>
               <p>✓ Si el paciente lo pide o el tema es clínico, deriva la conversación a tu equipo (aparece en el Inbox).</p>
               <p className="text-violet-600">Requiere WhatsApp conectado. No olvides guardar los cambios.</p>
             </div>
+
+            {/* Personalización del agente */}
+            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-4">
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-1">Nombre del asistente</p>
+                <input
+                  type="text"
+                  value={agenteNombre}
+                  onChange={(e) => setAgenteNombre(e.target.value)}
+                  placeholder="ej: Sofi"
+                  className="h-8 w-full max-w-[240px] px-2.5 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                />
+              </div>
+
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-2">Tono de conversación</p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { label: "Cercano", value: 'cercano' },
+                    { label: "Formal",  value: 'formal' },
+                  ] as const).map((op) => (
+                    <button
+                      key={op.value}
+                      type="button"
+                      onClick={() => setAgenteTono(op.value)}
+                      className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${agenteTono === op.value ? "border-violet-600 bg-violet-50 text-violet-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  {agenteTono === 'formal' ? 'Trata a los pacientes de usted, sin emojis.' : 'Trato cercano y profesional, estilo chileno.'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-1">Instrucciones adicionales</p>
+                <p className="text-[12px] text-gray-400 mb-2">Reglas propias de tu clínica que el agente debe seguir</p>
+                <textarea
+                  value={agenteInstrucciones}
+                  onChange={(e) => setAgenteInstrucciones(e.target.value)}
+                  rows={4}
+                  placeholder="ej: No agendar primeras horas del lunes. Los tratamientos láser requieren evaluación previa."
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-[13px] text-gray-900 leading-relaxed placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
+                />
+              </div>
+            </div>
+
+            <a
+              href="/configuracion/agente-test"
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-700 hover:text-violet-900"
+            >
+              <MessageCircle className="size-3.5" />
+              Probar el agente en el simulador →
+            </a>
           </div>
         )}
       </div>
