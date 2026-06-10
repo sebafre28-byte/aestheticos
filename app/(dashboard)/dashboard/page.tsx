@@ -96,7 +96,7 @@ export default async function DashboardPage() {
         <MetricCard
           title="Citas hoy"
           value={String(data.citasHoy.total)}
-          detail={`${data.citasHoy.confirmadas} conf · ${data.citasHoy.pendientes} pend · ${data.citasHoy.completadas} comp`}
+          detail={`${data.citasHoy.confirmadas} conf · ${data.citasHoy.pendientes} pend · ${formatCLP(data.ingresosHoy)} hoy`}
           icon={CalendarDays}
           accent="primary"
         />
