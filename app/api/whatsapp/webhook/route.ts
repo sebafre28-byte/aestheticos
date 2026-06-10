@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { handleInboundTwilioMessage } from '@/lib/whatsapp/jobs'
+import { responderConAgente } from '@/lib/whatsapp/agente'
+import { getWhatsappProvider, toWhatsAppE164 } from '@/lib/whatsapp/provider'
 
 export const runtime = 'nodejs'
 
@@ -195,6 +197,41 @@ async function handleMetaPost(request: NextRequest): Promise<NextResponse> {
           .eq('id', conv.id)
 
         console.log('[whatsapp/webhook/meta] mensaje entrante guardado', { from, wamid: msg.id, phoneNumberId })
+
+        // ─── Agente IA de agendamiento ───
+        if (conv.clinica_id) {
+          try {
+            const { texto } = await responderConAgente({
+              supabase,
+              clinicaId: conv.clinica_id,
+              conversacionId: conv.id,
+              telefono: from,
+            })
+            if (texto) {
+              const provider = getWhatsappProvider()
+              const to = toWhatsAppE164(from)
+              if (to) {
+                const sent = await provider.sendWhatsApp({ to, body: texto })
+                await supabase.from('mensajes_inbox').insert({
+                  conversacion_id: conv.id,
+                  clinica_id: conv.clinica_id,
+                  direccion: 'saliente',
+                  contenido: texto,
+                  tipo: 'texto',
+                  estado_whatsapp: sent.ok ? 'enviado' : 'fallido',
+                  wamid: sent.providerMessageId ?? null,
+                })
+                await supabase
+                  .from('conversaciones')
+                  .update({ ultimo_mensaje_at: new Date().toISOString() })
+                  .eq('id', conv.id)
+              }
+            }
+          } catch (e) {
+            Sentry.captureException(e, { tags: { webhook: 'whatsapp-agente' } })
+            console.error('[whatsapp/webhook/meta] agente falló', e)
+          }
+        }
       }
     }
   }
