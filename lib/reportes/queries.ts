@@ -31,6 +31,8 @@ export type ReporteData = {
     completadas: number
     canceladas: number
     pendientes: number
+    noShows: number
+    tasaNoShow: number
     ingresosTotales: number
     ticketPromedio: number
     pacientesAtendidos: number
@@ -102,6 +104,9 @@ export async function getReporteData(year: number, month: number): Promise<Repor
   const completadas = citas.filter((c) => c.estado === 'completada').length
   const canceladas = citas.filter((c) => c.estado === 'cancelada' || c.estado === 'no_asistio').length
   const pendientes = citas.filter((c) => c.estado === 'pendiente').length
+  const noShows = citas.filter((c) => c.estado === 'no_asistio').length
+  const tasaNoShow =
+    completadas + noShows > 0 ? (noShows / (completadas + noShows)) * 100 : 0
 
   const ingresosTotales = citas.reduce(
     (acc, c) => acc + montoIngresoCobrado(c.pago_estado as PagoEstado, c.pago_monto),
@@ -140,6 +145,8 @@ export async function getReporteData(year: number, month: number): Promise<Repor
       completadas,
       canceladas,
       pendientes,
+      noShows,
+      tasaNoShow,
       ingresosTotales,
       ticketPromedio,
       pacientesAtendidos,
