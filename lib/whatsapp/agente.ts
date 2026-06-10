@@ -226,9 +226,10 @@ const TOOLS: Anthropic.Tool[] = [
         fecha: { type: 'string', description: 'YYYY-MM-DD' },
         hora: { type: 'string', description: 'HH:MM (de consultar_disponibilidad)' },
         nombre_paciente: { type: 'string', description: 'Nombre completo del paciente' },
-        email_paciente: { type: 'string', description: 'Email del paciente (opcional)' },
+        rut_paciente: { type: 'string', description: 'RUT del paciente con dígito verificador, ej: 12.345.678-9' },
+        email_paciente: { type: 'string', description: 'Email del paciente para enviar confirmación' },
       },
-      required: ['servicio_id', 'profesional_id', 'fecha', 'hora', 'nombre_paciente'],
+      required: ['servicio_id', 'profesional_id', 'fecha', 'hora', 'nombre_paciente', 'rut_paciente', 'email_paciente'],
     },
   },
   {
@@ -307,7 +308,7 @@ async function ejecutarTool(
       p_paciente_telefono: telefono,
       p_paciente_email: input.email_paciente ? String(input.email_paciente) : null,
       p_notas: 'Agendada vía WhatsApp (agente IA)',
-      p_paciente_rut: null,
+      p_paciente_rut: input.rut_paciente ? String(input.rut_paciente) : null,
     })
     if (error) return { result: JSON.stringify({ error: error.message }) }
     const res = data as { cita_id?: string; cancel_token?: string; ok?: boolean; error?: string }
@@ -463,7 +464,7 @@ REGLAS
     ? 'profesional y formal: trata al paciente de usted y NO uses emojis.'
     : 'cercano y profesional.'} Mensajes cortos: esto es WhatsApp, máximo 3-4 líneas por mensaje salvo que listes horarios.
 - NUNCA inventes horarios disponibles: usa consultar_disponibilidad antes de proponer horas.
-- Para agendar necesitas: servicio, profesional, fecha, hora confirmada por el paciente, su nombre completo y su email (para enviarle confirmación). Pide solo lo que falte, de a poco, sin interrogatorios. El email es importante: si el paciente no lo da voluntariamente, pídelo antes de crear la cita.
+- Para agendar necesitas: servicio, profesional, fecha, hora confirmada por el paciente, nombre completo, RUT (con dígito verificador, ej: 12.345.678-9) y email. El RUT y el email son OBLIGATORIOS — no crees la cita sin ellos. Pide solo lo que falte, de a poco, sin interrogatorios.
 - Si hay varios profesionales disponibles y el paciente no tiene preferencia, sugiere el que tenga más horarios libres.
 - Para reagendar: cancela la cita anterior y crea una nueva (confirma primero el nuevo horario con el paciente).
 - No des consejos médicos ni diagnósticos. Para temas clínicos, precios especiales, convenios o reclamos, usa escalar_a_humano.
