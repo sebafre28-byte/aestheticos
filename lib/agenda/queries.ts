@@ -734,7 +734,7 @@ export async function actualizarEstadoCita(
     return false
   }
   invalidateAgendaCache()
-  triggerGoogleSync(citaId, 'update')
+  triggerGoogleSync(citaId, estado === 'cancelada' ? 'delete' : 'update')
   return true
 }
 
