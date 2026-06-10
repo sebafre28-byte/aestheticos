@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
   const descripcion = form.get('descripcion') as string | null
   const fechaFoto = (form.get('fecha_foto') as string | null) ?? new Date().toISOString().slice(0, 10)
   const notas = form.get('notas') as string | null
+  const citaId = form.get('cita_id') as string | null
 
   if (!file || !pacienteId) return NextResponse.json({ error: 'Faltan file o paciente_id' }, { status: 400 })
 
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
     .insert({
       paciente_id: pacienteId,
       clinica_id: miembro.clinicaId,
+      cita_id: citaId || null,
       tipo,
       tratamiento: tratamiento || null,
       descripcion: descripcion || null,
