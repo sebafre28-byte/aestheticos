@@ -24,6 +24,7 @@ import { createClient } from "@/lib/supabase/client"
 import { getClinicaBasica } from "@/lib/onboarding/queries"
 import { useRol, puedeAcceder } from "@/lib/auth/useRol"
 import { rolLabel } from "@/lib/usuarios/queries"
+import { NotificationBell } from "@/components/layout/NotificationBell"
 
 const navItems: { href: string; label: string; icon: React.ElementType; modulo: string; proximamente?: boolean }[] = [
   { href: "/dashboard",     label: "Dashboard",     icon: LayoutDashboard, modulo: "dashboard" },
@@ -101,7 +102,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
     >
       {/* Logo SimpliClinic */}
       <div className="px-4 pt-5 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 justify-between">
           {onClose && (
             <button
               onClick={onClose}
@@ -117,14 +118,15 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
           ) : (
             <LogoIcon />
           )}
-          <div>
-            <p className="text-[14px] font-bold text-white leading-tight tracking-tight">
+          <div className="min-w-0">
+            <p className="text-[14px] font-bold text-white leading-tight tracking-tight truncate">
               {nombreClinica || 'SimpliClinic'}
             </p>
             <p className="text-[10px] leading-tight" style={{ color: '#60A5FA' }}>
               Tu clínica, más simple.
             </p>
           </div>
+          <NotificationBell dark />
         </div>
       </div>
 
