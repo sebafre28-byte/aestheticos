@@ -507,7 +507,7 @@ function PasoCierre({
     const montoNum = parseFloat(monto)
     if (!isNaN(montoNum) && montoNum > 0) {
       updates.pago_monto = montoNum
-      updates.pago_metodo = metodo.toLowerCase().replace(' ', '_')
+      updates.pago_metodo = metodo.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ /g, '_')
       updates.pago_estado = 'pagado'
       updates.pago_registrado_at = new Date().toISOString()
     }
