@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -14,6 +14,10 @@ import {
   BarChart2,
   Settings,
   LogOut,
+  User,
+  ChevronUp,
+  Shield,
+  CalendarDays,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -30,7 +34,6 @@ const navItems: { href: string; label: string; icon: React.ElementType; modulo: 
   { href: "/inbox",         label: "Inbox",         icon: MessageSquare,   modulo: "inbox" },
   { href: "/reportes",      label: "Reportes",      icon: BarChart2,       modulo: "reportes" },
   { href: "/configuracion", label: "Configuración", icon: Settings,        modulo: "configuracion" },
-  { href: "/mi-cuenta",     label: "Mi cuenta",     icon: Settings,        modulo: "mi-cuenta" },
 ]
 
 function LogoIcon() {
@@ -46,6 +49,8 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
   const rolUsuario = rol ? rolLabel(rol) : ''
   const [logoClinica, setLogoClinica] = useState('')
   const [nombreClinica, setNombreClinica] = useState('')
+  const [popoverAbierto, setPopoverAbierto] = useState(false)
+  const popoverRef = useRef<HTMLDivElement>(null)
 
   const cargarClinica = () => {
     getClinicaBasica().then((c) => {
@@ -72,6 +77,16 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
     window.addEventListener('clinica-updated', cargarClinica)
     return () => window.removeEventListener('clinica-updated', cargarClinica)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setPopoverAbierto(false)
+      }
+    }
+    if (popoverAbierto) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [popoverAbierto])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -158,17 +173,68 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       {/* Separador */}
       <div className="mx-3 border-t border-white/10" />
 
-      {/* Footer del usuario */}
-      <div className="px-3 py-3 space-y-1">
-        {/* Info del usuario */}
-        <div className="flex items-center gap-2.5 px-3 py-2">
+      {/* Footer del usuario con popover */}
+      <div className="px-3 py-3 relative" ref={popoverRef}>
+        {/* Popover */}
+        {popoverAbierto && (
+          <div className="absolute bottom-full left-0 right-0 mx-0 mb-1 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+              <p className="text-[13px] font-semibold text-gray-900 truncate">{nombreUsuario}</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">{rolUsuario || 'Administrador'}</p>
+            </div>
+            <div className="py-1">
+              <Link
+                href="/mi-cuenta"
+                onClick={() => setPopoverAbierto(false)}
+                className="flex items-center gap-2.5 h-9 px-4 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <User className="size-[14px] text-gray-400 shrink-0" />
+                Mi perfil
+              </Link>
+              <Link
+                href="/mi-cuenta?tab=google"
+                onClick={() => setPopoverAbierto(false)}
+                className="flex items-center gap-2.5 h-9 px-4 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <CalendarDays className="size-[14px] text-gray-400 shrink-0" />
+                Google Calendar
+              </Link>
+              <Link
+                href="/mi-cuenta?tab=seguridad"
+                onClick={() => setPopoverAbierto(false)}
+                className="flex items-center gap-2.5 h-9 px-4 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Shield className="size-[14px] text-gray-400 shrink-0" />
+                Seguridad
+              </Link>
+            </div>
+            <div className="border-t border-gray-100 py-1">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 h-9 px-4 text-[13px] text-red-500 hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="size-[14px] shrink-0" />
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Botón del usuario */}
+        <button
+          onClick={() => setPopoverAbierto(v => !v)}
+          className={cn(
+            "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors",
+            popoverAbierto ? "bg-white/10" : "hover:bg-white/10"
+          )}
+        >
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold"
             style={{ background: 'linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)' }}
           >
             {inicialesUsuario || '…'}
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 text-left">
             <p className="text-[12px] font-semibold text-white truncate leading-tight">
               {nombreUsuario || '…'}
             </p>
@@ -176,24 +242,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
               {rolUsuario || 'Administrador'}
             </p>
           </div>
-        </div>
-
-        {/* Cerrar sesión */}
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-2.5 h-8 px-3 rounded-lg text-[13px] font-medium transition-colors group"
-          style={{ color: 'rgba(255,255,255,0.55)' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.15)'
-            e.currentTarget.style.color = '#FCA5A5'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent'
-            e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
-          }}
-        >
-          <LogOut className="size-[15px] shrink-0 opacity-70 group-hover:opacity-100" />
-          Cerrar sesión
+          <ChevronUp className={cn("size-3.5 shrink-0 transition-transform", !popoverAbierto && "rotate-180")} style={{ color: 'rgba(255,255,255,0.40)' }} />
         </button>
       </div>
     </aside>
