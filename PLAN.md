@@ -106,6 +106,25 @@
 
 ---
 
+## MÓDULO 10 — WIZARD "INICIAR CITA"
+**Objetivo**: Guía paso a paso que el profesional sigue al momento de atender a un paciente.
+
+**Flujo**: Profesional ve la cita en el calendario → botón "Iniciar cita" → se abre un wizard modal/pantalla completa con pasos secuenciales.
+
+**Pasos del wizard (configurables por clínica):**
+- [ ] 10.1 Diseño UX del wizard: layout paso a paso, barra de progreso, navegación anterior/siguiente
+- [ ] 10.2 Paso 1 — Datos del paciente: completar datos faltantes (nombre, RUT, teléfono, email, fecha de nacimiento)
+- [ ] 10.3 Paso 2 — Ficha clínica: anamnesis, motivo de consulta, alergias, antecedentes
+- [ ] 10.4 Paso 3 — Fotos (antes): cámara o subida de archivos, organizadas por zona/tipo
+- [ ] 10.5 Paso 4 — Consentimiento informado: mostrar documento, firma digital o checkbox de aceptación
+- [ ] 10.6 Paso 5 — Protocolo del servicio: checklist de pasos del tratamiento a realizar
+- [ ] 10.7 Paso 6 — Notas clínicas: campo libre para el profesional (ya existe, integrarlo aquí)
+- [ ] 10.8 Paso 7 — Fotos (después): misma UI que fotos antes
+- [ ] 10.9 Paso 8 — Cierre: marcar cita como completada, cobro pendiente, agendar seguimiento
+- [ ] 10.10 Pasos configurables por clínica (admin puede activar/desactivar pasos desde Configuración)
+
+---
+
 ## MÓDULO 9 — LAUNCH
 - [ ] 9.1 Dominio `simpliclinic.cl` + DNS
 - [ ] 9.2 Email `@simpliclinic.cl` verificado en Resend
@@ -127,4 +146,5 @@ M6 Monitoreo         ░░░░░░░░░░   0%
 M7 Crons mejorados   ████░░░░░░  40%  (estructura existe, timing malo)
 M8 QA y Beta         ░░░░░░░░░░   0%
 M9 Launch            ░░░░░░░░░░   0%
+M10 Wizard cita      ░░░░░░░░░░   0%  (backlog)
 ```
