@@ -7,7 +7,8 @@ import 'server-only'
 import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-const MODEL = 'claude-opus-4-8'
+// Sonnet: mejor relación calidad/costo para agendamiento (~3x más barato que Opus)
+const MODEL = 'claude-sonnet-4-6'
 const MAX_TOOL_ITERATIONS = 8
 const HISTORY_LIMIT = 30
 const CLINIC_TZ = 'America/Santiago'
