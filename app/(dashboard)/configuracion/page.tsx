@@ -21,8 +21,9 @@ import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
   crearProfesional, getClinicaId, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
   RECORDATORIOS_EMAIL_DEFAULT,
+  getWhatsappClinicaConfig, guardarWhatsappConfig,
   type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig, type RecordatoriosWspConfig,
-  type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig,
+  type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig, type WhatsappClinicaConfig,
 } from "@/lib/onboarding/queries"
 import {
   getUsuariosClinica, invitarUsuario, actualizarRolUsuario, toggleActivoUsuario, eliminarUsuario,
@@ -822,22 +823,41 @@ function SeccionEquipo() {
 // ─── Sección WhatsApp ─────────────────────────────────────────────────────────
 
 function SeccionWhatsApp() {
-  const twilioFrom = process.env.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM
-  const conectado = !!twilioFrom
-
+  const [config, setConfig] = useState<WhatsappClinicaConfig>({})
   const [plantillas, setPlantillas] = useState<PlantillaWsp[]>(PLANTILLAS_DEFAULT)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [textoEdit, setTextoEdit] = useState("")
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [guardandoCredenciales, setGuardandoCredenciales] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+  const [feedbackCred, setFeedbackCred] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+  const [mostrarToken, setMostrarToken] = useState(false)
 
   useEffect(() => {
-    getClinicaConfig().then((cfg) => {
+    Promise.all([getClinicaConfig(), getWhatsappClinicaConfig()]).then(([cfg, wsp]) => {
       if (cfg.plantillas?.length) setPlantillas(cfg.plantillas)
+      setConfig(wsp ?? {})
       setCargando(false)
     })
   }, [])
+
+  function updateConfig(partial: Partial<WhatsappClinicaConfig>) {
+    setConfig((prev) => ({ ...prev, ...partial }))
+  }
+
+  async function guardarCredenciales() {
+    setGuardandoCredenciales(true)
+    setFeedbackCred(null)
+    const ok = await guardarWhatsappConfig(config)
+    setGuardandoCredenciales(false)
+    if (ok) {
+      setFeedbackCred({ tipo: "ok", msg: "Configuración guardada." })
+      setTimeout(() => setFeedbackCred(null), 2500)
+    } else {
+      setFeedbackCred({ tipo: "error", msg: "No se pudo guardar." })
+    }
+  }
 
   function iniciarEdicion(pl: PlantillaWsp) {
     setEditandoId(pl.id)
@@ -868,22 +888,180 @@ function SeccionWhatsApp() {
 
   if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
 
+  const conectado = !!config.activo
+  const provider = config.provider ?? "twilio"
+
   return (
     <div>
-      <SectionHeader title="WhatsApp Business" subtitle="Conexión y plantillas de mensajes" />
+      <SectionHeader title="WhatsApp Business" subtitle="Conexión y credenciales por clínica" />
 
+      {/* Estado de conexión */}
       <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-6">
         <div className="flex items-center gap-4">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${conectado ? "bg-[#25D366]/10" : "bg-gray-200"}`}>
             {conectado ? <Wifi className="size-5 text-[#25D366]" /> : <WifiOff className="size-5 text-gray-400" />}
           </div>
           <div className="flex-1">
-            <p className="text-[14px] font-semibold text-gray-900">{conectado ? twilioFrom : "Sin número conectado"}</p>
-            <p className="text-[12px] text-gray-500 mt-0.5">{conectado ? "Número configurado vía Twilio Sandbox" : "Configura TWILIO_WHATSAPP_FROM en las variables de entorno"}</p>
+            <p className="text-[14px] font-semibold text-gray-900">
+              {conectado ? (config.numero_display || "Número configurado") : "Sin número conectado"}
+            </p>
+            <p className="text-[12px] text-gray-500 mt-0.5">
+              {conectado
+                ? `Proveedor: ${provider === "meta" ? "Meta WhatsApp Business API" : "Twilio"}`
+                : "Configura tus credenciales a continuación"}
+            </p>
           </div>
           <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${conectado ? "bg-emerald-50 text-[#10B981]" : "bg-red-50 text-red-400"}`}>
-            {conectado ? "Conectado" : "Desconectado"}
+            {conectado ? "Activo" : "Inactivo"}
           </span>
+        </div>
+      </div>
+
+      {/* Formulario de credenciales */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 space-y-4">
+        <p className="text-[13px] font-semibold text-gray-900">Credenciales de acceso</p>
+
+        {/* Selector de proveedor */}
+        <div>
+          <Label className="text-[12px] text-gray-600 mb-1.5 block">Proveedor</Label>
+          <div className="flex gap-2">
+            {(["meta", "twilio"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => updateConfig({ provider: p })}
+                className={`flex-1 py-2 px-3 rounded-lg border text-[12px] font-medium transition-colors ${
+                  provider === p
+                    ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                    : "border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                {p === "meta" ? "Meta (WhatsApp Business API)" : "Twilio"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Número display */}
+        <div>
+          <Label className="text-[12px] text-gray-600 mb-1.5 block">Número de WhatsApp (ej: +56912345678)</Label>
+          <Input
+            value={config.numero_display ?? ""}
+            onChange={(e) => updateConfig({ numero_display: e.target.value })}
+            placeholder="+56912345678"
+            className="text-[13px] h-9"
+          />
+        </div>
+
+        {provider === "meta" ? (
+          <>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Phone Number ID</Label>
+              <Input
+                value={config.phone_number_id ?? ""}
+                onChange={(e) => updateConfig({ phone_number_id: e.target.value })}
+                placeholder="1234567890"
+                className="text-[13px] h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Access Token</Label>
+              <div className="relative">
+                <Input
+                  type={mostrarToken ? "text" : "password"}
+                  value={config.access_token ?? ""}
+                  onChange={(e) => updateConfig({ access_token: e.target.value })}
+                  placeholder="EAA..."
+                  className="text-[13px] h-9 pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarToken((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {mostrarToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Verify Token (webhook)</Label>
+              <Input
+                value={config.verify_token ?? ""}
+                onChange={(e) => updateConfig({ verify_token: e.target.value })}
+                placeholder="mi_token_secreto"
+                className="text-[13px] h-9"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Account SID</Label>
+              <Input
+                value={config.account_sid ?? ""}
+                onChange={(e) => updateConfig({ account_sid: e.target.value })}
+                placeholder="ACxxxxxxxxxxxxxxxx"
+                className="text-[13px] h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Auth Token</Label>
+              <div className="relative">
+                <Input
+                  type={mostrarToken ? "text" : "password"}
+                  value={config.auth_token ?? ""}
+                  onChange={(e) => updateConfig({ auth_token: e.target.value })}
+                  placeholder="••••••••••••••••"
+                  className="text-[13px] h-9 pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarToken((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {mostrarToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Número de origen (whatsapp:+...)</Label>
+              <Input
+                value={config.from_number ?? ""}
+                onChange={(e) => updateConfig({ from_number: e.target.value })}
+                placeholder="whatsapp:+14155238886"
+                className="text-[13px] h-9"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Activar conexión */}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={() => updateConfig({ activo: !config.activo })}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.activo ? "bg-[#25D366]" : "bg-gray-200"}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${config.activo ? "translate-x-4.5" : "translate-x-0.5"}`} />
+          </button>
+          <span className="text-[12px] text-gray-600">Conexión activa</span>
+        </div>
+
+        <Feedback f={feedbackCred} />
+
+        <div className="flex items-center justify-between pt-1">
+          <p className="text-[11px] text-gray-400 flex items-center gap-1">
+            <Shield className="size-3" />
+            Tus credenciales se almacenan cifradas en tu base de datos privada
+          </p>
+          <Button
+            onClick={guardarCredenciales}
+            disabled={guardandoCredenciales}
+            className="h-8 text-[12px] border-0 text-white"
+            style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}
+          >
+            {guardandoCredenciales ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
+            Guardar credenciales
+          </Button>
         </div>
       </div>
 
