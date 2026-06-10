@@ -19,9 +19,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
-  crearProfesional, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
+  crearProfesional, getClinicaId, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
+  RECORDATORIOS_EMAIL_DEFAULT,
+  getWhatsappClinicaConfig, guardarWhatsappConfig,
   type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig, type RecordatoriosWspConfig,
-  type HorarioDia, type HorariosConfig,
+  type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig, type WhatsappClinicaConfig,
 } from "@/lib/onboarding/queries"
 import {
   getUsuariosClinica, invitarUsuario, actualizarRolUsuario, toggleActivoUsuario, eliminarUsuario,
@@ -46,23 +48,23 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Clínica",
     items: [
-      { id: "clinica",  label: "Datos generales",       icon: Building2 },
-      { id: "horarios", label: "Horarios y disponibilidad", icon: Clock },
+      { id: "clinica",  label: "Datos generales",            icon: Building2 },
+      { id: "horarios", label: "Horarios y disponibilidad",  icon: Clock },
     ],
   },
   {
     label: "Equipo",
     items: [
-      { id: "equipo",   label: "Profesionales",         icon: Users },
-      { id: "usuarios", label: "Usuarios y roles",      icon: UserCog },
+      { id: "equipo",   label: "Profesionales",   icon: Users },
+      { id: "usuarios", label: "Usuarios y roles", icon: UserCog },
     ],
   },
   {
     label: "Comunicaciones",
     items: [
-      { id: "whatsapp",      label: "WhatsApp Business",  icon: MessageCircle },
-      { id: "recordatorios", label: "Recordatorios",      icon: Bell },
-      { id: "google",        label: "Google Calendar",    icon: CalendarDays },
+      { id: "whatsapp",      label: "WhatsApp Business", icon: MessageCircle },
+      { id: "recordatorios", label: "Recordatorios",     icon: Bell },
+      { id: "google",        label: "Google Calendar",   icon: CalendarDays },
     ],
   },
   {
@@ -704,6 +706,7 @@ type ProfesionalConServicios = ProfesionalRow & { servicios_nombres?: string[] }
 
 function SeccionEquipo() {
   const [profesionales, setProfesionales] = useState<ProfesionalConServicios[]>([])
+  const [clinicaId, setClinicaId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [eliminando, setEliminando] = useState<string | null>(null)
   const [abrirModal, setAbrirModal] = useState(false)
@@ -713,10 +716,14 @@ function SeccionEquipo() {
   const alcanzadoLimite = profesionales.length >= limiteProfesionales
 
   const cargar = useCallback(async () => {
+    const cid = await getClinicaId()
+    setClinicaId(cid)
+    if (!cid) { setCargando(false); return }
     const supabase = createClient()
     const { data } = await supabase
       .from("profesionales")
       .select("*, profesional_servicios(servicio_id, servicios(nombre))")
+      .eq("clinica_id", cid)
       .order("nombre", { ascending: true })
     const rows = (data ?? []).map((p: ProfesionalRow & { profesional_servicios?: { servicio_id: string; servicios?: { nombre: string } | null }[] }) => ({
       ...p,
@@ -729,16 +736,18 @@ function SeccionEquipo() {
   useEffect(() => { cargar() }, [cargar])
 
   async function toggleActivo(prof: ProfesionalRow) {
+    if (!clinicaId) return
     const supabase = createClient()
-    await supabase.from("profesionales").update({ activo: !prof.activo }).eq("id", prof.id)
+    await supabase.from("profesionales").update({ activo: !prof.activo }).eq("id", prof.id).eq("clinica_id", clinicaId)
     cargar()
   }
 
   async function eliminar(id: string) {
+    if (!clinicaId) return
     if (!confirm("¿Seguro que quieres eliminar este profesional?")) return
     setEliminando(id)
     const supabase = createClient()
-    await supabase.from("profesionales").delete().eq("id", id)
+    await supabase.from("profesionales").delete().eq("id", id).eq("clinica_id", clinicaId)
     await cargar()
     setEliminando(null)
   }
@@ -748,8 +757,8 @@ function SeccionEquipo() {
   return (
     <div>
       <SectionHeader
-        title="Profesionales"
-        subtitle={`Administra el equipo clínico${limiteProfesionales < Infinity ? ` · ${profesionales.length}/${limiteProfesionales} en tu plan` : ''}`}
+        title="Equipo y profesionales"
+        subtitle={`Administra los profesionales de tu clínica${limiteProfesionales < Infinity ? ` · ${profesionales.length}/${limiteProfesionales} en tu plan` : ''}`}
         action={
           alcanzadoLimite ? (
             <div className="flex items-center gap-2">
@@ -840,22 +849,42 @@ function SeccionEquipo() {
 // ─── Sección WhatsApp ─────────────────────────────────────────────────────────
 
 function SeccionWhatsApp() {
-  const twilioFrom = process.env.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM
-  const conectado = !!twilioFrom
-
+  const [config, setConfig] = useState<WhatsappClinicaConfig>({})
   const [plantillas, setPlantillas] = useState<PlantillaWsp[]>(PLANTILLAS_DEFAULT)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [textoEdit, setTextoEdit] = useState("")
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [guardandoCredenciales, setGuardandoCredenciales] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+  const [feedbackCred, setFeedbackCred] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+  const [mostrarToken, setMostrarToken] = useState(false)
+  const [mostrarGuia, setMostrarGuia] = useState(false)
 
   useEffect(() => {
-    getClinicaConfig().then((cfg) => {
+    Promise.all([getClinicaConfig(), getWhatsappClinicaConfig()]).then(([cfg, wsp]) => {
       if (cfg.plantillas?.length) setPlantillas(cfg.plantillas)
+      setConfig(wsp ?? {})
       setCargando(false)
     })
   }, [])
+
+  function updateConfig(partial: Partial<WhatsappClinicaConfig>) {
+    setConfig((prev) => ({ ...prev, ...partial }))
+  }
+
+  async function guardarCredenciales() {
+    setGuardandoCredenciales(true)
+    setFeedbackCred(null)
+    const ok = await guardarWhatsappConfig(config)
+    setGuardandoCredenciales(false)
+    if (ok) {
+      setFeedbackCred({ tipo: "ok", msg: "Configuración guardada." })
+      setTimeout(() => setFeedbackCred(null), 2500)
+    } else {
+      setFeedbackCred({ tipo: "error", msg: "No se pudo guardar." })
+    }
+  }
 
   function iniciarEdicion(pl: PlantillaWsp) {
     setEditandoId(pl.id)
@@ -886,37 +915,311 @@ function SeccionWhatsApp() {
 
   if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
 
+  const conectado = !!config.activo
+  const provider = config.provider ?? "twilio"
+
   return (
     <div>
-      <SectionHeader title="WhatsApp Business" subtitle="Número conectado y plantillas de mensajes" />
+      <SectionHeader title="WhatsApp Business" subtitle="Conexión y credenciales por clínica" />
+
+      {/* Webhook URL */}
+      <div className="bg-blue-50/60 rounded-xl border border-blue-100 p-4 mb-6">
+        <div className="flex items-start gap-3">
+          <Link2 className="size-4 text-[#2563EB] mt-0.5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-semibold text-[#2563EB] mb-1">URL del webhook</p>
+            <p className="text-[11px] text-gray-500 mb-2">Pega esta URL al configurar el webhook en Meta o Twilio:</p>
+            <div className="flex items-center gap-2">
+              <code className="text-[11px] bg-white border border-blue-100 rounded-lg px-2.5 py-1 text-gray-700 font-mono truncate flex-1">
+                {typeof window !== "undefined" ? `${window.location.origin}/api/whatsapp/webhook` : "https://simpliclinic.cl/api/whatsapp/webhook"}
+              </code>
+              <button
+                type="button"
+                onClick={() => typeof window !== "undefined" && navigator.clipboard.writeText(`${window.location.origin}/api/whatsapp/webhook`)}
+                className="h-7 px-2.5 rounded-lg border border-blue-200 bg-white text-[11px] font-medium text-[#2563EB] hover:bg-blue-50 transition-colors shrink-0 flex items-center gap-1.5"
+              >
+                <Copy className="size-3" /> Copiar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Estado de conexión */}
-      <div className={`rounded-xl border p-4 mb-6 ${conectado ? "bg-[#25D366]/5 border-[#25D366]/20" : "bg-amber-50 border-amber-100"}`}>
-        <div className="flex items-start gap-3">
-          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${conectado ? "bg-[#25D366]/15" : "bg-amber-100"}`}>
-            {conectado ? <Wifi className="size-4 text-[#25D366]" /> : <WifiOff className="size-4 text-amber-600" />}
+      <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-6">
+        <div className="flex items-center gap-4">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${conectado ? "bg-[#25D366]/10" : "bg-gray-200"}`}>
+            {conectado ? <Wifi className="size-5 text-[#25D366]" /> : <WifiOff className="size-5 text-gray-400" />}
           </div>
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-0.5">
-              <p className="text-[13px] font-semibold text-gray-900">{conectado ? twilioFrom : "Sin número conectado"}</p>
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${conectado ? "bg-[#25D366]/15 text-[#16a34a]" : "bg-amber-100 text-amber-700"}`}>
-                {conectado ? "Activo" : "Pendiente"}
-              </span>
-            </div>
-            {conectado ? (
-              <p className="text-[12px] text-gray-500">Canal configurado vía Twilio. Los mensajes y recordatorios se envían desde este número.</p>
+            <p className="text-[14px] font-semibold text-gray-900">
+              {conectado ? (config.numero_display || "Número configurado") : "Sin número conectado"}
+            </p>
+            <p className="text-[12px] text-gray-500 mt-0.5">
+              {conectado
+                ? `Proveedor: ${provider === "meta" ? "Meta WhatsApp Business API" : "Twilio"}`
+                : "Configura tus credenciales a continuación"}
+            </p>
+          </div>
+          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${conectado ? "bg-emerald-50 text-[#10B981]" : "bg-red-50 text-red-400"}`}>
+            {conectado ? "Activo" : "Inactivo"}
+          </span>
+        </div>
+      </div>
+
+      {/* Guía de configuración */}
+      <div className="mb-6">
+        <button
+          type="button"
+          onClick={() => setMostrarGuia((v) => !v)}
+          className="flex items-center gap-1.5 text-[12px] font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+        >
+          {mostrarGuia ? "Ocultar guía ↑" : "Ver guía de configuración →"}
+        </button>
+
+        {mostrarGuia && (
+          <div className="mt-3 bg-amber-50/60 rounded-xl border border-amber-100 p-5">
+            <p className="text-[13px] font-semibold text-gray-900 mb-4">
+              {provider === "meta"
+                ? "¿Cómo obtener tus credenciales de Meta?"
+                : "¿Cómo obtener tus credenciales de Twilio?"}
+            </p>
+
+            {provider === "meta" ? (
+              <ol className="space-y-3">
+                {[
+                  {
+                    n: 1,
+                    titulo: "Crear una app en Meta for Developers",
+                    desc: 'Entra a developers.facebook.com → "Mis apps" → "Crear app". Tipo: "Empresa" → sigue el flujo y asígnale un nombre.',
+                  },
+                  {
+                    n: 2,
+                    titulo: "Agregar WhatsApp a tu app",
+                    desc: 'En el panel de tu app → "Agregar producto" → "WhatsApp" → "Configurar".',
+                  },
+                  {
+                    n: 3,
+                    titulo: "Obtener el Phone Number ID",
+                    desc: 'Ve a WhatsApp → Configuración → Números de teléfono. Copia el "ID de número de teléfono" (empieza con números, ej: 123456789) → Pégalo en el campo "Phone Number ID".',
+                  },
+                  {
+                    n: 4,
+                    titulo: "Obtener el Access Token",
+                    desc: 'Ve a WhatsApp → Configuración → API Setup. Copia el "Temporary access token" (empieza con "EAA..."). Para producción: crea un token permanente en "System Users" del Business Manager → Pégalo en el campo "Access Token".',
+                  },
+                  {
+                    n: 5,
+                    titulo: "Configurar el webhook",
+                    desc: 'Ve a WhatsApp → Configuración → Webhook. URL de devolución de llamada: la URL del webhook de arriba. Token de verificación: escribe cualquier texto secreto y anótalo → Pégalo también en el campo "Verify Token" de este formulario. Suscríbete a: messages.',
+                  },
+                  {
+                    n: 6,
+                    titulo: "Agregar tu número de teléfono",
+                    desc: 'En el mismo panel agrega y verifica tu número de WhatsApp Business → Escríbelo en "Número de display" (ej: +56912345678).',
+                  },
+                ].map((paso) => (
+                  <li key={paso.n} className="flex gap-3">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-amber-200 text-amber-800 text-[11px] font-bold flex items-center justify-center mt-0.5">
+                      {paso.n}
+                    </span>
+                    <div>
+                      <p className="text-[12px] font-semibold text-gray-800">{paso.titulo}</p>
+                      <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{paso.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             ) : (
-              <div>
-                <p className="text-[12px] text-amber-700 mb-2">Para conectar WhatsApp necesitas configurar las variables de entorno en tu panel de Vercel:</p>
-                <ul className="text-[11px] text-amber-700 space-y-0.5 font-mono">
-                  <li>• <strong>TWILIO_ACCOUNT_SID</strong> — tu Account SID de Twilio</li>
-                  <li>• <strong>TWILIO_AUTH_TOKEN</strong> — tu Auth Token de Twilio</li>
-                  <li>• <strong>TWILIO_WHATSAPP_FROM</strong> — ej: <em>whatsapp:+14155238886</em></li>
-                  <li>• <strong>NEXT_PUBLIC_TWILIO_WHATSAPP_FROM</strong> — mismo valor</li>
-                </ul>
-              </div>
+              <ol className="space-y-3">
+                {[
+                  {
+                    n: 1,
+                    titulo: "Crear cuenta en Twilio",
+                    desc: 'Entra a twilio.com → "Sign up" (es gratis para empezar). Verifica tu email y número de teléfono.',
+                  },
+                  {
+                    n: 2,
+                    titulo: "Obtener Account SID y Auth Token",
+                    desc: 'En el Dashboard de Twilio (inicio) verás: "Account SID" (empieza con "AC...") y "Auth Token" (clic en el ojo para revelarlo) → Pégalos en los campos correspondientes.',
+                  },
+                  {
+                    n: 3,
+                    titulo: "Activar el Sandbox de WhatsApp (para pruebas)",
+                    desc: 'Menú izquierdo → Messaging → Try it out → Send a WhatsApp message. Sigue las instrucciones para conectar tu número personal al sandbox. El número del sandbox aparece como "From" (ej: whatsapp:+14155238886) → Pégalo en el campo "From Number".',
+                  },
+                  {
+                    n: 4,
+                    titulo: "Configurar el webhook",
+                    desc: 'En Messaging → Settings → WhatsApp Sandbox Settings. "When a message comes in": la URL del webhook de arriba. Método: HTTP POST.',
+                  },
+                  {
+                    n: 5,
+                    titulo: "Para producción (número propio)",
+                    desc: "Messaging → Senders → WhatsApp Senders → solicita un número aprobado por Meta (requiere Business Verification, puede tardar días).",
+                  },
+                ].map((paso) => (
+                  <li key={paso.n} className="flex gap-3">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-amber-200 text-amber-800 text-[11px] font-bold flex items-center justify-center mt-0.5">
+                      {paso.n}
+                    </span>
+                    <div>
+                      <p className="text-[12px] font-semibold text-gray-800">{paso.titulo}</p>
+                      <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{paso.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             )}
           </div>
+        )}
+      </div>
+
+      {/* Formulario de credenciales */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 space-y-4">
+        <p className="text-[13px] font-semibold text-gray-900">Credenciales de acceso</p>
+
+        {/* Selector de proveedor */}
+        <div>
+          <Label className="text-[12px] text-gray-600 mb-1.5 block">Proveedor</Label>
+          <div className="flex gap-2">
+            {(["meta", "twilio"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => updateConfig({ provider: p })}
+                className={`flex-1 py-2 px-3 rounded-lg border text-[12px] font-medium transition-colors ${
+                  provider === p
+                    ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                    : "border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                {p === "meta" ? "Meta (WhatsApp Business API)" : "Twilio"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Número display */}
+        <div>
+          <Label className="text-[12px] text-gray-600 mb-1.5 block">Número de WhatsApp (ej: +56912345678)</Label>
+          <Input
+            value={config.numero_display ?? ""}
+            onChange={(e) => updateConfig({ numero_display: e.target.value })}
+            placeholder="+56912345678"
+            className="text-[13px] h-9"
+          />
+        </div>
+
+        {provider === "meta" ? (
+          <>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Phone Number ID</Label>
+              <Input
+                value={config.phone_number_id ?? ""}
+                onChange={(e) => updateConfig({ phone_number_id: e.target.value })}
+                placeholder="1234567890"
+                className="text-[13px] h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Access Token</Label>
+              <div className="relative">
+                <Input
+                  type={mostrarToken ? "text" : "password"}
+                  value={config.access_token ?? ""}
+                  onChange={(e) => updateConfig({ access_token: e.target.value })}
+                  placeholder="EAA..."
+                  className="text-[13px] h-9 pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarToken((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {mostrarToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Verify Token (webhook)</Label>
+              <Input
+                value={config.verify_token ?? ""}
+                onChange={(e) => updateConfig({ verify_token: e.target.value })}
+                placeholder="mi_token_secreto"
+                className="text-[13px] h-9"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Account SID</Label>
+              <Input
+                value={config.account_sid ?? ""}
+                onChange={(e) => updateConfig({ account_sid: e.target.value })}
+                placeholder="ACxxxxxxxxxxxxxxxx"
+                className="text-[13px] h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Auth Token</Label>
+              <div className="relative">
+                <Input
+                  type={mostrarToken ? "text" : "password"}
+                  value={config.auth_token ?? ""}
+                  onChange={(e) => updateConfig({ auth_token: e.target.value })}
+                  placeholder="••••••••••••••••"
+                  className="text-[13px] h-9 pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarToken((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {mostrarToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Número de origen (whatsapp:+...)</Label>
+              <Input
+                value={config.from_number ?? ""}
+                onChange={(e) => updateConfig({ from_number: e.target.value })}
+                placeholder="whatsapp:+14155238886"
+                className="text-[13px] h-9"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Activar conexión */}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={() => updateConfig({ activo: !config.activo })}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.activo ? "bg-[#25D366]" : "bg-gray-200"}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${config.activo ? "translate-x-4.5" : "translate-x-0.5"}`} />
+          </button>
+          <span className="text-[12px] text-gray-600">Conexión activa</span>
+        </div>
+
+        <Feedback f={feedbackCred} />
+
+        <div className="flex items-center justify-between pt-1">
+          <p className="text-[11px] text-gray-400 flex items-center gap-1">
+            <Shield className="size-3" />
+            Tus credenciales se almacenan cifradas en tu base de datos privada
+          </p>
+          <Button
+            onClick={guardarCredenciales}
+            disabled={guardandoCredenciales}
+            className="h-8 text-[12px] border-0 text-white"
+            style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}
+          >
+            {guardandoCredenciales ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
+            Guardar credenciales
+          </Button>
         </div>
       </div>
 
@@ -993,16 +1296,91 @@ const OPCIONES_MINUTOS = [
   { label: "Personalizado",  value: -1 },
 ]
 
+type PreviewTipo = 'confirmacion_cita' | 'recordatorio_cita' | 'post_cita' | 'cancelacion_cita'
+
+function EmailPreviewModal({ tipo, onClose }: { tipo: PreviewTipo; onClose: () => void }) {
+  const [html, setHtml] = useState<string | null>(null)
+  const [cargando, setCargando] = useState(true)
+
+  const LABELS: Record<PreviewTipo, string> = {
+    confirmacion_cita: 'Confirmación de cita',
+    recordatorio_cita: 'Recordatorio',
+    post_cita:         'Post-consulta',
+    cancelacion_cita:  'Cancelación',
+  }
+
+  useEffect(() => {
+    fetch(`/api/email/preview?tipo=${tipo}`)
+      .then(r => r.text())
+      .then(h => { setHtml(h); setCargando(false) })
+      .catch(() => setCargando(false))
+  }, [tipo])
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(0,0,0,0.6)' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center">
+            <Bell className="size-3.5 text-[#2563EB]" />
+          </div>
+          <span className="text-[13px] font-semibold text-gray-800">Vista previa — {LABELS[tipo]}</span>
+          <span className="text-[11px] text-gray-400 ml-1">· datos de ejemplo</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
+          aria-label="Cerrar"
+        >
+          <X className="size-4 text-gray-500" />
+        </button>
+      </div>
+
+      {/* iframe */}
+      <div className="flex-1 bg-[#EEF2F7] overflow-hidden">
+        {cargando ? (
+          <div className="flex items-center justify-center h-full gap-2 text-[13px] text-gray-400">
+            <Loader2 className="size-4 animate-spin" /> Cargando vista previa…
+          </div>
+        ) : html ? (
+          <iframe
+            srcDoc={html}
+            className="w-full h-full border-0"
+            title="Vista previa del email"
+            sandbox="allow-same-origin"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-[13px] text-gray-400">
+            No se pudo cargar la vista previa.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function SeccionRecordatorios() {
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
 
+  // ── WhatsApp state ──
   const [activo, setActivo] = useState(true)
-  const [minutosAntes, setMinutosAntes] = useState(1440)
   const [opcionSeleccionada, setOpcionSeleccionada] = useState(1440)
   const [minutosCustom, setMinutosCustom] = useState(60)
   const [template, setTemplate] = useState(TEMPLATE_RECORDATORIO_DEFAULT)
+
+  // ── Email state ──
+  const [emailCfg, setEmailCfg] = useState<RecordatoriosEmailConfig>(RECORDATORIOS_EMAIL_DEFAULT)
+
+  // ── Agente IA state ──
+  const [agenteActivo, setAgenteActivo] = useState(false)
+  const [agenteNombre, setAgenteNombre] = useState("")
+  const [agenteTono, setAgenteTono] = useState<'cercano' | 'formal'>('cercano')
+  const [agenteInstrucciones, setAgenteInstrucciones] = useState("")
+
+  // ── Preview modal ──
+  const [previewTipo, setPreviewTipo] = useState<PreviewTipo | null>(null)
 
   useEffect(() => {
     getClinicaConfig().then((cfg) => {
@@ -1013,39 +1391,43 @@ function SeccionRecordatorios() {
         const opcionFija = OPCIONES_MINUTOS.find(o => o.value === wsp.minutos_antes && o.value !== -1)
         if (opcionFija) {
           setOpcionSeleccionada(wsp.minutos_antes)
-          setMinutosAntes(wsp.minutos_antes)
         } else {
           setOpcionSeleccionada(-1)
           setMinutosCustom(wsp.minutos_antes)
-          setMinutosAntes(wsp.minutos_antes)
         }
       }
+      if (cfg.recordatorios_email) {
+        setEmailCfg(cfg.recordatorios_email)
+      }
+      setAgenteActivo(cfg.agente_wsp?.activo === true)
+      setAgenteNombre(cfg.agente_wsp?.nombre_asistente ?? "")
+      setAgenteTono(cfg.agente_wsp?.tono === 'formal' ? 'formal' : 'cercano')
+      setAgenteInstrucciones(cfg.agente_wsp?.instrucciones_extra ?? "")
       setCargando(false)
     })
   }, [])
 
   function handleOpcionChange(val: number) {
     setOpcionSeleccionada(val)
-    if (val !== -1) setMinutosAntes(val)
-    else setMinutosAntes(minutosCustom)
-  }
-
-  function handleMinutosCustomChange(val: number) {
-    setMinutosCustom(val)
-    setMinutosAntes(val)
+    if (val !== -1) setMinutosCustom(val)
   }
 
   async function guardar() {
     setGuardando(true)
     setFeedback(null)
     const mins = opcionSeleccionada === -1 ? minutosCustom : opcionSeleccionada
-    const nuevaConfig: RecordatoriosWspConfig = {
-      activo,
-      minutos_antes: mins,
-      template,
-    }
     const cfg = await getClinicaConfig()
-    const ok = await actualizarClinicaConfig({ ...cfg, recordatorios_wsp: nuevaConfig })
+    const ok = await actualizarClinicaConfig({
+      ...cfg,
+      recordatorios_wsp: { activo, minutos_antes: mins, template },
+      recordatorios_email: emailCfg,
+      agente_wsp: {
+        activo: agenteActivo,
+        nombre_asistente: agenteNombre.trim() || undefined,
+        tono: agenteTono,
+        instrucciones_extra: agenteInstrucciones.trim() || undefined,
+      },
+    })
     setGuardando(false)
     if (ok) {
       setFeedback({ tipo: "ok", msg: "Configuración guardada correctamente." })
@@ -1060,99 +1442,281 @@ function SeccionRecordatorios() {
   const preview = aplicarVariables(template, EJEMPLO_PREVIEW)
 
   return (
-    <div>
-      <SectionHeader title="Recordatorios automáticos" subtitle="Configura el mensaje que recibirán tus pacientes" />
+    <div className="space-y-8">
 
-      {/* Toggle general */}
-      <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-[13px] font-semibold text-gray-900">Activar recordatorios automáticos</p>
-          <p className="text-[12px] text-gray-500 mt-0.5">Envía mensajes de WhatsApp automáticamente antes de cada cita</p>
+      {/* ── BLOQUE AGENTE IA ────────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
+            <MessageCircle className="size-4 text-violet-600" />
+          </div>
+          <div>
+            <p className="text-[14px] font-semibold text-gray-900">Agente IA de agendamiento</p>
+            <p className="text-[12px] text-gray-400">Responde automáticamente por WhatsApp: agenda, cancela y reagenda citas por chat</p>
+          </div>
+          <div className="ml-auto">
+            <Toggle activo={agenteActivo} onChange={() => setAgenteActivo(v => !v)} />
+          </div>
         </div>
-        <Toggle activo={activo} onChange={() => setActivo(v => !v)} />
+        {agenteActivo && (
+          <div className="pl-9 space-y-4">
+            <div className="bg-violet-50 rounded-xl border border-violet-100 p-4 text-[12px] text-violet-900 space-y-1">
+              <p>✓ Los pacientes pueden agendar, consultar y cancelar citas escribiendo por WhatsApp.</p>
+              <p>✓ El agente conoce tus servicios, profesionales y horarios, y solo ofrece horas realmente disponibles.</p>
+              <p>✓ Si el paciente lo pide o el tema es clínico, deriva la conversación a tu equipo (aparece en el Inbox).</p>
+              <p className="text-violet-600">Requiere WhatsApp conectado. No olvides guardar los cambios.</p>
+            </div>
+
+            {/* Personalización del agente */}
+            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-4">
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-1">Nombre del asistente</p>
+                <input
+                  type="text"
+                  value={agenteNombre}
+                  onChange={(e) => setAgenteNombre(e.target.value)}
+                  placeholder="ej: Sofi"
+                  className="h-8 w-full max-w-[240px] px-2.5 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                />
+              </div>
+
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-2">Tono de conversación</p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { label: "Cercano", value: 'cercano' },
+                    { label: "Formal",  value: 'formal' },
+                  ] as const).map((op) => (
+                    <button
+                      key={op.value}
+                      type="button"
+                      onClick={() => setAgenteTono(op.value)}
+                      className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${agenteTono === op.value ? "border-violet-600 bg-violet-50 text-violet-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  {agenteTono === 'formal' ? 'Trata a los pacientes de usted, sin emojis.' : 'Trato cercano y profesional, estilo chileno.'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-1">Instrucciones adicionales</p>
+                <p className="text-[12px] text-gray-400 mb-2">Reglas propias de tu clínica que el agente debe seguir</p>
+                <textarea
+                  value={agenteInstrucciones}
+                  onChange={(e) => setAgenteInstrucciones(e.target.value)}
+                  rows={4}
+                  placeholder="ej: No agendar primeras horas del lunes. Los tratamientos láser requieren evaluación previa."
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-[13px] text-gray-900 leading-relaxed placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
+                />
+              </div>
+            </div>
+
+            <a
+              href="/configuracion/agente-test"
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-700 hover:text-violet-900"
+            >
+              <MessageCircle className="size-3.5" />
+              Probar el agente en el simulador →
+            </a>
+          </div>
+        )}
       </div>
 
-      {activo && (
-        <>
-          {/* Cuándo enviar */}
-          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-4">
-            <p className="text-[13px] font-semibold text-gray-900 mb-3">¿Cuándo enviar el recordatorio?</p>
-            <div className="flex flex-wrap gap-2">
-              {OPCIONES_MINUTOS.map((op) => (
-                <button
-                  key={op.value}
-                  type="button"
-                  onClick={() => handleOpcionChange(op.value)}
-                  className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${opcionSeleccionada === op.value ? "border-[#2563EB] bg-blue-50 text-[#2563EB]" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
-                >
-                  {op.label}
-                </button>
-              ))}
+      {/* ── BLOQUE WHATSAPP ─────────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-7 h-7 rounded-lg bg-[#25D366]/10 flex items-center justify-center">
+            <MessageCircle className="size-4 text-[#25D366]" />
+          </div>
+          <div>
+            <p className="text-[14px] font-semibold text-gray-900">Recordatorios por WhatsApp</p>
+            <p className="text-[12px] text-gray-400">Mensaje automático antes de cada cita</p>
+          </div>
+          <div className="ml-auto">
+            <Toggle activo={activo} onChange={() => setActivo(v => !v)} />
+          </div>
+        </div>
+
+        {activo && (
+          <div className="pl-9 space-y-4">
+            {/* Cuándo enviar */}
+            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+              <p className="text-[12px] font-semibold text-gray-700 mb-3">¿Cuándo enviar el recordatorio?</p>
+              <div className="flex flex-wrap gap-2">
+                {OPCIONES_MINUTOS.map((op) => (
+                  <button
+                    key={op.value}
+                    type="button"
+                    onClick={() => handleOpcionChange(op.value)}
+                    className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${opcionSeleccionada === op.value ? "border-[#2563EB] bg-blue-50 text-[#2563EB]" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    {op.label}
+                  </button>
+                ))}
+              </div>
+              {opcionSeleccionada === -1 && (
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={minutosCustom}
+                    onChange={(e) => setMinutosCustom(Number(e.target.value))}
+                    className="h-8 w-24 px-2 rounded-lg border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+                  />
+                  <span className="text-[12px] text-gray-500">minutos antes de la cita</span>
+                </div>
+              )}
             </div>
-            {opcionSeleccionada === -1 && (
-              <div className="mt-3 flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  value={minutosCustom}
-                  onChange={(e) => handleMinutosCustomChange(Number(e.target.value))}
-                  className="h-8 w-24 px-2 rounded-lg border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-                />
-                <span className="text-[12px] text-gray-500">minutos antes de la cita</span>
+
+            {/* Template + preview */}
+            <div>
+              <p className="text-[12px] font-semibold text-gray-700 mb-1">Mensaje de recordatorio</p>
+              <p className="text-[12px] text-gray-400 mb-3">Usa variables para personalizar el mensaje con los datos de cada cita</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                  <textarea
+                    value={template}
+                    onChange={(e) => setTemplate(e.target.value)}
+                    rows={10}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-[13px] text-gray-900 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {VARIABLES_DISPONIBLES.map((v) => (
+                      <button
+                        key={v.key}
+                        type="button"
+                        title={v.desc}
+                        onClick={() => setTemplate(t => t + v.key)}
+                        className="h-6 px-2 rounded-md bg-blue-50 text-[11px] font-mono text-[#2563EB] border border-blue-100 hover:bg-blue-100 transition-colors"
+                      >
+                        {v.key}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTemplate(TEMPLATE_RECORDATORIO_DEFAULT)}
+                    className="mt-2 text-[11px] text-gray-400 hover:text-gray-600 underline"
+                  >
+                    Restaurar plantilla por defecto
+                  </button>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-gray-500 mb-2 uppercase tracking-wide">Vista previa</p>
+                  <div className="bg-[#ECE5DD] rounded-xl p-4 min-h-[200px]">
+                    <div className="bg-white rounded-xl rounded-tl-none px-4 py-3 max-w-[85%] shadow-sm">
+                      <p className="text-[13px] text-gray-900 whitespace-pre-wrap leading-relaxed">{preview}</p>
+                      <p className="text-[10px] text-gray-400 mt-1.5 text-right">15:00 ✓✓</p>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-3 text-center">Ejemplo con datos ficticios</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── SEPARADOR ───────────────────────────────────────────────────────── */}
+      <div className="border-t border-gray-100" />
+
+      {/* ── BLOQUE EMAIL ────────────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+            <Bell className="size-4 text-[#2563EB]" />
+          </div>
+          <div>
+            <p className="text-[14px] font-semibold text-gray-900">Recordatorios por email</p>
+            <p className="text-[12px] text-gray-400">Elige qué correos automáticos reciben tus pacientes</p>
+          </div>
+        </div>
+
+        <div className="pl-9 space-y-3">
+
+          {/* Recordatorio día anterior */}
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[13px] font-semibold text-gray-900">Recordatorio día anterior</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">Email la tarde del día antes de la cita</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTipo('recordatorio_cita')}
+                  className="h-7 px-2.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center gap-1"
+                >
+                  <Eye className="size-3" /> Ver
+                </button>
+                <Toggle activo={emailCfg.manana} onChange={() => setEmailCfg(c => ({ ...c, manana: !c.manana }))} />
+              </div>
+            </div>
+          </div>
+
+          {/* Recordatorio mismo día */}
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <div>
+                <p className="text-[13px] font-semibold text-gray-900">Recordatorio mismo día</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">Email unas horas antes de la cita</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTipo('recordatorio_cita')}
+                  className="h-7 px-2.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center gap-1"
+                >
+                  <Eye className="size-3" /> Ver
+                </button>
+                <Toggle activo={emailCfg.hoy} onChange={() => setEmailCfg(c => ({ ...c, hoy: !c.hoy }))} />
+              </div>
+            </div>
+            {emailCfg.hoy && (
+              <div>
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">¿Con cuánta anticipación?</p>
+                <div className="flex flex-wrap gap-2">
+                  {[1, 2, 3].map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => setEmailCfg(c => ({ ...c, hoy_horas_antes: h }))}
+                      className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${emailCfg.hoy_horas_antes === h ? "border-[#2563EB] bg-blue-50 text-[#2563EB]" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      {h} {h === 1 ? "hora antes" : "horas antes"}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Template + preview */}
-          <div className="mb-4">
-            <p className="text-[13px] font-semibold text-gray-900 mb-1">Mensaje de recordatorio</p>
-            <p className="text-[12px] text-gray-400 mb-3">Usa variables para personalizar el mensaje con los datos de cada cita</p>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Editor */}
+          {/* Post-consulta */}
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <textarea
-                  value={template}
-                  onChange={(e) => setTemplate(e.target.value)}
-                  rows={10}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-[13px] text-gray-900 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
-                />
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {VARIABLES_DISPONIBLES.map((v) => (
-                    <button
-                      key={v.key}
-                      type="button"
-                      title={v.desc}
-                      onClick={() => setTemplate(t => t + v.key)}
-                      className="h-6 px-2 rounded-md bg-blue-50 text-[11px] font-mono text-[#2563EB] border border-blue-100 hover:bg-blue-100 transition-colors"
-                    >
-                      {v.key}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-[13px] font-semibold text-gray-900">Email post-consulta</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">Se envía 1–3 horas después de completar la cita</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setTemplate(TEMPLATE_RECORDATORIO_DEFAULT)}
-                  className="mt-2 text-[11px] text-gray-400 hover:text-gray-600 underline"
+                  onClick={() => setPreviewTipo('post_cita')}
+                  className="h-7 px-2.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center gap-1"
                 >
-                  Restaurar plantilla por defecto
+                  <Eye className="size-3" /> Ver
                 </button>
-              </div>
-
-              {/* Preview */}
-              <div>
-                <p className="text-[11px] font-medium text-gray-500 mb-2 uppercase tracking-wide">Vista previa</p>
-                <div className="bg-[#ECE5DD] rounded-xl p-4 min-h-[200px]">
-                  <div className="bg-white rounded-xl rounded-tl-none px-4 py-3 max-w-[85%] shadow-sm">
-                    <p className="text-[13px] text-gray-900 whitespace-pre-wrap leading-relaxed">{preview}</p>
-                    <p className="text-[10px] text-gray-400 mt-1.5 text-right">15:00 ✓✓</p>
-                  </div>
-                  <p className="text-[10px] text-gray-500 mt-3 text-center">Ejemplo con datos ficticios</p>
-                </div>
+                <Toggle activo={emailCfg.post_cita} onChange={() => setEmailCfg(c => ({ ...c, post_cita: !c.post_cita }))} />
               </div>
             </div>
           </div>
-        </>
-      )}
+
+        </div>
+      </div>
 
       <Feedback f={feedback} />
       <div className="flex justify-end">
@@ -1160,6 +1724,11 @@ function SeccionRecordatorios() {
           {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Guardar configuración"}
         </Button>
       </div>
+
+      {/* Preview modal */}
+      {previewTipo && (
+        <EmailPreviewModal tipo={previewTipo} onClose={() => setPreviewTipo(null)} />
+      )}
     </div>
   )
 }
@@ -1248,6 +1817,7 @@ function SeccionGoogleCalendar() {
 
       <div className="bg-gray-50 rounded-xl border border-gray-100 p-5 mb-6">
         <div className="flex items-center gap-4">
+          {/* Google icon */}
           <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
             <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
@@ -1261,7 +1831,9 @@ function SeccionGoogleCalendar() {
               {conectado ? "Conectado a Google Calendar" : "Google Calendar no conectado"}
             </p>
             <p className="text-[12px] text-gray-500 mt-0.5">
-              {conectado ? tokenEmail ?? "Cuenta conectada" : "Conecta tu cuenta para sincronizar citas automáticamente"}
+              {conectado
+                ? tokenEmail ?? "Cuenta conectada"
+                : "Conecta tu cuenta para sincronizar citas automáticamente"}
             </p>
           </div>
           <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${conectado ? "bg-emerald-50 text-[#10B981]" : "bg-gray-100 text-gray-500"}`}>
@@ -1279,11 +1851,17 @@ function SeccionGoogleCalendar() {
                 key={opt.value}
                 onClick={() => cambiarSyncMode(opt.value)}
                 disabled={guardandoMode}
-                className={`text-left p-3.5 rounded-xl border transition-all disabled:opacity-60 ${syncMode === opt.value ? "border-[#2563EB] bg-blue-50/60 ring-1 ring-[#2563EB]" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                className={`text-left p-3.5 rounded-xl border transition-all disabled:opacity-60 ${
+                  syncMode === opt.value
+                    ? "border-[#2563EB] bg-blue-50/60 ring-1 ring-[#2563EB]"
+                    : "border-gray-200 bg-white hover:bg-gray-50"
+                }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[13px] font-semibold text-gray-900">{opt.label}</span>
-                  {syncMode === opt.value && <CheckCircle2 className="size-4 text-[#2563EB] shrink-0" />}
+                  {syncMode === opt.value && (
+                    <CheckCircle2 className="size-4 text-[#2563EB] shrink-0" />
+                  )}
                 </div>
                 <p className="text-[11px] text-gray-500 leading-snug">{opt.description}</p>
               </button>
@@ -1712,7 +2290,15 @@ function SeccionHorariosClinica() {
 
   useEffect(() => {
     getClinicaConfig().then((cfg) => {
-      if (cfg.horarios && Object.keys(cfg.horarios).length > 0) setHorarios(cfg.horarios)
+      if (cfg.horarios && Object.keys(cfg.horarios).length > 0) {
+        // Normalize legacy keys without accents (saved by old onboarding)
+        const normalized: HorariosConfig = {}
+        const KEY_MAP: Record<string, string> = { miercoles: 'miércoles', sabado: 'sábado' }
+        for (const [k, v] of Object.entries(cfg.horarios)) {
+          normalized[KEY_MAP[k] ?? k] = v
+        }
+        setHorarios(normalized)
+      }
       setCargando(false)
     })
   }, [])
@@ -1883,7 +2469,7 @@ function SeccionDisponibilidad() {
       <div>
         <div className="text-center py-12">
           <CalendarDays className="size-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-[13px] text-gray-500">No hay profesionales registrados. Agrega uno en la sección <strong>Profesionales</strong>.</p>
+          <p className="text-[13px] text-gray-500">No hay profesionales registrados. Agrega uno en <strong>Profesionales</strong>.</p>
         </div>
       </div>
     )
@@ -1967,13 +2553,13 @@ function SeccionDisponibilidad() {
   )
 }
 
-// ─── Sección Horarios unificada (clínica + disponibilidad por profesional) ───
+// ─── Sección Horarios unificada ───────────────────────────────────────────────
 
 function SeccionHorariosUnificada() {
   const [tab, setTab] = useState<'clinica' | 'profesional'>('clinica')
   return (
     <div>
-      <SectionHeader title="Horarios y disponibilidad" subtitle="Configura los horarios de atención de tu clínica y de cada profesional" />
+      <SectionHeader title="Horarios y disponibilidad" subtitle="Configura los horarios de la clínica y de cada profesional" />
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1 w-fit">
         <button
           onClick={() => setTab('clinica')}
@@ -2035,7 +2621,7 @@ function BtnCerrarSesion() {
     window.location.href = "/login"
   }
   return (
-    <button onClick={cerrar} className="w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+    <button onClick={cerrar} className="w-full flex items-center gap-2.5 h-10 sm:h-9 px-3 rounded-lg text-[13px] font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors whitespace-nowrap">
       <LogOut className="size-[15px] shrink-0" /> Cerrar sesión
     </button>
   )
@@ -2083,7 +2669,7 @@ function ConfiguracionInner() {
       <ClinicaHeaderCard />
 
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 flex-1 min-h-0">
-        <nav className="sm:w-[210px] w-full shrink-0">
+        <nav className="sm:w-[210px] w-full shrink-0 hidden sm:block">
           {NAV_GROUPS.map((group, gi) => (
             <div key={group.label} className={gi > 0 ? "mt-4" : ""}>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-3 mb-1">{group.label}</p>
@@ -2105,6 +2691,18 @@ function ConfiguracionInner() {
               </div>
             </div>
           ))}
+          {/* Mobile: chips horizontales */}
+          <div className="sm:hidden flex gap-1 overflow-x-auto pb-2 -mx-4 px-4">
+            {NAV.map((item) => {
+              const isActive = activa === item.id
+              return (
+                <button key={item.id} onClick={() => setActiva(item.id)}
+                  className={`shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-lg text-[12px] font-medium whitespace-nowrap border transition-colors ${isActive ? "bg-blue-50 text-[#2563EB] border-blue-100" : "text-gray-500 border-gray-100 bg-white hover:bg-gray-50"}`}>
+                  {item.label}
+                </button>
+              )
+            })}
+          </div>
           <div className="pt-3 mt-4 border-t border-gray-100">
             <BtnCerrarSesion />
           </div>

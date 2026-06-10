@@ -38,6 +38,8 @@ type ClinicaAgente = {
   nombre: string
   telefono: string | null
   direccion: string | null
+  email: string | null
+  logo_url: string | null
   configuracion: {
     horarios?: Record<string, HorarioDia>
     agente_wsp?: AgenteWspConfig
@@ -224,9 +226,10 @@ const TOOLS: Anthropic.Tool[] = [
         fecha: { type: 'string', description: 'YYYY-MM-DD' },
         hora: { type: 'string', description: 'HH:MM (de consultar_disponibilidad)' },
         nombre_paciente: { type: 'string', description: 'Nombre completo del paciente' },
-        email_paciente: { type: 'string', description: 'Email del paciente (opcional)' },
+        rut_paciente: { type: 'string', description: 'RUT del paciente con dígito verificador, ej: 12.345.678-9' },
+        email_paciente: { type: 'string', description: 'Email del paciente para enviar confirmación' },
       },
-      required: ['servicio_id', 'profesional_id', 'fecha', 'hora', 'nombre_paciente'],
+      required: ['servicio_id', 'profesional_id', 'fecha', 'hora', 'nombre_paciente', 'rut_paciente', 'email_paciente'],
     },
   },
   {
@@ -305,11 +308,32 @@ async function ejecutarTool(
       p_paciente_telefono: telefono,
       p_paciente_email: input.email_paciente ? String(input.email_paciente) : null,
       p_notas: 'Agendada vía WhatsApp (agente IA)',
-      p_paciente_rut: null,
+      p_paciente_rut: input.rut_paciente ? String(input.rut_paciente) : null,
     })
     if (error) return { result: JSON.stringify({ error: error.message }) }
-    const res = data as { cita_id?: string; ok?: boolean; error?: string }
+    const res = data as { cita_id?: string; cancel_token?: string; ok?: boolean; error?: string }
     if (!res?.cita_id && !res?.ok) return { result: JSON.stringify({ error: res?.error ?? 'No se pudo crear la cita' }) }
+
+    // Disparar email de confirmación al paciente y notificación a la clínica
+    const { data: profRow } = await supabase.from('profesionales').select('nombre').eq('id', String(input.profesional_id)).maybeSingle()
+    const { data: svcRow } = await supabase.from('servicios').select('nombre').eq('id', String(input.servicio_id)).maybeSingle()
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
+    fetch(`${base}/api/notificar-cita`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.CRON_SECRET ?? '' },
+      body: JSON.stringify({
+        tipo: 'nueva_cita',
+        canal: 'whatsapp',
+        paciente: { nombre: String(input.nombre_paciente), email: input.email_paciente ?? null, telefono },
+        profesional: { nombre: profRow?.nombre ?? '' },
+        servicio: { nombre: svcRow?.nombre ?? '' },
+        clinica: { nombre: clinica.nombre, email: clinica.email, telefono: clinica.telefono, direccion: clinica.direccion, logo_url: clinica.logo_url },
+        inicio,
+        fin,
+        cancel_token: res.cancel_token,
+      }),
+    }).catch((e) => console.error('[agente] notificar-cita error', e))
+
     return { result: JSON.stringify({ ok: true, cita_id: res.cita_id }) }
   }
 
@@ -440,7 +464,7 @@ REGLAS
     ? 'profesional y formal: trata al paciente de usted y NO uses emojis.'
     : 'cercano y profesional.'} Mensajes cortos: esto es WhatsApp, máximo 3-4 líneas por mensaje salvo que listes horarios.
 - NUNCA inventes horarios disponibles: usa consultar_disponibilidad antes de proponer horas.
-- Para agendar necesitas: servicio, profesional, fecha, hora confirmada por el paciente, y su nombre completo. Pide solo lo que falte, de a poco, sin interrogatorios.
+- Para agendar necesitas: servicio, profesional, fecha, hora confirmada por el paciente, nombre completo, RUT (con dígito verificador, ej: 12.345.678-9) y email. El RUT y el email son OBLIGATORIOS — no crees la cita sin ellos. Pide solo lo que falte, de a poco, sin interrogatorios.
 - Si hay varios profesionales disponibles y el paciente no tiene preferencia, sugiere el que tenga más horarios libres.
 - Para reagendar: cancela la cita anterior y crea una nueva (confirma primero el nuevo horario con el paciente).
 - No des consejos médicos ni diagnósticos. Para temas clínicos, precios especiales, convenios o reclamos, usa escalar_a_humano.
@@ -473,7 +497,7 @@ export async function responderConAgente(params: {
 
   const { data: clinicaRow } = await supabase
     .from('clinicas')
-    .select('id, nombre, telefono, direccion, configuracion')
+    .select('id, nombre, telefono, direccion, email, logo_url, configuracion')
     .eq('id', clinicaId)
     .maybeSingle()
   if (!clinicaRow) return { texto: null, escalado: false }
