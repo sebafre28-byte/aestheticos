@@ -1,11 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
+const supabaseAdmin = createAdminClient()
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     await fetch(`${base}/api/email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.CRON_SECRET ?? '' },
       body: JSON.stringify({
         tipo: 'invitacion_equipo',
         destinatario: email,

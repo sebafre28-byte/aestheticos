@@ -49,6 +49,10 @@ export async function POST(req: NextRequest) {
   })
 
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
+  const internalHeaders = {
+    'Content-Type': 'application/json',
+    'x-internal-secret': process.env.CRON_SECRET ?? '',
+  }
 
   const promesas: Promise<unknown>[] = []
 
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
       promesas.push(
         fetch(`${base}/api/email`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: internalHeaders,
           body: JSON.stringify({
             tipo: 'confirmacion_cita',
             destinatario: paciente.email,
@@ -89,7 +93,7 @@ export async function POST(req: NextRequest) {
       promesas.push(
         fetch(`${base}/api/email`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: internalHeaders,
           body: JSON.stringify({
             tipo: 'nueva_reserva_admin',
             destinatario: adminEmail,
@@ -138,7 +142,7 @@ export async function POST(req: NextRequest) {
       promesas.push(
         fetch(`${base}/api/email`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: internalHeaders,
           body: JSON.stringify({ tipo: 'cancelacion_cita', destinatario: paciente.email, datos: cancelDatos }),
         }).catch((err) => console.error('[notificar-cita] cancelacion paciente error:', err)),
       )
@@ -150,7 +154,7 @@ export async function POST(req: NextRequest) {
       promesas.push(
         fetch(`${base}/api/email`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: internalHeaders,
           body: JSON.stringify({
             tipo: 'cancelacion_admin',
             destinatario: adminEmail,

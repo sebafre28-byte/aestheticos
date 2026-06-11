@@ -10,10 +10,14 @@ export async function GET(req: NextRequest) {
   const pacienteId = req.nextUrl.searchParams.get('paciente_id')
   if (!pacienteId) return NextResponse.json({ error: 'paciente_id requerido' }, { status: 400 })
 
+  const miembro = await getClinicaIdForUser(supabase, user.id)
+  if (!miembro) return NextResponse.json({ error: 'Sin clínica' }, { status: 403 })
+
   const { data, error } = await supabase
     .from('fichas_clinicas')
     .select('id, paciente_id, tipo_tratamiento, contenido, notas, created_at')
     .eq('paciente_id', pacienteId)
+    .eq('clinica_id', miembro.clinicaId)
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
