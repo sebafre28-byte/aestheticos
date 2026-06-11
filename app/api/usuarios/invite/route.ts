@@ -2,7 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const supabaseAdmin = createAdminClient()
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,6 +36,8 @@ export async function POST(request: NextRequest) {
     if (!isAdmin) {
       return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 })
     }
+
+    const supabaseAdmin = createAdminClient()
 
     // Check for duplicate invite within this clinic
     const { data: existing } = await supabaseAdmin
