@@ -1696,70 +1696,21 @@ function SeccionRecordatorios() {
 
 // ─── Sección Google Calendar ──────────────────────────────────────────────────
 
-type SyncMode = 'push_only' | 'pull_only' | 'bidirectional'
-
-const SYNC_MODE_OPTIONS: { value: SyncMode; label: string; description: string }[] = [
-  { value: 'push_only', label: 'Solo exportar', description: 'Tus citas de SimpliClinic aparecen en Google Calendar' },
-  { value: 'pull_only', label: 'Solo importar', description: 'Tus eventos de Google bloquean horarios en la agenda' },
-  { value: 'bidirectional', label: 'Bidireccional', description: 'Ambas opciones activas' },
-]
-
 function SeccionGoogleCalendar() {
-  const searchParams = useSearchParams()
   const [conectado, setConectado] = useState(false)
-  const [tokenEmail, setTokenEmail] = useState<string | null>(null)
-  const [syncMode, setSyncMode] = useState<SyncMode>('push_only')
+  const [calendarId, setCalendarId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
-  const [desconectando, setDesconectando] = useState(false)
-  const [guardandoMode, setGuardandoMode] = useState(false)
-  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
-
-  const googleParam = searchParams.get("google")
-
-  useEffect(() => {
-    if (googleParam === "success") setFeedback({ tipo: "ok", msg: "Google Calendar conectado correctamente." })
-    else if (googleParam === "error") setFeedback({ tipo: "error", msg: "No se pudo conectar con Google Calendar. Intenta nuevamente." })
-    else if (googleParam === "no_refresh_token") setFeedback({ tipo: "error", msg: "No se recibió el token de actualización. Intenta desconectar y volver a conectar." })
-  }, [googleParam])
 
   useEffect(() => {
     fetch('/api/auth/google/status')
       .then(r => r.json())
-      .then((data: { connected: boolean; token: { token_expiry?: string; calendar_id?: string; sync_mode?: SyncMode } | null }) => {
+      .then((data: { connected: boolean; token: { calendar_id?: string } | null }) => {
         setConectado(data.connected)
-        setTokenEmail(data.token?.calendar_id ?? null)
-        if (data.token?.sync_mode) setSyncMode(data.token.sync_mode)
+        setCalendarId(data.token?.calendar_id ?? null)
         setCargando(false)
       })
       .catch(() => setCargando(false))
-  }, [googleParam])
-
-  async function desconectar() {
-    setDesconectando(true)
-    const res = await fetch('/api/auth/google/disconnect', { method: 'DELETE' })
-    setDesconectando(false)
-    if (res.ok) {
-      setConectado(false)
-      setTokenEmail(null)
-      setFeedback({ tipo: "ok", msg: "Google Calendar desconectado." })
-    } else {
-      setFeedback({ tipo: "error", msg: "No se pudo desconectar." })
-    }
-  }
-
-  async function cambiarSyncMode(mode: SyncMode) {
-    setSyncMode(mode)
-    setGuardandoMode(true)
-    const res = await fetch('/api/auth/google/sync-mode', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sync_mode: mode }),
-    })
-    setGuardandoMode(false)
-    if (!res.ok) {
-      setFeedback({ tipo: "error", msg: "No se pudo actualizar el modo de sincronización." })
-    }
-  }
+  }, [])
 
   if (cargando) return (
     <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
@@ -1774,11 +1725,8 @@ function SeccionGoogleCalendar() {
         subtitle="Sincroniza tus citas con Google Calendar automáticamente"
       />
 
-      <Feedback f={feedback} />
-
-      <div className="bg-gray-50 rounded-xl border border-gray-100 p-5 mb-6">
+      <div className="bg-gray-50 rounded-xl border border-gray-100 p-5 mb-4">
         <div className="flex items-center gap-4">
-          {/* Google icon */}
           <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
             <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
@@ -1793,7 +1741,7 @@ function SeccionGoogleCalendar() {
             </p>
             <p className="text-[12px] text-gray-500 mt-0.5">
               {conectado
-                ? tokenEmail ?? "Cuenta conectada"
+                ? `Calendario: ${calendarId === 'primary' ? 'principal' : (calendarId ?? 'principal')}`
                 : "Conecta tu cuenta para sincronizar citas automáticamente"}
             </p>
           </div>
@@ -1803,58 +1751,19 @@ function SeccionGoogleCalendar() {
         </div>
       </div>
 
-      {conectado ? (
-        <>
-          <p className="text-[13px] font-semibold text-gray-700 mb-3">Modo de sincronización</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-            {SYNC_MODE_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => cambiarSyncMode(opt.value)}
-                disabled={guardandoMode}
-                className={`text-left p-3.5 rounded-xl border transition-all disabled:opacity-60 ${
-                  syncMode === opt.value
-                    ? "border-[#2563EB] bg-blue-50/60 ring-1 ring-[#2563EB]"
-                    : "border-gray-200 bg-white hover:bg-gray-50"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[13px] font-semibold text-gray-900">{opt.label}</span>
-                  {syncMode === opt.value && (
-                    <CheckCircle2 className="size-4 text-[#2563EB] shrink-0" />
-                  )}
-                </div>
-                <p className="text-[11px] text-gray-500 leading-snug">{opt.description}</p>
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={desconectar}
-            disabled={desconectando}
-            className="h-9 px-4 rounded-lg border border-red-200 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2"
-          >
-            {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
-            Desconectar
-          </button>
-        </>
-      ) : (
-        <a
-          href="/api/auth/google"
-          className="inline-flex items-center gap-2.5 h-10 px-5 rounded-xl border border-gray-200 bg-white text-[13px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-        >
-          <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
-            <path d="M6.3 14.7l7.4 5.4C15.5 16 19.4 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z" fill="#FF3D00"/>
-            <path d="M24 46c5.5 0 10.5-1.9 14.3-5.1l-6.6-5.6C29.6 36.7 26.9 37.5 24 37.5c-5.8 0-10.6-3.9-12.4-9.2l-7.3 5.7C7.9 41.3 15.4 46 24 46z" fill="#4CAF50"/>
-            <path d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.3l6.6 5.6C41.1 37.3 44.5 31.1 44.5 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
-          </svg>
-          Conectar con Google Calendar
-        </a>
-      )}
+      <a
+        href="/mi-cuenta?tab=google"
+        className="inline-flex items-center gap-1.5 text-[13px] text-[#2563EB] hover:underline"
+      >
+        Configurar sincronización →
+      </a>
     </div>
   )
 }
 
+            Desconectar
+          </button>
+        </>
 // ─── Sección Plan ─────────────────────────────────────────────────────────────
 
 function SeccionPlan() {
