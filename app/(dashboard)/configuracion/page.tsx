@@ -1761,9 +1761,6 @@ function SeccionGoogleCalendar() {
   )
 }
 
-            Desconectar
-          </button>
-        </>
 // ─── Sección Plan ─────────────────────────────────────────────────────────────
 
 function SeccionPlan() {
