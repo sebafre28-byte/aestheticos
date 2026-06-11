@@ -205,6 +205,63 @@ class MetaWhatsappProvider implements WhatsappProvider {
 
 export type WhatsappProviderKind = 'twilio' | 'meta'
 
+export type WhatsappClinicaConfig = {
+  provider?: 'meta' | 'twilio'
+  phone_number_id?: string
+  access_token?: string
+  verify_token?: string
+  account_sid?: string
+  auth_token?: string
+  from_number?: string
+  numero_display?: string
+  activo?: boolean
+}
+
+/**
+ * Creates a WhatsApp provider from per-clinic config.
+ * Falls back to global env vars if config is empty/missing (backwards compatible).
+ */
+export function getWhatsappProviderForClinica(config: WhatsappClinicaConfig | null | undefined): WhatsappProvider {
+  if (!config || Object.keys(config).length === 0) {
+    return getWhatsappProvider()
+  }
+
+  const kind = config.provider ?? 'twilio'
+
+  if (kind === 'meta') {
+    const phoneNumberId = config.phone_number_id || process.env.WHATSAPP_PHONE_NUMBER_ID || ''
+    const accessToken   = config.access_token    || process.env.META_ACCESS_TOKEN          || ''
+
+    if (!phoneNumberId || !accessToken) {
+      console.error('[whatsapp] provider=meta pero faltan phone_number_id o access_token para la clínica')
+      return {
+        name: 'meta-misconfigured',
+        async sendWhatsApp() {
+          return { ok: false, error: 'Faltan phone_number_id o access_token en la configuración de la clínica' }
+        },
+      }
+    }
+
+    return new MetaWhatsappProvider(phoneNumberId, accessToken)
+  }
+
+  // Twilio
+  const accountSid = config.account_sid  || process.env.TWILIO_ACCOUNT_SID      || ''
+  const authToken  = config.auth_token   || process.env.TWILIO_AUTH_TOKEN        || ''
+  const from       = config.from_number  || process.env.TWILIO_WHATSAPP_FROM     || ''
+
+  if (!accountSid || !authToken || !from) {
+    return {
+      name: 'twilio-misconfigured',
+      async sendWhatsApp() {
+        return { ok: false, error: 'Faltan account_sid, auth_token o from_number en la configuración de la clínica' }
+      },
+    }
+  }
+
+  return new TwilioWhatsappProvider(accountSid, authToken, from)
+}
+
 export function getWhatsappProvider(): WhatsappProvider {
   const kind = (process.env.WHATSAPP_PROVIDER ?? 'twilio').toLowerCase() as WhatsappProviderKind
 

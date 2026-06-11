@@ -187,6 +187,37 @@ export async function getPacientes({
   }
 }
 
+export type PacienteExportRow = Pick<
+  PacienteRow,
+  'nombre' | 'rut' | 'telefono' | 'email' | 'fecha_nacimiento' | 'created_at'
+>
+
+// Trae TODOS los pacientes de la clínica (sin paginar) para exportar a CSV,
+// en lotes de 1000 para no toparse con el límite de Supabase.
+export async function getTodosPacientesParaExport(): Promise<PacienteExportRow[]> {
+  const supabase = createClient()
+  const pageSize = 1000
+  const todos: PacienteExportRow[] = []
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from('pacientes')
+      .select('nombre, rut, telefono, email, fecha_nacimiento, created_at')
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1)
+
+    if (error) {
+      console.error('Error getTodosPacientesParaExport:', error)
+      break
+    }
+    const rows = (data ?? []) as PacienteExportRow[]
+    todos.push(...rows)
+    if (rows.length < pageSize) break
+  }
+
+  return todos
+}
+
 export async function getPacienteDetalle(pacienteId: string): Promise<{
   paciente: PacienteRow | null
   historial: HistorialCitaPaciente[]

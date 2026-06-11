@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   format, addDays, subDays, startOfWeek, endOfWeek,
   addWeeks, subWeeks, isSameDay, addMonths, subMonths,
@@ -120,6 +120,10 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     init()
   }, [])
 
+  // Stable ref so the realtime subscription always calls the latest cargarCitas
+  // without needing to re-subscribe when fechaActual/vista change.
+  const cargarCitasRef = useRef<() => Promise<void>>(async () => {})
+
   useEffect(() => {
     cargarCitas()
   }, [fechaActual, vista]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -142,11 +146,12 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       .channel('agenda-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'citas' }, () => {
         clearTimeout(debounceTimer)
-        debounceTimer = setTimeout(() => cargarCitas(), 800)
+        // Use ref so we always call the latest version with current fecha/vista
+        debounceTimer = setTimeout(() => { void cargarCitasRef.current() }, 800)
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_bloqueos' }, () => {
         clearTimeout(debounceTimer)
-        debounceTimer = setTimeout(() => cargarCitas(), 800)
+        debounceTimer = setTimeout(() => { void cargarCitasRef.current() }, 800)
       })
       .subscribe()
 
@@ -154,9 +159,11 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       clearTimeout(debounceTimer)
       supabase.removeChannel(channel)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   async function cargarCitas() {
+    // Keep ref in sync so realtime subscription always has the latest version
+    cargarCitasRef.current = cargarCitas
     setCargando(true)
     const startedAt = performance.now()
     try {

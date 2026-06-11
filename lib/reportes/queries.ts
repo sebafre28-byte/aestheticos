@@ -1,7 +1,6 @@
 // Queries de reportes: resumen mensual de citas, ingresos y top servicios (server-side).
 
 import { createClient } from '@/lib/supabase/server'
-import { getClinicaId } from '@/lib/onboarding/queries'
 import { montoIngresoCobrado } from '@/lib/cobros/utils'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -31,6 +30,8 @@ export type ReporteData = {
     completadas: number
     canceladas: number
     pendientes: number
+    noShows: number
+    tasaNoShow: number
     ingresosTotales: number
     ticketPromedio: number
     pacientesAtendidos: number
@@ -57,7 +58,7 @@ type CitaRaw = {
 
 export async function getReporteData(year: number, month: number): Promise<ReporteData> {
   const supabase = await createClient()
-  const clinicaId = await getClinicaId()
+  const { data: clinicaId } = await supabase.rpc('auth_clinica_id')
 
   const date = new Date(year, month - 1, 1)
   const rangeStart = startOfMonth(date)
@@ -102,6 +103,9 @@ export async function getReporteData(year: number, month: number): Promise<Repor
   const completadas = citas.filter((c) => c.estado === 'completada').length
   const canceladas = citas.filter((c) => c.estado === 'cancelada' || c.estado === 'no_asistio').length
   const pendientes = citas.filter((c) => c.estado === 'pendiente').length
+  const noShows = citas.filter((c) => c.estado === 'no_asistio').length
+  const tasaNoShow =
+    completadas + noShows > 0 ? (noShows / (completadas + noShows)) * 100 : 0
 
   const ingresosTotales = citas.reduce(
     (acc, c) => acc + montoIngresoCobrado(c.pago_estado as PagoEstado, c.pago_monto),
@@ -140,6 +144,8 @@ export async function getReporteData(year: number, month: number): Promise<Repor
       completadas,
       canceladas,
       pendientes,
+      noShows,
+      tasaNoShow,
       ingresosTotales,
       ticketPromedio,
       pacientesAtendidos,

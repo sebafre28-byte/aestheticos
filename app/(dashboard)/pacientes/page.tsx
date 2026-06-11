@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Download } from 'lucide-react'
+import { format } from 'date-fns'
 import { useRol } from '@/lib/auth/useRol'
 import { useProfesionalId } from '@/lib/auth/useProfesionalId'
 import { FichaPaciente } from '@/components/pacientes/FichaPaciente'
@@ -13,6 +15,7 @@ import {
   crearPaciente,
   eliminarPaciente,
   getPacientes,
+  getTodosPacientesParaExport,
   toggleActivoPaciente,
   type PacienteListaItem,
   type PacienteRow,
@@ -44,6 +47,38 @@ export default function PacientesPage() {
   const [modalConfirm, setModalConfirm] = useState<ModalConfirm | null>(null)
   const [procesando, setProcesando] = useState(false)
   const [citasAEliminar, setCitasAEliminar] = useState(0)
+  const [exportando, setExportando] = useState(false)
+
+  async function handleExportCSV() {
+    if (exportando) return
+    setExportando(true)
+    try {
+      const rows = await getTodosPacientesParaExport()
+      const esc = (v: string | null) => `"${(v ?? '').replace(/"/g, '""')}"`
+      const headers = ['Nombre', 'RUT', 'Teléfono', 'Email', 'Fecha de nacimiento', 'Fecha de registro']
+      const lines = rows.map((p) =>
+        [
+          esc(p.nombre),
+          esc(p.rut),
+          esc(p.telefono),
+          esc(p.email),
+          p.fecha_nacimiento ? format(new Date(`${p.fecha_nacimiento}T00:00:00`), 'dd/MM/yyyy') : '',
+          format(new Date(p.created_at), 'dd/MM/yyyy'),
+        ].join(','),
+      )
+      const BOM = '﻿'
+      const csv = BOM + [headers.join(','), ...lines].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `pacientes-${format(new Date(), 'yyyy-MM-dd')}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExportando(false)
+    }
+  }
 
   useEffect(() => {
     const timeout = setTimeout(() => setBusqueda(busquedaInput), 250)
@@ -112,9 +147,22 @@ export default function PacientesPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mb-6">
-        <h1 className="text-[18px] font-semibold text-gray-900">Pacientes</h1>
-        <p className="text-[13px] text-gray-400 mt-0.5">{total} pacientes registrados</p>
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[18px] font-semibold text-gray-900">Pacientes</h1>
+          <p className="text-[13px] text-gray-400 mt-0.5">{total} pacientes registrados</p>
+        </div>
+        {rol === 'admin' && (
+          <button
+            onClick={handleExportCSV}
+            disabled={exportando}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-60"
+          >
+            <Download className="size-4 text-gray-500" />
+            <span className="hidden sm:inline">{exportando ? 'Exportando...' : 'Exportar CSV'}</span>
+            <span className="sm:hidden">CSV</span>
+          </button>
+        )}
       </div>
 
       <ListaPacientes
