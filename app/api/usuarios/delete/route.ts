@@ -1,11 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse, type NextRequest } from 'next/server'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -46,6 +41,8 @@ export async function DELETE(request: NextRequest) {
     if (membership?.rol !== 'admin' && !ownedClinic) {
       return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 })
     }
+
+    const supabaseAdmin = createAdminClient()
 
     // Delete from auth.users if we have a user_id (accepted invite)
     if (row.user_id) {

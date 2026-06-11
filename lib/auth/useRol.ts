@@ -34,6 +34,6 @@ export function puedeAcceder(rol: RolActual, modulo: string): boolean {
 }
 
 const PERMISOS: Record<string, string[]> = {
-  recepcionista: ['dashboard', 'agenda', 'pacientes', 'servicios', 'whatsapp', 'inbox', 'mi-cuenta'],
+  recepcionista: ['dashboard', 'agenda', 'pacientes', 'servicios', 'whatsapp', 'inbox'],
   profesional:   ['dashboard', 'agenda', 'pacientes', 'mi-cuenta'],
 }

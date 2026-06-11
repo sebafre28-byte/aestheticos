@@ -2,7 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const supabaseAdmin = createAdminClient()
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,6 +36,8 @@ export async function POST(request: NextRequest) {
     if (!isAdmin) {
       return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 403 })
     }
+
+    const supabaseAdmin = createAdminClient()
 
     // Check for duplicate invite within this clinic
     const { data: existing } = await supabaseAdmin
@@ -93,7 +95,7 @@ export async function POST(request: NextRequest) {
     // Send branded invite email via Resend
     await fetch(`${base}/api/email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.CRON_SECRET ?? '' },
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
       body: JSON.stringify({
         tipo: 'invitacion_equipo',
         destinatario: email,

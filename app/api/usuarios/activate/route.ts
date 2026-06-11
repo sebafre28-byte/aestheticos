@@ -2,8 +2,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
-const supabaseAdmin = createAdminClient()
-
 // Called after invite acceptance to link auth.user to usuarios_clinica row
 export async function POST() {
   const supabase = await createServerClient()
@@ -14,6 +12,7 @@ export async function POST() {
   }
 
   // Use admin client to bypass RLS — a recepcionista can't update their own row
+  const supabaseAdmin = createAdminClient()
   const { error } = await supabaseAdmin
     .from('usuarios_clinica')
     .update({ user_id: user.id })

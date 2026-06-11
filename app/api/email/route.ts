@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { emailRatelimit } from '@/lib/ratelimit'
 
-// ─── Rate limiter ─────────────────────────────────────────────────────────────
-
-// Simple in-memory rate limiter — resets on cold start (acceptable for serverless)
+// ─── In-memory fallback rate limiter (used when Upstash is not configured) ───
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
-const RATE_LIMIT = 10       // max requests
-const RATE_WINDOW = 60_000  // per 60 seconds
-
-function checkRateLimit(ip: string): boolean {
+function checkRateLimitFallback(ip: string): boolean {
   const now = Date.now()
   const entry = rateLimitMap.get(ip)
   if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW })
+    rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 })
     return true
   }
-  if (entry.count >= RATE_LIMIT) return false
+  if (entry.count >= 10) return false
   entry.count++
   return true
 }
@@ -822,13 +818,16 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  if (!checkRateLimit(ip)) {
+  if (emailRatelimit) {
+    const { success } = await emailRatelimit.limit(ip)
+    if (!success) return NextResponse.json({ ok: false, reason: 'Too many requests' }, { status: 429 })
+  } else if (!checkRateLimitFallback(ip)) {
     return NextResponse.json({ ok: false, reason: 'Too many requests' }, { status: 429 })
   }
 
   // Require either internal secret (server-to-server) or valid user session
   const internalSecret = req.headers.get('x-internal-secret')
-  const isInternalCall = process.env.CRON_SECRET && internalSecret === process.env.CRON_SECRET
+  const isInternalCall = process.env.INTERNAL_API_SECRET && internalSecret === process.env.INTERNAL_API_SECRET
   if (!isInternalCall) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

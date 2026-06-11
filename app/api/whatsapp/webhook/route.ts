@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { handleInboundTwilioMessage } from '@/lib/whatsapp/jobs'
 import { responderConAgente } from '@/lib/whatsapp/agente'
-import { getWhatsappProviderForClinica, toWhatsAppE164, type WhatsappClinicaConfig } from '@/lib/whatsapp/provider'
+import { getWhatsappProvider, toWhatsAppE164 } from '@/lib/whatsapp/provider'
 
 export const runtime = 'nodejs'
 
@@ -121,11 +121,10 @@ async function handleMetaPost(request: NextRequest): Promise<NextResponse> {
       // Resolve clinica_id from the business phone number ID
       const { data: clinicaRow } = await supabase
         .from('clinicas')
-        .select('id, whatsapp_config')
+        .select('id')
         .eq('meta_phone_number_id', phoneNumberId)
         .maybeSingle()
       const clinicaIdForNew = clinicaRow?.id ?? null
-      const clinicaWhatsappConfig = (clinicaRow?.whatsapp_config ?? {}) as WhatsappClinicaConfig
 
       for (const msg of value.messages ?? []) {
         const from = `+${msg.from}`
@@ -209,18 +208,7 @@ async function handleMetaPost(request: NextRequest): Promise<NextResponse> {
               telefono: from,
             })
             if (texto) {
-              // Use per-clinic WhatsApp credentials (fallback to env vars if not configured)
-              let wspConfig = clinicaWhatsappConfig
-              if (!wspConfig || Object.keys(wspConfig).length === 0) {
-                // clinicaRow might not match this conv's clinic_id — fetch config directly
-                const { data: cfgRow } = await supabase
-                  .from('clinicas')
-                  .select('whatsapp_config')
-                  .eq('id', conv.clinica_id)
-                  .maybeSingle()
-                wspConfig = (cfgRow?.whatsapp_config ?? {}) as WhatsappClinicaConfig
-              }
-              const provider = getWhatsappProviderForClinica(wspConfig)
+              const provider = getWhatsappProvider()
               const to = toWhatsAppE164(from)
               if (to) {
                 const sent = await provider.sendWhatsApp({ to, body: texto })

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   // Fire patient + admin notifications via notificar-cita (non-blocking)
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
-  const secret = process.env.CRON_SECRET ?? ''
+  const secret = process.env.INTERNAL_API_SECRET ?? ''
 
   fetch(`${base}/api/notificar-cita`, {
     method: 'POST',
