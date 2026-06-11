@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getClinicaIdForUser } from '@/lib/supabase/getClinicaId'
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -9,10 +10,14 @@ export async function GET(req: NextRequest) {
   const pacienteId = req.nextUrl.searchParams.get('paciente_id')
   if (!pacienteId) return NextResponse.json({ error: 'paciente_id requerido' }, { status: 400 })
 
+  const miembro = await getClinicaIdForUser(supabase, user.id)
+  if (!miembro) return NextResponse.json({ error: 'Sin clínica' }, { status: 403 })
+
   const { data, error } = await supabase
     .from('galeria_fotos')
     .select('id, paciente_id, cita_id, tipo, descripcion, tratamiento, foto_url, fecha_foto, notas, created_at')
     .eq('paciente_id', pacienteId)
+    .eq('clinica_id', miembro.clinicaId)
     .order('fecha_foto', { ascending: false })
     .order('created_at', { ascending: false })
 

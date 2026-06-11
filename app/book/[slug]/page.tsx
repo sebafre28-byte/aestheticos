@@ -736,6 +736,7 @@ function PasoDatos({
       body: JSON.stringify({
         tipo: 'nueva_cita',
         canal: 'book',
+        cita_id: result.cita_id,
         paciente: {
           nombre: form.nombre.trim(),
           email: form.email.trim() || null,

@@ -92,7 +92,7 @@ async function sendEmail(
   try {
     const res = await fetch(`${base}/api/email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.CRON_SECRET ?? '' },
       body: JSON.stringify({ tipo, destinatario, datos }),
     })
     const json = await res.json() as { ok: boolean }

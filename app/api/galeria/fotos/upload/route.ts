@@ -23,7 +23,12 @@ export async function POST(req: NextRequest) {
 
   if (!file || !pacienteId) return NextResponse.json({ error: 'Faltan file o paciente_id' }, { status: 400 })
 
-  const ext = file.name.split('.').pop() ?? 'jpg'
+  const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  const MIME_TO_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
+  if (!ALLOWED_MIME.includes(file.type)) {
+    return NextResponse.json({ error: 'Tipo de archivo no permitido. Solo se aceptan imágenes (jpg, png, webp, gif).' }, { status: 400 })
+  }
+  const ext = MIME_TO_EXT[file.type] ?? 'jpg'
   const path = `${miembro.clinicaId}/${pacienteId}/${Date.now()}.${ext}`
 
   const arrayBuffer = await file.arrayBuffer()

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
+import { getClinicaIdForUser } from '@/lib/supabase/getClinicaId'
 import { scheduleWhatsappJobsForCitaId, cancelWhatsappJobsForCita } from '@/lib/whatsapp/jobs'
 
 export async function POST(request: NextRequest) {
@@ -10,10 +11,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'citaId y action son requeridos' }, { status: 400 })
     }
 
-    // Verificar que la cita pertenece a la clínica del usuario autenticado
-    const supabase = await import('@/lib/supabase/server').then((m) => m.createClient())
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+    const miembro = await getClinicaIdForUser(supabase, user.id)
+    if (!miembro) return NextResponse.json({ error: 'No perteneces a ninguna clínica' }, { status: 403 })
 
     const { data: cita } = await supabase
       .from('citas')
@@ -22,6 +25,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!cita) return NextResponse.json({ error: 'Cita no encontrada' }, { status: 404 })
+
+    // Verify the cita belongs to the authenticated user's clinic
+    if (cita.clinica_id !== miembro.clinicaId) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
 
     if (action === 'cancel' || action === 'reschedule') {
       await cancelWhatsappJobsForCita(citaId)

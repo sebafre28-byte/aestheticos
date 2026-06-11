@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getClinicaIdForUser } from '@/lib/supabase/getClinicaId'
 
 export async function GET(req: NextRequest) {
   const conversacionId = req.nextUrl.searchParams.get('conversacion_id')
@@ -11,6 +12,18 @@ export async function GET(req: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  const miembro = await getClinicaIdForUser(supabase, user.id)
+  if (!miembro) return NextResponse.json({ error: 'Sin clínica' }, { status: 403 })
+
+  // Verify conversation belongs to user's clinic before fetching messages
+  const { data: conv } = await supabase
+    .from('conversaciones')
+    .select('id')
+    .eq('id', conversacionId)
+    .eq('clinica_id', miembro.clinicaId)
+    .maybeSingle()
+  if (!conv) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
 
   const { data, error } = await supabase
     .from('mensajes_inbox')
