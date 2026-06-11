@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   let db = false
   try {
-    const supabase = createAdminClient()
+    const supabase = await createClient()
     const { error } = await supabase.from('clinicas').select('id', { count: 'exact', head: true }).limit(1)
     db = !error
   } catch {

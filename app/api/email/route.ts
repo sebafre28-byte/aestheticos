@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 // ─── Rate limiter ─────────────────────────────────────────────────────────────
 
@@ -823,6 +824,15 @@ export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
   if (!checkRateLimit(ip)) {
     return NextResponse.json({ ok: false, reason: 'Too many requests' }, { status: 429 })
+  }
+
+  // Require either internal secret (server-to-server) or valid user session
+  const internalSecret = req.headers.get('x-internal-secret')
+  const isInternalCall = process.env.CRON_SECRET && internalSecret === process.env.CRON_SECRET
+  if (!isInternalCall) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ ok: false, reason: 'No autorizado' }, { status: 401 })
   }
 
   let payload: { tipo: string; destinatario: string; datos: DatosCita | DatosInvitacion | DatosBienvenida }
