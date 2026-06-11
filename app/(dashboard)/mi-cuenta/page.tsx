@@ -295,7 +295,9 @@ function SeccionDisponibilidad({ profesionalId }: { profesionalId: string }) {
 // ─── Sección Google Calendar ──────────────────────────────────────────────────
 
 const SYNC_OPTIONS: { value: SyncMode; label: string; desc: string }[] = [
-  { value: 'push_only', label: 'Exportar a Google Calendar', desc: 'Tus citas de SimpliClinic aparecen automáticamente en Google Calendar' },
+  { value: 'push_only',     label: 'Solo exportar',   desc: 'Tus citas de SimpliClinic aparecen en Google Calendar' },
+  { value: 'pull_only',     label: 'Solo importar',   desc: 'Tus eventos de Google bloquean horarios en la agenda' },
+  { value: 'bidirectional', label: 'Bidireccional',   desc: 'Ambas opciones activas' },
 ]
 
 const GoogleIcon = ({ size = 18 }: { size?: number }) => (
@@ -314,7 +316,6 @@ function SeccionGoogleCalendar() {
   const [cargando, setCargando] = useState(true)
   const [desconectando, setDesconectando] = useState(false)
   const [guardandoMode, setGuardandoMode] = useState(false)
-  const [sincronizando, setSincronizando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null)
 
   // Calendar selector
@@ -377,19 +378,6 @@ function SeccionGoogleCalendar() {
     setDesconectando(false)
     if (res.ok) { setConectado(false); setTokenEmail(null); setCalendarios([]); setFeedback({ tipo: 'ok', msg: 'Google Calendar desconectado.' }) }
     else setFeedback({ tipo: 'error', msg: 'No se pudo desconectar.' })
-  }
-
-  async function sincronizarAhora() {
-    setSincronizando(true)
-    setFeedback(null)
-    const res = await fetch('/api/auth/google/sync-all', { method: 'POST' })
-    setSincronizando(false)
-    if (res.ok) {
-      const data = await res.json() as { synced: number }
-      setFeedback({ tipo: 'ok', msg: `${data.synced} cita${data.synced !== 1 ? 's' : ''} sincronizada${data.synced !== 1 ? 's' : ''} con Google Calendar.` })
-    } else {
-      setFeedback({ tipo: 'error', msg: 'No se pudo sincronizar. Intenta nuevamente.' })
-    }
   }
 
   async function cambiarSyncMode(mode: SyncMode) {
@@ -485,27 +473,27 @@ function SeccionGoogleCalendar() {
             )}
           </div>
 
-          {/* Sincronización activa */}
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center gap-3 mb-5">
-            <CheckCircle2 className="size-4 text-[#2563EB] shrink-0" />
-            <div className="flex-1">
-              <p className="text-[13px] font-semibold text-gray-900">Exportar a Google Calendar</p>
-              <p className="text-[11px] text-gray-500">Tus citas de SimpliClinic aparecen automáticamente en Google Calendar</p>
-            </div>
-            {guardandoMode && <Loader2 className="size-3.5 animate-spin text-gray-400 shrink-0" />}
+          {/* Modo de sincronización */}
+          <p className="text-[12px] font-semibold text-gray-700 mb-3">
+            Modo de sincronización {guardandoMode && <span className="text-gray-400 font-normal ml-1">Guardando…</span>}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-5">
+            {SYNC_OPTIONS.map(opt => (
+              <button key={opt.value} onClick={() => cambiarSyncMode(opt.value)}
+                className={`text-left p-3.5 rounded-xl border transition-all ${syncMode === opt.value ? 'border-[#2563EB] bg-blue-50/60 ring-1 ring-[#2563EB]' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[13px] font-semibold text-gray-900">{opt.label}</span>
+                  {syncMode === opt.value && <CheckCircle2 className="size-4 text-[#2563EB] shrink-0" />}
+                </div>
+                <p className="text-[11px] text-gray-500 leading-snug">{opt.desc}</p>
+              </button>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={sincronizarAhora} disabled={sincronizando}
-              className="h-9 px-4 rounded-lg border border-blue-200 text-[13px] font-medium text-[#2563EB] hover:bg-blue-50 transition-colors disabled:opacity-60 flex items-center gap-2">
-              {sincronizando ? <Loader2 className="size-3.5 animate-spin" /> : <CalendarDays className="size-3.5" />}
-              Sincronizar citas ahora
-            </button>
-            <button onClick={desconectar} disabled={desconectando}
-              className="h-9 px-4 rounded-lg border border-red-200 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2">
-              {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
-              Desconectar
-            </button>
-          </div>
+          <button onClick={desconectar} disabled={desconectando}
+            className="h-9 px-4 rounded-lg border border-red-200 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2">
+            {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
+            Desconectar
+          </button>
         </>
       ) : (
         <a href="/api/auth/google"
