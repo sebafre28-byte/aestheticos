@@ -103,12 +103,14 @@ export async function syncCitaToGoogle(citaId: string, action: SyncAction = 'upd
       continue
     }
 
+    // Strip UTC offset so Google Calendar interprets times as America/Santiago local time
+    const toLocalDT = (ts: string) => ts.replace(/([+-]\d{2}:\d{2}|Z)$/, '')
     const eventData = {
       summary,
       description,
       location: (clinica as { direccion?: string | null } | null)?.direccion ?? undefined,
-      start: { dateTime: cita.inicio, timeZone: 'America/Santiago' },
-      end: { dateTime: cita.fin ?? cita.inicio, timeZone: 'America/Santiago' },
+      start: { dateTime: toLocalDT(cita.inicio), timeZone: 'America/Santiago' },
+      end: { dateTime: toLocalDT(cita.fin ?? cita.inicio), timeZone: 'America/Santiago' },
       extendedProperties: { private: { simpliclinic_cita_id: citaId } },
     }
 
