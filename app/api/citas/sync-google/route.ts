@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { syncCitaToGoogle, SyncAction } from '@/lib/google-calendar/sync'
 
 export async function POST(req: NextRequest) {
+  // Allow authenticated users OR internal server-to-server calls
+  const internalSecret = req.headers.get('x-internal-secret')
+  const isInternal = process.env.CRON_SECRET && internalSecret === process.env.CRON_SECRET
+  if (!isInternal) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  }
+
   const body = await req.json()
   const { cita_id, action } = body as { cita_id: string; action?: SyncAction }
   if (!cita_id) return NextResponse.json({ error: 'cita_id required' }, { status: 400 })

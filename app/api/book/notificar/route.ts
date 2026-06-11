@@ -62,5 +62,14 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify(body),
   }).catch((err) => console.error('[book/notificar]', err))
 
+  // Sync to Google Calendar if a real cita was created
+  if (body.cita_id) {
+    fetch(`${base}/api/citas/sync-google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
+      body: JSON.stringify({ cita_id: body.cita_id, action: 'create' }),
+    }).catch((err) => console.error('[book/notificar] google sync error:', err))
+  }
+
   return NextResponse.json({ ok: true })
 }

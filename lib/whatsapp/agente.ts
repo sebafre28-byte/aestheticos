@@ -242,6 +242,20 @@ async function ejecutarTool(
     if (error) return { result: JSON.stringify({ error: error.message }) }
     const res = data as { cita_id?: string; ok?: boolean; error?: string }
     if (!res?.cita_id && !res?.ok) return { result: JSON.stringify({ error: res?.error ?? 'No se pudo crear la cita' }) }
+
+    // Sync to Google Calendar (fire-and-forget)
+    if (res.cita_id) {
+      const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
+      fetch(`${base}/api/citas/sync-google`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': process.env.CRON_SECRET ?? '',
+        },
+        body: JSON.stringify({ cita_id: res.cita_id, action: 'create' }),
+      }).catch(() => {})
+    }
+
     return { result: JSON.stringify({ ok: true, cita_id: res.cita_id }) }
   }
 
