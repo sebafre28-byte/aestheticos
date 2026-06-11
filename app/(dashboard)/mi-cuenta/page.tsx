@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import {
   User, CalendarDays, Shield, Loader2, CheckCircle2,
-  AlertCircle, Eye, EyeOff, X,
+  AlertCircle, Eye, EyeOff, X, ChevronDown, Check,
 } from 'lucide-react'
 import { useRol } from '@/lib/auth/useRol'
 import { useProfesionalId } from '@/lib/auth/useProfesionalId'
@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 
 type Tab = 'perfil' | 'disponibilidad' | 'google' | 'seguridad'
 type SyncMode = 'push_only' | 'pull_only' | 'bidirectional'
+type GCalendar = { id: string; summary: string; backgroundColor?: string; primary: boolean }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -294,9 +295,7 @@ function SeccionDisponibilidad({ profesionalId }: { profesionalId: string }) {
 // ─── Sección Google Calendar ──────────────────────────────────────────────────
 
 const SYNC_OPTIONS: { value: SyncMode; label: string; desc: string }[] = [
-  { value: 'push_only',     label: 'Solo exportar',   desc: 'Tus citas de SimpliClinic aparecen en Google Calendar' },
-  { value: 'pull_only',     label: 'Solo importar',   desc: 'Tus eventos de Google bloquean horarios en la agenda' },
-  { value: 'bidirectional', label: 'Bidireccional',   desc: 'Ambas opciones activas' },
+  { value: 'push_only', label: 'Exportar a Google Calendar', desc: 'Tus citas de SimpliClinic aparecen automáticamente en Google Calendar' },
 ]
 
 const GoogleIcon = ({ size = 18 }: { size?: number }) => (
@@ -318,6 +317,14 @@ function SeccionGoogleCalendar() {
   const [sincronizando, setSincronizando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null)
 
+  // Calendar selector
+  const [calendarios, setCalendarios] = useState<GCalendar[]>([])
+  const [calendarId, setCalendarId] = useState<string>('primary')
+  const [cargandoCals, setCargandoCals] = useState(false)
+  const [guardandoCal, setGuardandoCal] = useState(false)
+  const [dropdownAbierto, setDropdownAbierto] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const g = params.get('google')
@@ -331,16 +338,44 @@ function SeccionGoogleCalendar() {
         setConectado(data.connected)
         setTokenEmail(data.token?.calendar_id ?? null)
         if (data.token?.sync_mode) setSyncMode(data.token.sync_mode)
+        if (data.token?.calendar_id) setCalendarId(data.token.calendar_id)
         setCargando(false)
+        if (data.connected) cargarCalendarios()
       })
       .catch(() => setCargando(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownAbierto(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  async function cargarCalendarios() {
+    setCargandoCals(true)
+    try {
+      const res = await fetch('/api/auth/google/calendars')
+      if (res.ok) {
+        const data = await res.json()
+        setCalendarios(data.calendars ?? [])
+        if (data.selected) setCalendarId(data.selected)
+      }
+    } finally {
+      setCargandoCals(false)
+    }
+  }
 
   async function desconectar() {
     setDesconectando(true)
     const res = await fetch('/api/auth/google/disconnect', { method: 'DELETE' })
     setDesconectando(false)
-    if (res.ok) { setConectado(false); setTokenEmail(null); setFeedback({ tipo: 'ok', msg: 'Google Calendar desconectado.' }) }
+    if (res.ok) { setConectado(false); setTokenEmail(null); setCalendarios([]); setFeedback({ tipo: 'ok', msg: 'Google Calendar desconectado.' }) }
     else setFeedback({ tipo: 'error', msg: 'No se pudo desconectar.' })
   }
 
@@ -364,6 +399,23 @@ function SeccionGoogleCalendar() {
     setGuardandoMode(false)
   }
 
+  async function cambiarCalendario(id: string) {
+    setCalendarId(id)
+    setDropdownAbierto(false)
+    setGuardandoCal(true)
+    const res = await fetch('/api/auth/google/calendar-id', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ calendar_id: id }),
+    })
+    setGuardandoCal(false)
+    if (res.ok) setFeedback({ tipo: 'ok', msg: 'Calendario actualizado. Las próximas citas se sincronizarán aquí.' })
+    else setFeedback({ tipo: 'error', msg: 'No se pudo actualizar el calendario.' })
+  }
+
+  const calSeleccionado = calendarios.find(c => c.id === calendarId)
+  const nombreCal = calSeleccionado?.summary ?? (calendarId === 'primary' ? 'Calendario principal' : calendarId)
+
   if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
 
   return (
@@ -386,20 +438,61 @@ function SeccionGoogleCalendar() {
 
       {conectado ? (
         <>
-          <p className="text-[12px] font-semibold text-gray-700 mb-3">
-            Modo de sincronización {guardandoMode && <span className="text-gray-400 font-normal ml-1">Guardando…</span>}
+          {/* Selector de calendario */}
+          <p className="text-[12px] font-semibold text-gray-700 mb-2">
+            Calendario destino {guardandoCal && <span className="text-gray-400 font-normal ml-1">Guardando…</span>}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-5">
-            {SYNC_OPTIONS.map(opt => (
-              <button key={opt.value} onClick={() => cambiarSyncMode(opt.value)}
-                className={`text-left p-3.5 rounded-xl border transition-all ${syncMode === opt.value ? 'border-[#2563EB] bg-blue-50/60 ring-1 ring-[#2563EB]' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[13px] font-semibold text-gray-900">{opt.label}</span>
-                  {syncMode === opt.value && <CheckCircle2 className="size-4 text-[#2563EB] shrink-0" />}
-                </div>
-                <p className="text-[11px] text-gray-500 leading-snug">{opt.desc}</p>
-              </button>
-            ))}
+          <div ref={dropdownRef} className="relative mb-5">
+            <button
+              type="button"
+              onClick={() => setDropdownAbierto(v => !v)}
+              className="w-full flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[13px] text-gray-700 hover:border-gray-300 transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {calSeleccionado?.backgroundColor && (
+                  <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: calSeleccionado.backgroundColor }} />
+                )}
+                <span className="truncate">{nombreCal}</span>
+                {(calSeleccionado?.primary || calendarId === 'primary') && (
+                  <span className="text-[11px] text-gray-400 shrink-0">· principal</span>
+                )}
+              </div>
+              {cargandoCals
+                ? <Loader2 className="size-3.5 animate-spin text-gray-400 shrink-0" />
+                : <ChevronDown className="size-3.5 text-gray-400 shrink-0" />
+              }
+            </button>
+
+            {dropdownAbierto && calendarios.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+                {calendarios.map(cal => (
+                  <button
+                    key={cal.id}
+                    type="button"
+                    onClick={() => cambiarCalendario(cal.id)}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <span
+                      className="size-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: cal.backgroundColor ?? '#4285F4' }}
+                    />
+                    <span className="flex-1 truncate">{cal.summary}</span>
+                    {cal.primary && <span className="text-[11px] text-gray-400">principal</span>}
+                    {cal.id === calendarId && <Check className="size-3.5 text-[#2563EB] shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sincronización activa */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center gap-3 mb-5">
+            <CheckCircle2 className="size-4 text-[#2563EB] shrink-0" />
+            <div className="flex-1">
+              <p className="text-[13px] font-semibold text-gray-900">Exportar a Google Calendar</p>
+              <p className="text-[11px] text-gray-500">Tus citas de SimpliClinic aparecen automáticamente en Google Calendar</p>
+            </div>
+            {guardandoMode && <Loader2 className="size-3.5 animate-spin text-gray-400 shrink-0" />}
           </div>
           <div className="flex items-center gap-2">
             <button onClick={sincronizarAhora} disabled={sincronizando}
