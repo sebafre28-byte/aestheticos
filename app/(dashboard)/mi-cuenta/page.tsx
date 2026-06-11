@@ -314,7 +314,6 @@ function SeccionGoogleCalendar() {
   const [cargando, setCargando] = useState(true)
   const [desconectando, setDesconectando] = useState(false)
   const [guardandoMode, setGuardandoMode] = useState(false)
-  const [sincronizando, setSincronizando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null)
 
   // Calendar selector
@@ -377,19 +376,6 @@ function SeccionGoogleCalendar() {
     setDesconectando(false)
     if (res.ok) { setConectado(false); setTokenEmail(null); setCalendarios([]); setFeedback({ tipo: 'ok', msg: 'Google Calendar desconectado.' }) }
     else setFeedback({ tipo: 'error', msg: 'No se pudo desconectar.' })
-  }
-
-  async function sincronizarAhora() {
-    setSincronizando(true)
-    setFeedback(null)
-    const res = await fetch('/api/auth/google/sync-all', { method: 'POST' })
-    setSincronizando(false)
-    if (res.ok) {
-      const data = await res.json() as { synced: number }
-      setFeedback({ tipo: 'ok', msg: `${data.synced} cita${data.synced !== 1 ? 's' : ''} sincronizada${data.synced !== 1 ? 's' : ''} con Google Calendar.` })
-    } else {
-      setFeedback({ tipo: 'error', msg: 'No se pudo sincronizar. Intenta nuevamente.' })
-    }
   }
 
   async function cambiarSyncMode(mode: SyncMode) {
@@ -494,18 +480,11 @@ function SeccionGoogleCalendar() {
             </div>
             {guardandoMode && <Loader2 className="size-3.5 animate-spin text-gray-400 shrink-0" />}
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={sincronizarAhora} disabled={sincronizando}
-              className="h-9 px-4 rounded-lg border border-blue-200 text-[13px] font-medium text-[#2563EB] hover:bg-blue-50 transition-colors disabled:opacity-60 flex items-center gap-2">
-              {sincronizando ? <Loader2 className="size-3.5 animate-spin" /> : <CalendarDays className="size-3.5" />}
-              Sincronizar citas ahora
-            </button>
-            <button onClick={desconectar} disabled={desconectando}
-              className="h-9 px-4 rounded-lg border border-red-200 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2">
-              {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
-              Desconectar
-            </button>
-          </div>
+          <button onClick={desconectar} disabled={desconectando}
+            className="h-9 px-4 rounded-lg border border-red-200 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2">
+            {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
+            Desconectar
+          </button>
         </>
       ) : (
         <a href="/api/auth/google"
