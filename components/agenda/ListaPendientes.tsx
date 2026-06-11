@@ -36,18 +36,29 @@ export function ListaPendientes({ onCitaConfirmada }: Props) {
 
   async function cargarPendientes() {
     setCargando(true)
-    const datos = await getCitasPendientes48h()
-    setCitas(datos)
-    setCargando(false)
+    try {
+      const datos = await getCitasPendientes48h()
+      setCitas(datos)
+    } catch (err) {
+      console.error('[ListaPendientes] cargarPendientes error:', err)
+    } finally {
+      setCargando(false)
+    }
   }
 
   async function confirmarCita(citaId: string) {
     setConfirmando(citaId)
     setCitas((prev) => prev.filter((c) => c.id !== citaId))
     onCitaConfirmada(citaId)
-    const ok = await actualizarEstadoCita(citaId, 'confirmada')
-    if (!ok) cargarPendientes()
-    setConfirmando(null)
+    try {
+      const ok = await actualizarEstadoCita(citaId, 'confirmada')
+      if (!ok) await cargarPendientes()
+    } catch (err) {
+      console.error('[ListaPendientes] confirmarCita error:', err)
+      await cargarPendientes()
+    } finally {
+      setConfirmando(null)
+    }
   }
 
   function abrirWhatsApp(cita: CitaConRelaciones) {
