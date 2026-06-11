@@ -1,6 +1,17 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// API route prefixes that are public (no auth required)
+const PUBLIC_API_PREFIXES = [
+  '/api/book/',
+  '/api/whatsapp/',
+  '/api/stripe/',
+  '/api/captcha',
+  '/api/health',
+  '/api/cancelar',
+  '/api/cron/',
+]
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -23,25 +34,36 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
 
-  const isProtectedRoute =
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/agenda') ||
-    pathname.startsWith('/pacientes') ||
-    pathname.startsWith('/servicios') ||
-    pathname.startsWith('/whatsapp') ||
-    pathname.startsWith('/configuracion') ||
-    pathname.startsWith('/onboarding')
+  // Allow public pages
+  if (
+    pathname === '/login' ||
+    pathname === '/register' ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/book/') ||
+    pathname === '/book' ||
+    pathname.startsWith('/cancelar/')
+  ) {
+    return supabaseResponse
+  }
 
-  if (isProtectedRoute && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+  // Allow public API routes and cron routes (they self-protect with CRON_SECRET)
+  if (PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return supabaseResponse
+  }
+
+  // Unauthenticated: redirect pages to /login, return 401 for API routes
+  if (!user) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('redirectTo', pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
   return supabaseResponse
