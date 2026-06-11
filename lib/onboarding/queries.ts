@@ -52,6 +52,18 @@ export type AgenteWspConfig = {
   activo: boolean
 }
 
+export type WizardPasosConfig = {
+  ficha: boolean
+  fotos: boolean
+  notas: boolean
+}
+
+export const WIZARD_PASOS_DEFAULT: WizardPasosConfig = {
+  ficha: true,
+  fotos: true,
+  notas: true,
+}
+
 export type ClinicaConfiguracion = {
   plantillas?: PlantillaWsp[]
   recordatorios?: RecordatorioConfig[]
@@ -59,6 +71,7 @@ export type ClinicaConfiguracion = {
   recordatorios_wsp?: RecordatoriosWspConfig
   recordatorios_email?: RecordatoriosEmailConfig
   agente_wsp?: AgenteWspConfig
+  wizard_pasos?: WizardPasosConfig
 }
 
 const PLANTILLAS_DEFAULT: PlantillaWsp[] = [
@@ -277,3 +290,4 @@ export async function getOnboardingCounts(): Promise<{
 }
 
 export { PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT }
+
