@@ -14,10 +14,10 @@ export interface NotificarCitaPayload {
 }
 
 export async function POST(req: NextRequest) {
-  // Internal-only endpoint: require either a session cookie or the CRON_SECRET header
+  // Internal-only endpoint: require either the internal secret or a valid session
   const authHeader = req.headers.get('x-internal-secret')
-  const cronSecret = process.env.CRON_SECRET
-  const isInternalCall = cronSecret && authHeader === cronSecret
+  const internalSecret = process.env.INTERNAL_API_SECRET
+  const isInternalCall = internalSecret && authHeader === internalSecret
 
   if (!isInternalCall) {
     // Fall back to checking if the caller has a valid session
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
   const internalHeaders = {
     'Content-Type': 'application/json',
-    'x-internal-secret': process.env.CRON_SECRET ?? '',
+    'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '',
   }
 
   const promesas: Promise<unknown>[] = []

@@ -5,7 +5,7 @@ import { syncCitaToGoogle, SyncAction } from '@/lib/google-calendar/sync'
 export async function POST(req: NextRequest) {
   // Allow authenticated users OR internal server-to-server calls
   const internalSecret = req.headers.get('x-internal-secret')
-  const isInternal = process.env.CRON_SECRET && internalSecret === process.env.CRON_SECRET
+  const isInternal = process.env.INTERNAL_API_SECRET && internalSecret === process.env.INTERNAL_API_SECRET
   if (!isInternal) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
