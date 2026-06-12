@@ -245,12 +245,9 @@ async function ejecutarTool(
     if (res.cita_id) {
       const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
 
-      // Google Calendar sync
-      fetch(`${base}/api/citas/sync-google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
-        body: JSON.stringify({ cita_id: res.cita_id, action: 'create' }),
-      }).catch(() => {})
+      // Google Calendar sync (direct, no HTTP loopback)
+      const { syncCitaToGoogle } = await import('@/lib/google-calendar/sync')
+      syncCitaToGoogle(res.cita_id, 'create').catch(() => {})
 
       // Email notifications via dispatchEmail (direct, no HTTP loopback)
       const { dispatchEmail } = await import('@/app/api/email/route')
