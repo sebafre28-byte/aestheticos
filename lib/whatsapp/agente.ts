@@ -216,14 +216,12 @@ async function ejecutarTool(
 
   if (name === 'crear_cita') {
     const inicio = `${input.fecha}T${input.hora}:00`
-    const { data: servicio } = await supabase
-      .from('servicios')
-      .select('duracion_minutos')
-      .eq('id', String(input.servicio_id))
-      .eq('clinica_id', clinica.id)
-      .maybeSingle()
-    if (!servicio) return { result: JSON.stringify({ error: 'Servicio no encontrado' }) }
-    const dur = servicio.duracion_minutos ?? 60
+    const [{ data: servicioRow }, { data: profesionalRow }] = await Promise.all([
+      supabase.from('servicios').select('duracion_minutos, nombre').eq('id', String(input.servicio_id)).eq('clinica_id', clinica.id).maybeSingle(),
+      supabase.from('profesionales').select('nombre').eq('id', String(input.profesional_id)).eq('clinica_id', clinica.id).maybeSingle(),
+    ])
+    if (!servicioRow) return { result: JSON.stringify({ error: 'Servicio no encontrado' }) }
+    const dur = servicioRow.duracion_minutos ?? 60
     const [h, m] = String(input.hora).split(':').map(Number)
     const finMin = h * 60 + m + dur
     const fin = `${input.fecha}T${String(Math.floor(finMin / 60)).padStart(2, '0')}:${String(finMin % 60).padStart(2, '0')}:00`
@@ -244,17 +242,43 @@ async function ejecutarTool(
     const res = data as { cita_id?: string; ok?: boolean; error?: string }
     if (!res?.cita_id && !res?.ok) return { result: JSON.stringify({ error: res?.error ?? 'No se pudo crear la cita' }) }
 
-    // Sync to Google Calendar (fire-and-forget)
     if (res.cita_id) {
       const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
+
+      // Google Calendar sync
       fetch(`${base}/api/citas/sync-google`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '',
-        },
+        headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
         body: JSON.stringify({ cita_id: res.cita_id, action: 'create' }),
       }).catch(() => {})
+
+      // Email notifications via dispatchEmail (direct, no HTTP loopback)
+      const { dispatchEmail } = await import('@/app/api/email/route')
+      const fechaDate = new Date(input.fecha + 'T12:00:00Z')
+      const fechaLabel = fechaDate.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
+      const horaFin = `${String(Math.floor(finMin / 60)).padStart(2, '0')}:${String(finMin % 60).padStart(2, '0')}`
+      const datosCita = {
+        paciente_nombre: String(input.nombre_paciente),
+        servicio_nombre: servicioRow.nombre as string,
+        profesional_nombre: (profesionalRow?.nombre as string) ?? '',
+        fecha: fechaLabel,
+        hora: String(input.hora),
+        hora_fin: horaFin,
+        clinica_nombre: clinica.nombre,
+        clinica_telefono: clinica.telefono ?? undefined,
+        canal: 'whatsapp' as const,
+      }
+
+      // Confirmation to patient
+      if (input.email_paciente) {
+        dispatchEmail({ tipo: 'confirmacion_cita', destinatario: String(input.email_paciente), datos: { ...datosCita, paciente_email: String(input.email_paciente) } }).catch(() => {})
+      }
+
+      // Notification to clinic admin
+      const { data: clinicaRow } = await supabase.from('clinicas').select('email').eq('id', clinica.id).single()
+      if (clinicaRow?.email) {
+        dispatchEmail({ tipo: 'nueva_reserva_admin', destinatario: clinicaRow.email as string, datos: { ...datosCita, paciente_email: input.email_paciente ? String(input.email_paciente) : undefined } }).catch(() => {})
+      }
     }
 
     return { result: JSON.stringify({ ok: true, cita_id: res.cita_id }) }
