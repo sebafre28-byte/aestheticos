@@ -20,7 +20,7 @@ export async function GET() {
       mensajes_inbox(contenido, created_at, direccion)
     `)
     .eq('clinica_id', clinicaId)
-    .eq('estado', 'activa')
+    .in('estado', ['activa', 'humano'])
     .order('ultimo_mensaje_at', { ascending: false })
     .limit(1, { referencedTable: 'mensajes_inbox' })
     .order('created_at', { ascending: false, referencedTable: 'mensajes_inbox' })
