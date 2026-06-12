@@ -66,14 +66,17 @@ function getPlanId(plan: Plan, anual = false): string {
 
 // ─── Customer ─────────────────────────────────────────────────────────────────
 
-export async function getOrCreateFlowCustomer(email: string, name: string): Promise<string> {
+export async function getOrCreateFlowCustomer(email: string, name: string, externalId: string): Promise<string> {
   try {
-    const data = await flowPost('/customer/create', { email, name })
+    const data = await flowPost('/customer/create', { email, name, externalId })
     return data.customerId
   } catch {
-    // Ya existe — buscar por email
-    const data = await flowGet('/customer/getByEmail', { email })
-    return data.customerId
+    // Ya existe — buscar en lista por nombre/email
+    const data = await flowGet('/customer/list', { filter: name, start: '0', limit: '10' })
+    const list = Array.isArray(data.data) ? data.data : (typeof data.data === 'string' ? JSON.parse(data.data) : [])
+    const customer = list.find((c: { email: string; customerId: string }) => c.email === email)
+    if (!customer?.customerId) throw new Error(`Cliente Flow no encontrado para: ${email}`)
+    return customer.customerId
   }
 }
 
