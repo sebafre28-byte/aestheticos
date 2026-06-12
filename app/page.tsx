@@ -255,11 +255,11 @@ function NavBar() {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
-          <Link href="/login" className="text-[14px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
+          <Link href="https://app.simpliclinic.cl/login" className="text-[14px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
             Iniciar sesión
           </Link>
           <Link
-            href="/register"
+            href="https://app.simpliclinic.cl/register"
             className="h-9 px-4 rounded-lg text-[14px] font-semibold text-white flex items-center gap-1.5 transition-all hover:opacity-90"
             style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
           >
@@ -279,10 +279,10 @@ function NavBar() {
           <a href="#como-funciona" className="text-[14px] text-gray-600" onClick={() => setOpen(false)}>Cómo funciona</a>
           <a href="#precios" className="text-[14px] text-gray-600" onClick={() => setOpen(false)}>Precios</a>
           <div className="pt-2 flex flex-col gap-2 border-t border-gray-100">
-            <Link href="/login" className="h-10 rounded-lg border border-gray-200 text-[14px] font-medium text-gray-700 flex items-center justify-center">
+            <Link href="https://app.simpliclinic.cl/login" className="h-10 rounded-lg border border-gray-200 text-[14px] font-medium text-gray-700 flex items-center justify-center">
               Iniciar sesión
             </Link>
-            <Link href="/register" className="h-10 rounded-lg text-[14px] font-bold text-white flex items-center justify-center gap-2"
+            <Link href="https://app.simpliclinic.cl/register" className="h-10 rounded-lg text-[14px] font-bold text-white flex items-center justify-center gap-2"
               style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}>
               Prueba gratis <ArrowRight className="size-4" />
             </Link>
@@ -311,14 +311,14 @@ function Hero() {
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
-            href="/register"
+            href="https://app.simpliclinic.cl/register"
             className="w-full sm:w-auto h-12 px-7 rounded-xl text-[15px] font-bold text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-blue-200"
             style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
           >
             Comenzar gratis — 7 días sin costo <ArrowRight className="size-4" />
           </Link>
           <Link
-            href="/login"
+            href="https://app.simpliclinic.cl/login"
             className="w-full sm:w-auto h-12 px-6 rounded-xl text-[15px] font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >
             Ya tengo cuenta
@@ -446,7 +446,7 @@ function AgenteIA() {
             </div>
 
             <div className="flex items-center gap-4">
-              <Link href="/register"
+              <Link href="https://app.simpliclinic.cl/register"
                 className="h-11 px-6 rounded-xl text-[14px] font-bold text-white flex items-center gap-2 transition-all hover:opacity-90"
                 style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}>
                 Activar el agente <ArrowRight className="size-4" />
@@ -741,7 +741,7 @@ function CTA() {
             Únete a las clínicas estéticas que ya digitalizaron su operación con SimpliClinic.
           </p>
           <Link
-            href="/register"
+            href="https://app.simpliclinic.cl/register"
             className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-[15px] font-bold text-white transition-all hover:scale-[1.02] shadow-lg"
             style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
           >
@@ -763,8 +763,8 @@ function Footer() {
         </div>
         <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-[13px] text-gray-400">
           <a href="mailto:hola@simpliclinic.cl" className="hover:text-gray-700 transition-colors">hola@simpliclinic.cl</a>
-          <Link href="/login" className="hover:text-gray-700 transition-colors">Iniciar sesión</Link>
-          <Link href="/register" className="hover:text-gray-700 transition-colors">Registrarse</Link>
+          <Link href="https://app.simpliclinic.cl/login" className="hover:text-gray-700 transition-colors">Iniciar sesión</Link>
+          <Link href="https://app.simpliclinic.cl/register" className="hover:text-gray-700 transition-colors">Registrarse</Link>
         </div>
         <p className="text-[12px] text-gray-300">© {new Date().getFullYear()} SimpliClinic · Hecho en Chile 🇨🇱</p>
       </div>
