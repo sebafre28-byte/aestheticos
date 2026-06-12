@@ -50,6 +50,24 @@ export const RECORDATORIOS_EMAIL_DEFAULT: RecordatoriosEmailConfig = {
 
 export type AgenteWspConfig = {
   activo: boolean
+  nombre_asistente?: string
+  tono?: 'cercano' | 'formal'
+  instrucciones_extra?: string
+}
+
+export type WhatsappClinicaConfig = {
+  provider?: 'meta' | 'twilio'
+  // Meta
+  phone_number_id?: string
+  access_token?: string
+  verify_token?: string
+  // Twilio
+  account_sid?: string
+  auth_token?: string
+  from_number?: string
+  // Shared
+  numero_display?: string
+  activo?: boolean
 }
 
 export type WizardPasosConfig = {
@@ -71,6 +89,7 @@ export type ClinicaConfiguracion = {
   recordatorios_wsp?: RecordatoriosWspConfig
   recordatorios_email?: RecordatoriosEmailConfig
   agente_wsp?: AgenteWspConfig
+  whatsapp_config?: WhatsappClinicaConfig
   wizard_pasos?: WizardPasosConfig
 }
 
@@ -291,3 +310,45 @@ export async function getOnboardingCounts(): Promise<{
 
 export { PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT }
 
+export async function getWhatsappClinicaConfig(): Promise<WhatsappClinicaConfig> {
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return {}
+
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('clinicas')
+    .select('whatsapp_config')
+    .eq('id', clinicaId)
+    .single()
+
+  if (error || !data) return {}
+  return (data.whatsapp_config ?? {}) as WhatsappClinicaConfig
+}
+
+export async function guardarWhatsappConfig(config: WhatsappClinicaConfig): Promise<boolean> {
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return false
+
+  const supabase = createClient()
+
+  // Merge with existing config
+  const { data: existing } = await supabase
+    .from('clinicas')
+    .select('whatsapp_config')
+    .eq('id', clinicaId)
+    .single()
+
+  const current = (existing?.whatsapp_config ?? {}) as WhatsappClinicaConfig
+  const merged = { ...current, ...config }
+
+  const { error } = await supabase
+    .from('clinicas')
+    .update({ whatsapp_config: merged })
+    .eq('id', clinicaId)
+
+  if (error) {
+    console.error('guardarWhatsappConfig:', error)
+    return false
+  }
+  return true
+}
