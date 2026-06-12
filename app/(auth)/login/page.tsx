@@ -24,7 +24,7 @@ export default function LoginPage() {
     const password = formData.get('password') as string
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       setError(
@@ -39,8 +39,13 @@ export default function LoginPage() {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
     const isMarketingDomain = typeof window !== 'undefined' &&
       (window.location.hostname === 'simpliclinic.cl' || window.location.hostname === 'www.simpliclinic.cl')
-    if (isMarketingDomain && appUrl) {
-      window.location.href = appUrl + '/dashboard'
+
+    if (isMarketingDomain && appUrl && data.session) {
+      const params = new URLSearchParams({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      })
+      window.location.href = `${appUrl}/auth/set-session?${params.toString()}`
     } else {
       router.push('/dashboard')
     }
