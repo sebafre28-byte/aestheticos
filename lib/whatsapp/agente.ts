@@ -405,6 +405,24 @@ REGLAS
 - Usa emojis con moderación (uno por mensaje máximo).`
 }
 
+// ─── Notificación de límite ───────────────────────────────────
+
+async function notificarLimiteConvIA(supabase: SupabaseClient, clinicaId: string, usadas: number, limite: number) {
+  const { data: clinicaRow } = await supabase.from('clinicas').select('email, nombre').eq('id', clinicaId).single()
+  if (!clinicaRow?.email) return
+  const { dispatchEmail } = await import('@/app/api/email/route')
+  await dispatchEmail({
+    tipo: 'limite_conv_ia',
+    destinatario: clinicaRow.email as string,
+    datos: {
+      clinica_nombre: clinicaRow.nombre as string,
+      conv_usadas: usadas,
+      conv_limite: limite,
+      porcentaje: Math.round((usadas / limite) * 100),
+    } as never,
+  })
+}
+
 // ─── Entrada principal ────────────────────────────────────────
 
 export function agenteActivo(clinica: { configuracion: ClinicaAgente['configuracion'] }): boolean {

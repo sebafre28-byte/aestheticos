@@ -6,6 +6,7 @@ import { PLAN_LABELS } from './queries'
 
 type Plan = 'free' | 'pro' | 'clinica'
 type Estado = 'activa' | 'pausada' | 'cancelada' | 'trial'
+type Recurso = 'profesionales' | 'pacientes' | 'conversaciones_ia'
 
 type SubscripcionState = {
   plan: Plan | null
