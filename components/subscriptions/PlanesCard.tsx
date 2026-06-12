@@ -58,9 +58,52 @@ function formatCLP(n: number) {
   return '$' + n.toLocaleString('es-CL')
 }
 
-// ─── CurrentPlanCard ──────────────────────────────────────────────────────────
+// ─── TrialCard ────────────────────────────────────────────────────────────────
 
-function CurrentPlanCard({
+function TrialCard({ subscription }: { subscription: Subscription }) {
+  const endsAt = subscription.trial_ends_at ? new Date(subscription.trial_ends_at) : null
+  const diasRestantes = endsAt
+    ? Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : null
+  const vencido = diasRestantes !== null && diasRestantes <= 0
+
+  return (
+    <div className={`mb-6 rounded-2xl border p-5 ${vencido ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${vencido ? 'bg-red-100' : 'bg-amber-100'}`}>
+          {vencido ? '⛔' : '⏳'}
+        </div>
+        <div>
+          <p className={`text-[15px] font-bold ${vencido ? 'text-red-800' : 'text-amber-800'}`}>
+            {vencido ? 'Período de prueba vencido' : 'Período de prueba activo'}
+          </p>
+          <p className={`text-[12px] mt-0.5 ${vencido ? 'text-red-600' : 'text-amber-600'}`}>
+            {vencido
+              ? 'Activa un plan para seguir usando SimpliClinic'
+              : diasRestantes !== null
+                ? `${diasRestantes} ${diasRestantes === 1 ? 'día restante' : 'días restantes'} · Vence ${endsAt?.toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })}`
+                : 'Acceso completo a todas las funciones'}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 pt-4 border-t border-amber-200/70">
+        <p className="text-[11px] font-semibold text-amber-700/70 uppercase tracking-wide mb-2">Tienes acceso completo durante el trial</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+          {PLAN_FEATURES['pro'].map(f => (
+            <div key={f} className="flex items-center gap-1.5 text-[12px] text-amber-800">
+              <Check className="size-3 text-amber-500 shrink-0" />
+              {f}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ActivePlanCard ───────────────────────────────────────────────────────────
+
+function ActivePlanCard({
   subscription,
   clinicaId,
   onUpdateCard,
@@ -76,6 +119,7 @@ function CurrentPlanCard({
   const plan = subscription.plan
   const Icon = PLAN_ICONS[plan]
   const isLoadingPortal = loading === 'portal'
+  const sub = subscription as Subscription & { card_last4?: string; card_type?: string }
 
   return (
     <div className="mb-6 rounded-2xl border border-[#2563EB]/20 bg-gradient-to-br from-blue-50 to-white p-5">
@@ -89,19 +133,12 @@ function CurrentPlanCard({
             <div className="flex items-center gap-2 mt-0.5">
               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                 subscription.estado === 'activa'  ? 'bg-emerald-100 text-emerald-700' :
-                subscription.estado === 'trial'   ? 'bg-amber-100 text-amber-700' :
                 subscription.estado === 'pausada' ? 'bg-orange-100 text-orange-700' :
                 'bg-red-100 text-red-600'
               }`}>
                 {subscription.estado === 'activa'  ? '● Activa' :
-                 subscription.estado === 'trial'   ? '◐ Período de prueba' :
                  subscription.estado === 'pausada' ? '⚠ Pausada' : '✕ Cancelada'}
               </span>
-              {subscription.trial_ends_at && subscription.estado === 'trial' && (
-                <span className="text-[11px] text-gray-400">
-                  Vence {new Date(subscription.trial_ends_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })}
-                </span>
-              )}
               {subscription.current_period_end && subscription.estado === 'activa' && (
                 <span className="text-[11px] text-gray-400">
                   Próximo cobro: {new Date(subscription.current_period_end).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -110,17 +147,14 @@ function CurrentPlanCard({
             </div>
           </div>
         </div>
-
-        {/* Tarjeta registrada */}
-        {(subscription as Subscription & { card_last4?: string; card_type?: string }).card_last4 && (
+        {sub.card_last4 && (
           <div className="flex items-center gap-2 text-[12px] text-gray-500">
             <CreditCard className="size-3.5" />
-            <span>{(subscription as Subscription & { card_last4?: string; card_type?: string }).card_type} ****{(subscription as Subscription & { card_last4?: string; card_type?: string }).card_last4}</span>
+            <span>{sub.card_type} ****{sub.card_last4}</span>
           </div>
         )}
       </div>
 
-      {/* Servicios incluidos */}
       <div className="mt-4 pt-4 border-t border-blue-100">
         <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Incluido en tu plan</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
@@ -133,7 +167,6 @@ function CurrentPlanCard({
         </div>
       </div>
 
-      {/* Acciones */}
       {subscription.flow_customer_id && (
         <div className="mt-4 pt-4 border-t border-blue-100 flex flex-wrap gap-2">
           <button
@@ -145,10 +178,7 @@ function CurrentPlanCard({
             Actualizar tarjeta
           </button>
           <span className="text-gray-300">·</span>
-          <button
-            onClick={onCancel}
-            className="text-[12px] text-gray-400 hover:text-red-500 transition-colors"
-          >
+          <button onClick={onCancel} className="text-[12px] text-gray-400 hover:text-red-500 transition-colors">
             Cancelar suscripción
           </button>
         </div>
@@ -331,9 +361,12 @@ export default function PlanesCard() {
         </div>
       )}
 
-      {/* Plan actual */}
-      {subscription && (
-        <CurrentPlanCard
+      {/* Estado actual de suscripción */}
+      {subscription?.estado === 'trial' && (
+        <TrialCard subscription={subscription} />
+      )}
+      {subscription && subscription.estado !== 'trial' && (
+        <ActivePlanCard
           subscription={subscription}
           clinicaId={clinicaId ?? ''}
           onUpdateCard={handleUpdateCard}
@@ -363,7 +396,7 @@ export default function PlanesCard() {
           <PlanCard
             key={plan}
             plan={plan}
-            isCurrent={subscription?.plan === plan}
+            isCurrent={subscription?.estado === 'activa' && subscription?.plan === plan}
             clinicaId={clinicaId}
             onUpgrade={handleUpgrade}
             loading={loading}
