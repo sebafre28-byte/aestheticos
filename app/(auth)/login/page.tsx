@@ -45,7 +45,7 @@ export default function LoginPage() {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
       })
-      window.location.href = `${appUrl}/auth/set-session?${params.toString()}`
+      window.location.href = `${appUrl}/set-session?${params.toString()}`
     } else {
       router.push('/dashboard')
     }
