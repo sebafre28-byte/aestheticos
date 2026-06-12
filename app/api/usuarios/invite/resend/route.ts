@@ -2,7 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const supabaseAdmin = createAdminClient()
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +12,8 @@ export async function POST(request: NextRequest) {
 
     const { email } = await request.json()
     if (!email) return NextResponse.json({ ok: false, error: 'Email requerido' }, { status: 400 })
+
+    const supabaseAdmin = createAdminClient()
 
     // Get usuario_clinica row to get nombre and clinica_id
     const { data: uc } = await supabaseAdmin
@@ -57,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     await fetch(`${base}/api/email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.CRON_SECRET ?? '' },
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
       body: JSON.stringify({
         tipo: 'invitacion_equipo',
         destinatario: email,

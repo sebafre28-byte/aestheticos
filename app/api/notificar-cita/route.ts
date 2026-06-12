@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { dispatchEmail } from '@/app/api/email/route'
 
 export interface NotificarCitaPayload {
   tipo: 'nueva_cita' | 'cancelacion'
@@ -14,10 +15,10 @@ export interface NotificarCitaPayload {
 }
 
 export async function POST(req: NextRequest) {
-  // Internal-only endpoint: require either a session cookie or the CRON_SECRET header
+  // Internal-only endpoint: require either the internal secret or a valid session
   const authHeader = req.headers.get('x-internal-secret')
-  const cronSecret = process.env.CRON_SECRET
-  const isInternalCall = cronSecret && authHeader === cronSecret
+  const internalSecret = process.env.INTERNAL_API_SECRET
+  const isInternalCall = internalSecret && authHeader === internalSecret
 
   if (!isInternalCall) {
     // Fall back to checking if the caller has a valid session
@@ -49,40 +50,36 @@ export async function POST(req: NextRequest) {
   })
 
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
-  const internalHeaders = {
-    'Content-Type': 'application/json',
-    'x-internal-secret': process.env.CRON_SECRET ?? '',
-  }
-
   const promesas: Promise<unknown>[] = []
 
   if (tipo === 'nueva_cita') {
+    const datosCita = {
+      paciente_nombre: paciente.nombre,
+      paciente_telefono: paciente.telefono ?? undefined,
+      servicio_nombre: servicio.nombre,
+      profesional_nombre: profesional.nombre,
+      fecha,
+      hora,
+      hora_fin: horaFin,
+      clinica_nombre: clinica.nombre,
+      clinica_logo_url: clinica.logo_url ?? undefined,
+      clinica_telefono: clinica.telefono ?? undefined,
+      clinica_email: clinica.email ?? undefined,
+      clinica_direccion: clinica.direccion ?? undefined,
+      canal,
+    }
+
     // 1. Confirmation email to patient
     if (paciente.email) {
       promesas.push(
-        fetch(`${base}/api/email`, {
-          method: 'POST',
-          headers: internalHeaders,
-          body: JSON.stringify({
-            tipo: 'confirmacion_cita',
-            destinatario: paciente.email,
-            datos: {
-              paciente_nombre: paciente.nombre,
-              paciente_telefono: paciente.telefono ?? undefined,
-              servicio_nombre: servicio.nombre,
-              profesional_nombre: profesional.nombre,
-              fecha,
-              hora,
-              hora_fin: horaFin,
-              clinica_nombre: clinica.nombre,
-              clinica_logo_url: clinica.logo_url ?? undefined,
-              clinica_telefono: clinica.telefono ?? undefined,
-              clinica_email: clinica.email ?? undefined,
-              clinica_direccion: clinica.direccion ?? undefined,
-              canal,
-              cancel_url: cancel_token ? `${base}/cancelar/${cancel_token}` : undefined,
-            },
-          }),
+        dispatchEmail({
+          tipo: 'confirmacion_cita',
+          destinatario: paciente.email,
+          datos: {
+            ...datosCita,
+            paciente_email: paciente.email,
+            cancel_url: cancel_token ? `${base}/cancelar/${cancel_token}` : undefined,
+          },
         }).catch((err) => console.error('[notificar-cita] confirmacion error:', err)),
       )
     }
@@ -91,29 +88,14 @@ export async function POST(req: NextRequest) {
     const adminEmail = email_admin ?? clinica.email
     if (adminEmail) {
       promesas.push(
-        fetch(`${base}/api/email`, {
-          method: 'POST',
-          headers: internalHeaders,
-          body: JSON.stringify({
-            tipo: 'nueva_reserva_admin',
-            destinatario: adminEmail,
-            datos: {
-              paciente_nombre: paciente.nombre,
-              paciente_telefono: paciente.telefono ?? undefined,
-              paciente_email: paciente.email ?? undefined,
-              servicio_nombre: servicio.nombre,
-              profesional_nombre: profesional.nombre,
-              fecha,
-              hora,
-              hora_fin: horaFin,
-              clinica_nombre: clinica.nombre,
-              clinica_logo_url: clinica.logo_url ?? undefined,
-              clinica_telefono: clinica.telefono ?? undefined,
-              clinica_email: clinica.email ?? undefined,
-              clinica_direccion: clinica.direccion ?? undefined,
-              canal,
-            },
-          }),
+        dispatchEmail({
+          tipo: 'nueva_reserva_admin',
+          destinatario: adminEmail,
+          datos: {
+            ...datosCita,
+            paciente_telefono: paciente.telefono ?? undefined,
+            paciente_email: paciente.email ?? undefined,
+          },
         }).catch((err) => console.error('[notificar-cita] admin error:', err)),
       )
     }
@@ -137,29 +119,23 @@ export async function POST(req: NextRequest) {
       canal,
     }
 
-    // 1. Email al paciente
     if (paciente.email) {
       promesas.push(
-        fetch(`${base}/api/email`, {
-          method: 'POST',
-          headers: internalHeaders,
-          body: JSON.stringify({ tipo: 'cancelacion_cita', destinatario: paciente.email, datos: cancelDatos }),
+        dispatchEmail({
+          tipo: 'cancelacion_cita',
+          destinatario: paciente.email,
+          datos: cancelDatos,
         }).catch((err) => console.error('[notificar-cita] cancelacion paciente error:', err)),
       )
     }
 
-    // 2. Notificar a la clínica (admin)
     const adminEmail = email_admin ?? clinica.email
     if (adminEmail) {
       promesas.push(
-        fetch(`${base}/api/email`, {
-          method: 'POST',
-          headers: internalHeaders,
-          body: JSON.stringify({
-            tipo: 'cancelacion_admin',
-            destinatario: adminEmail,
-            datos: cancelDatos,
-          }),
+        dispatchEmail({
+          tipo: 'cancelacion_admin',
+          destinatario: adminEmail,
+          datos: cancelDatos,
         }).catch((err) => console.error('[notificar-cita] cancelacion admin error:', err)),
       )
     }

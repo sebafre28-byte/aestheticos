@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { emailRatelimit } from '@/lib/ratelimit'
 
-// ─── Rate limiter ─────────────────────────────────────────────────────────────
-
-// Simple in-memory rate limiter — resets on cold start (acceptable for serverless)
+// ─── In-memory fallback rate limiter (used when Upstash is not configured) ───
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
-const RATE_LIMIT = 10       // max requests
-const RATE_WINDOW = 60_000  // per 60 seconds
-
-function checkRateLimit(ip: string): boolean {
+function checkRateLimitFallback(ip: string): boolean {
   const now = Date.now()
   const entry = rateLimitMap.get(ip)
   if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW })
+    rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 })
     return true
   }
-  if (entry.count >= RATE_LIMIT) return false
+  if (entry.count >= 10) return false
   entry.count++
   return true
 }
@@ -813,6 +809,96 @@ function buildInviteEmail(d: DatosInvitacion): { subject: string; html: string }
   return { subject, html }
 }
 
+// ─── Sistema email builder (para notificaciones internas) ────────────────────
+
+function buildSistemaEmail(titulo: string, cuerpo: string, ctaLabel: string, ctaUrl: string, accentColor = '#2563EB'): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F8FAFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:560px;margin:40px auto;background:#fff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#0B132B,#1e3a5f);padding:28px 32px">
+    <span style="color:#fff;font-size:20px;font-weight:800;letter-spacing:-0.5px">SimpliClinic</span>
+  </div>
+  <div style="padding:32px">
+    <h2 style="margin:0 0 16px;font-size:18px;font-weight:700;color:#111827">${titulo}</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#4B5563;line-height:1.6">${cuerpo}</p>
+    <a href="${ctaUrl}" style="display:inline-block;background:${accentColor};color:#fff;font-size:14px;font-weight:600;padding:12px 24px;border-radius:10px;text-decoration:none">${ctaLabel} →</a>
+  </div>
+  <div style="padding:20px 32px;background:#F9FAFB;border-top:1px solid #F3F4F6">
+    <p style="margin:0;font-size:12px;color:#9CA3AF">SimpliClinic · Tu clínica, más simple · <a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/configuracion?tab=plan" style="color:#9CA3AF">Gestionar suscripción</a></p>
+  </div>
+</div></body></html>`
+}
+
+// ─── Direct sender (no HTTP loopback) ───────────────────────────────────────
+
+export async function dispatchEmail(opts: {
+  tipo: string
+  destinatario: string
+  datos: DatosCita | DatosInvitacion | DatosBienvenida
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+
+  let html: string
+  let subject: string
+
+  if (opts.tipo === 'bienvenida') {
+    const r = buildWelcomeEmail(opts.datos as DatosBienvenida)
+    html = r.html; subject = r.subject
+  } else if (opts.tipo === 'invitacion_equipo') {
+    const r = buildInviteEmail(opts.datos as DatosInvitacion)
+    html = r.html; subject = r.subject
+  } else if (opts.tipo === 'limite_conv_ia') {
+    const d = opts.datos as unknown as { clinica_nombre: string; conv_usadas: number; conv_limite: number; porcentaje: number }
+    subject = `⚠️ Estás al ${d.porcentaje}% de tu límite de conversaciones IA`
+    html = buildSistemaEmail(subject, `Tu clínica <strong>${d.clinica_nombre}</strong> ha usado <strong>${d.conv_usadas} de ${d.conv_limite}</strong> conversaciones IA este mes (${d.porcentaje}%).<br><br>Si se agotan, el agente dejará de responder automáticamente hasta el próximo mes.`, 'Ver mi plan', `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/configuracion?tab=plan`, '#F59E0B')
+  } else if (opts.tipo === 'trial_expira_pronto') {
+    const d = opts.datos as unknown as { clinica_nombre: string; dias_restantes: number }
+    subject = `⏰ Tu período de prueba vence en ${d.dias_restantes} días — activa tu plan`
+    html = buildSistemaEmail(subject, `Hola, te avisamos que el período de prueba de <strong>${d.clinica_nombre}</strong> vence en <strong>${d.dias_restantes} días</strong>.<br><br>Para seguir usando SimpliClinic sin interrupciones, activa tu plan antes de que venza.`, 'Activar mi plan ahora', `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/configuracion?tab=plan`, '#F59E0B')
+  } else if (opts.tipo === 'trial_vencido') {
+    const d = opts.datos as unknown as { clinica_nombre: string }
+    subject = `Tu período de prueba de SimpliClinic ha vencido`
+    html = buildSistemaEmail(subject, `El período de prueba de <strong>${d.clinica_nombre}</strong> ha vencido.<br><br>Activa un plan para recuperar el acceso y seguir gestionando tu clínica. Tus datos están seguros y te esperan.`, 'Activar mi plan', `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/configuracion?tab=plan`, '#EF4444')
+  } else if (opts.tipo === 'pago_fallido') {
+    const d = opts.datos as unknown as { clinica_nombre: string; proximo_intento?: string }
+    subject = `⚠️ No pudimos procesar tu pago — SimpliClinic`
+    const detalle = d.proximo_intento ? `Realizaremos un nuevo intento el <strong>${d.proximo_intento}</strong>.` : 'Stripe realizará nuevos intentos automáticamente.'
+    html = buildSistemaEmail(subject, `No pudimos procesar el cobro de la suscripción de <strong>${d.clinica_nombre}</strong>.<br><br>${detalle} Mientras tanto, tu acceso se mantiene activo.<br><br>Actualiza tu método de pago para evitar interrupciones.`, 'Actualizar método de pago', `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/configuracion?tab=plan`, '#EF4444')
+  } else if (opts.tipo === 'pago_recuperado') {
+    const d = opts.datos as unknown as { clinica_nombre: string }
+    subject = `✅ Pago procesado — tu suscripción está activa`
+    html = buildSistemaEmail(subject, `El pago de la suscripción de <strong>${d.clinica_nombre}</strong> fue procesado exitosamente.<br><br>Tu plan está activo y todo funciona con normalidad.`, 'Ir a mi panel', `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/dashboard`, '#10B981')
+  } else if (opts.tipo === 'suscripcion_cancelada') {
+    const d = opts.datos as unknown as { clinica_nombre: string }
+    subject = `Tu suscripción a SimpliClinic fue cancelada`
+    html = buildSistemaEmail(subject, `La suscripción de <strong>${d.clinica_nombre}</strong> ha sido cancelada.<br><br>Tu acceso se mantendrá hasta el fin del período pagado. Después podrás reactivar tu plan en cualquier momento desde Configuración.<br><br>Tus datos estarán disponibles por 90 días.`, 'Reactivar mi plan', `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/configuracion?tab=plan`, '#6B7280')
+  } else {
+    const t = opts.tipo as TipoEmailCita
+    html = buildEmail(t, opts.datos as DatosCita, buildBody(t, opts.datos as DatosCita))
+    subject = getSubject(t, opts.datos as DatosCita)
+  }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: process.env.EMAIL_FROM ?? 'SimpliClinic <onboarding@resend.dev>',
+        to: [opts.destinatario],
+        subject,
+        html,
+      }),
+    })
+    if (!res.ok) {
+      const t = await res.text()
+      console.error('[dispatchEmail] Resend error:', res.status, t)
+    }
+  } catch (err) {
+    console.error('[dispatchEmail] fetch error:', err)
+  }
+}
+
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -822,13 +908,16 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  if (!checkRateLimit(ip)) {
+  if (emailRatelimit) {
+    const { success } = await emailRatelimit.limit(ip)
+    if (!success) return NextResponse.json({ ok: false, reason: 'Too many requests' }, { status: 429 })
+  } else if (!checkRateLimitFallback(ip)) {
     return NextResponse.json({ ok: false, reason: 'Too many requests' }, { status: 429 })
   }
 
   // Require either internal secret (server-to-server) or valid user session
   const internalSecret = req.headers.get('x-internal-secret')
-  const isInternalCall = process.env.CRON_SECRET && internalSecret === process.env.CRON_SECRET
+  const isInternalCall = process.env.INTERNAL_API_SECRET && internalSecret === process.env.INTERNAL_API_SECRET
   if (!isInternalCall) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

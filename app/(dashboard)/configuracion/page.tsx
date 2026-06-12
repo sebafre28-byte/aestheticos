@@ -7,7 +7,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, ListChecks,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
@@ -19,12 +19,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
-  crearProfesional, getClinicaId, TEMPLATE_RECORDATORIO_DEFAULT,
-  RECORDATORIOS_EMAIL_DEFAULT, WIZARD_PASOS_DEFAULT,
+  crearProfesional, getClinicaId, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
+  RECORDATORIOS_EMAIL_DEFAULT,
   getWhatsappClinicaConfig, guardarWhatsappConfig,
-  type ClinicaBasica,
+  type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig, type RecordatoriosWspConfig,
   type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig, type WhatsappClinicaConfig,
-  type WizardPasosConfig,
 } from "@/lib/onboarding/queries"
 import {
   getUsuariosClinica, invitarUsuario, actualizarRolUsuario, toggleActivoUsuario, eliminarUsuario,
@@ -38,7 +37,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "wizard"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
 
 type NavGroup = {
   label: string
@@ -51,7 +50,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "clinica",  label: "Datos generales",            icon: Building2 },
       { id: "horarios", label: "Horarios y disponibilidad",  icon: Clock },
-      { id: "wizard",   label: "Wizard de atención",         icon: ListChecks },
     ],
   },
   {
@@ -852,27 +850,21 @@ function SeccionEquipo() {
 
 function SeccionWhatsApp() {
   const [config, setConfig] = useState<WhatsappClinicaConfig>({})
+  const [plantillas, setPlantillas] = useState<PlantillaWsp[]>(PLANTILLAS_DEFAULT)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [textoEdit, setTextoEdit] = useState("")
   const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
   const [guardandoCredenciales, setGuardandoCredenciales] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
   const [feedbackCred, setFeedbackCred] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
   const [mostrarToken, setMostrarToken] = useState(false)
   const [mostrarGuia, setMostrarGuia] = useState(false)
 
-  // ── Agente IA state ──
-  const [agenteActivo, setAgenteActivo] = useState(false)
-  const [agenteNombre, setAgenteNombre] = useState("")
-  const [agenteTono, setAgenteTono] = useState<'cercano' | 'formal'>('cercano')
-  const [agenteInstrucciones, setAgenteInstrucciones] = useState("")
-  const [guardandoAgente, setGuardandoAgente] = useState(false)
-  const [feedbackAgente, setFeedbackAgente] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
-
   useEffect(() => {
     Promise.all([getClinicaConfig(), getWhatsappClinicaConfig()]).then(([cfg, wsp]) => {
+      if (cfg.plantillas?.length) setPlantillas(cfg.plantillas)
       setConfig(wsp ?? {})
-      setAgenteActivo(cfg.agente_wsp?.activo === true)
-      setAgenteNombre(cfg.agente_wsp?.nombre_asistente ?? "")
-      setAgenteTono(cfg.agente_wsp?.tono === 'formal' ? 'formal' : 'cercano')
-      setAgenteInstrucciones(cfg.agente_wsp?.instrucciones_extra ?? "")
       setCargando(false)
     })
   }, [])
@@ -894,25 +886,30 @@ function SeccionWhatsApp() {
     }
   }
 
-  async function guardarAgente() {
-    setGuardandoAgente(true)
-    setFeedbackAgente(null)
+  function iniciarEdicion(pl: PlantillaWsp) {
+    setEditandoId(pl.id)
+    setTextoEdit(pl.texto)
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null)
+    setTextoEdit("")
+  }
+
+  async function guardarPlantilla(id: string) {
+    const nuevas = plantillas.map((p) => p.id === id ? { ...p, texto: textoEdit } : p)
+    setGuardando(true)
+    setFeedback(null)
     const cfg = await getClinicaConfig()
-    const ok = await actualizarClinicaConfig({
-      ...cfg,
-      agente_wsp: {
-        activo: agenteActivo,
-        nombre_asistente: agenteNombre.trim() || undefined,
-        tono: agenteTono,
-        instrucciones_extra: agenteInstrucciones.trim() || undefined,
-      },
-    })
-    setGuardandoAgente(false)
+    const ok = await actualizarClinicaConfig({ ...cfg, plantillas: nuevas })
+    setGuardando(false)
     if (ok) {
-      setFeedbackAgente({ tipo: "ok", msg: "Configuración del agente guardada." })
-      setTimeout(() => setFeedbackAgente(null), 3000)
+      setPlantillas(nuevas)
+      setEditandoId(null)
+      setFeedback({ tipo: "ok", msg: "Plantilla guardada." })
+      setTimeout(() => setFeedback(null), 2500)
     } else {
-      setFeedbackAgente({ tipo: "error", msg: "No se pudo guardar." })
+      setFeedback({ tipo: "error", msg: "No se pudo guardar." })
     }
   }
 
@@ -923,7 +920,7 @@ function SeccionWhatsApp() {
 
   return (
     <div>
-      <SectionHeader title="WhatsApp Business" subtitle="Conexión, credenciales y agente IA de agendamiento" />
+      <SectionHeader title="WhatsApp Business" subtitle="Conexión y credenciales por clínica" />
 
       {/* Webhook URL */}
       <div className="bg-blue-50/60 rounded-xl border border-blue-100 p-4 mb-6">
@@ -1226,92 +1223,37 @@ function SeccionWhatsApp() {
         </div>
       </div>
 
-      {/* ── AGENTE IA ─────────────────────────────────────────────────────────── */}
-      <div className="border-t border-gray-100 pt-6">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-            <MessageCircle className="size-4 text-violet-600" />
-          </div>
-          <div>
-            <p className="text-[14px] font-semibold text-gray-900">Agente IA de agendamiento</p>
-            <p className="text-[12px] text-gray-400">Responde automáticamente por WhatsApp: agenda, cancela y reagenda citas por chat</p>
-          </div>
-          <div className="ml-auto">
-            <Toggle activo={agenteActivo} onChange={() => setAgenteActivo(v => !v)} />
-          </div>
-        </div>
-        {agenteActivo && (
-          <div className="pl-9 space-y-4">
-            <div className="bg-violet-50 rounded-xl border border-violet-100 p-4 text-[12px] text-violet-900 space-y-1">
-              <p>✓ Los pacientes pueden agendar, consultar y cancelar citas escribiendo por WhatsApp.</p>
-              <p>✓ El agente conoce tus servicios, profesionales y horarios, y solo ofrece horas realmente disponibles.</p>
-              <p>✓ Si el paciente lo pide o el tema es clínico, deriva la conversación a tu equipo (aparece en el Inbox).</p>
-              <p className="text-violet-600">Requiere WhatsApp conectado. No olvides guardar los cambios.</p>
+      <Feedback f={feedback} />
+
+      <p className="text-[13px] font-semibold text-gray-900 mb-3">Plantillas de mensajes</p>
+      <div className="space-y-3">
+        {plantillas.map((pl) => (
+          <div key={pl.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[13px] font-semibold text-gray-900">{pl.nombre}</p>
+              <button onClick={() => editandoId === pl.id ? cancelarEdicion() : iniciarEdicion(pl)}
+                className="text-[12px] text-[#2563EB] font-medium hover:underline">
+                {editandoId === pl.id ? "Cancelar" : "Editar"}
+              </button>
             </div>
-
-            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-4">
+            {editandoId === pl.id ? (
               <div>
-                <p className="text-[12px] font-semibold text-gray-700 mb-1">Nombre del asistente</p>
-                <input
-                  type="text"
-                  value={agenteNombre}
-                  onChange={(e) => setAgenteNombre(e.target.value)}
-                  placeholder="ej: Sofi"
-                  className="h-8 w-full max-w-[240px] px-2.5 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
-                />
-              </div>
-
-              <div>
-                <p className="text-[12px] font-semibold text-gray-700 mb-2">Tono de conversación</p>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { label: "Cercano", value: 'cercano' },
-                    { label: "Formal",  value: 'formal' },
-                  ] as const).map((op) => (
-                    <button
-                      key={op.value}
-                      type="button"
-                      onClick={() => setAgenteTono(op.value)}
-                      className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${agenteTono === op.value ? "border-violet-600 bg-violet-50 text-violet-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
-                    >
-                      {op.label}
-                    </button>
-                  ))}
+                <textarea value={textoEdit} onChange={(e) => setTextoEdit(e.target.value)} rows={3}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none" />
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[11px] text-gray-400">Variables: {"{nombre}"} {"{fecha}"} {"{hora}"} {"{clinica}"}</p>
+                  <Button onClick={() => guardarPlantilla(pl.id)} disabled={guardando}
+                    className="h-7 text-[12px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+                    {guardando ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
+                    Guardar
+                  </Button>
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1.5">
-                  {agenteTono === 'formal' ? 'Trata a los pacientes de usted, sin emojis.' : 'Trato cercano y profesional, estilo chileno.'}
-                </p>
               </div>
-
-              <div>
-                <p className="text-[12px] font-semibold text-gray-700 mb-1">Instrucciones adicionales</p>
-                <p className="text-[12px] text-gray-400 mb-2">Reglas propias de tu clínica que el agente debe seguir</p>
-                <textarea
-                  value={agenteInstrucciones}
-                  onChange={(e) => setAgenteInstrucciones(e.target.value)}
-                  rows={4}
-                  placeholder="ej: No agendar primeras horas del lunes. Los tratamientos láser requieren evaluación previa."
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-[13px] text-gray-900 leading-relaxed placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
-                />
-              </div>
-            </div>
-
-            <a
-              href="/configuracion/agente-test"
-              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-700 hover:text-violet-900"
-            >
-              <MessageCircle className="size-3.5" />
-              Probar el agente en el simulador →
-            </a>
+            ) : (
+              <p className="text-[12px] text-gray-500 leading-relaxed">{pl.texto}</p>
+            )}
           </div>
-        )}
-
-        <Feedback f={feedbackAgente} />
-        <div className="flex justify-end mt-4">
-          <Button onClick={guardarAgente} disabled={guardandoAgente} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
-            {guardandoAgente ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Guardar configuración del agente"}
-          </Button>
-        </div>
+        ))}
       </div>
     </div>
   )
@@ -1431,6 +1373,12 @@ function SeccionRecordatorios() {
   // ── Email state ──
   const [emailCfg, setEmailCfg] = useState<RecordatoriosEmailConfig>(RECORDATORIOS_EMAIL_DEFAULT)
 
+  // ── Agente IA state ──
+  const [agenteActivo, setAgenteActivo] = useState(false)
+  const [agenteNombre, setAgenteNombre] = useState("")
+  const [agenteTono, setAgenteTono] = useState<'cercano' | 'formal'>('cercano')
+  const [agenteInstrucciones, setAgenteInstrucciones] = useState("")
+
   // ── Preview modal ──
   const [previewTipo, setPreviewTipo] = useState<PreviewTipo | null>(null)
 
@@ -1451,6 +1399,10 @@ function SeccionRecordatorios() {
       if (cfg.recordatorios_email) {
         setEmailCfg(cfg.recordatorios_email)
       }
+      setAgenteActivo(cfg.agente_wsp?.activo === true)
+      setAgenteNombre(cfg.agente_wsp?.nombre_asistente ?? "")
+      setAgenteTono(cfg.agente_wsp?.tono === 'formal' ? 'formal' : 'cercano')
+      setAgenteInstrucciones(cfg.agente_wsp?.instrucciones_extra ?? "")
       setCargando(false)
     })
   }, [])
@@ -1469,6 +1421,12 @@ function SeccionRecordatorios() {
       ...cfg,
       recordatorios_wsp: { activo, minutos_antes: mins, template },
       recordatorios_email: emailCfg,
+      agente_wsp: {
+        activo: agenteActivo,
+        nombre_asistente: agenteNombre.trim() || undefined,
+        tono: agenteTono,
+        instrucciones_extra: agenteInstrucciones.trim() || undefined,
+      },
     })
     setGuardando(false)
     if (ok) {
@@ -1486,6 +1444,88 @@ function SeccionRecordatorios() {
   return (
     <div className="space-y-8">
 
+      {/* ── BLOQUE AGENTE IA ────────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
+            <MessageCircle className="size-4 text-violet-600" />
+          </div>
+          <div>
+            <p className="text-[14px] font-semibold text-gray-900">Agente IA de agendamiento</p>
+            <p className="text-[12px] text-gray-400">Responde automáticamente por WhatsApp: agenda, cancela y reagenda citas por chat</p>
+          </div>
+          <div className="ml-auto">
+            <Toggle activo={agenteActivo} onChange={() => setAgenteActivo(v => !v)} />
+          </div>
+        </div>
+        {agenteActivo && (
+          <div className="pl-9 space-y-4">
+            <div className="bg-violet-50 rounded-xl border border-violet-100 p-4 text-[12px] text-violet-900 space-y-1">
+              <p>✓ Los pacientes pueden agendar, consultar y cancelar citas escribiendo por WhatsApp.</p>
+              <p>✓ El agente conoce tus servicios, profesionales y horarios, y solo ofrece horas realmente disponibles.</p>
+              <p>✓ Si el paciente lo pide o el tema es clínico, deriva la conversación a tu equipo (aparece en el Inbox).</p>
+              <p className="text-violet-600">Requiere WhatsApp conectado. No olvides guardar los cambios.</p>
+            </div>
+
+            {/* Personalización del agente */}
+            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-4">
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-1">Nombre del asistente</p>
+                <input
+                  type="text"
+                  value={agenteNombre}
+                  onChange={(e) => setAgenteNombre(e.target.value)}
+                  placeholder="ej: Sofi"
+                  className="h-8 w-full max-w-[240px] px-2.5 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                />
+              </div>
+
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-2">Tono de conversación</p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { label: "Cercano", value: 'cercano' },
+                    { label: "Formal",  value: 'formal' },
+                  ] as const).map((op) => (
+                    <button
+                      key={op.value}
+                      type="button"
+                      onClick={() => setAgenteTono(op.value)}
+                      className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${agenteTono === op.value ? "border-violet-600 bg-violet-50 text-violet-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  {agenteTono === 'formal' ? 'Trata a los pacientes de usted, sin emojis.' : 'Trato cercano y profesional, estilo chileno.'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-1">Instrucciones adicionales</p>
+                <p className="text-[12px] text-gray-400 mb-2">Reglas propias de tu clínica que el agente debe seguir</p>
+                <textarea
+                  value={agenteInstrucciones}
+                  onChange={(e) => setAgenteInstrucciones(e.target.value)}
+                  rows={4}
+                  placeholder="ej: No agendar primeras horas del lunes. Los tratamientos láser requieren evaluación previa."
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-[13px] text-gray-900 leading-relaxed placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
+                />
+              </div>
+            </div>
+
+            <a
+              href="/configuracion/agente-test"
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-700 hover:text-violet-900"
+            >
+              <MessageCircle className="size-3.5" />
+              Probar el agente en el simulador →
+            </a>
+          </div>
+        )}
+      </div>
+
       {/* ── BLOQUE WHATSAPP ─────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center gap-2 mb-4">
@@ -1494,7 +1534,6 @@ function SeccionRecordatorios() {
           </div>
           <div>
             <p className="text-[14px] font-semibold text-gray-900">Recordatorios por WhatsApp</p>
-
             <p className="text-[12px] text-gray-400">Mensaje automático antes de cada cita</p>
           </div>
           <div className="ml-auto">
@@ -2494,93 +2533,12 @@ function BtnCerrarSesion() {
   )
 }
 
-// ─── Sección Wizard ──────────────────────────────────────────────────────────
-
-type WizardToggleItem = { key: keyof WizardPasosConfig; label: string; desc: string }
-const WIZARD_ITEMS: WizardToggleItem[] = [
-  { key: "ficha", label: "Ficha clínica",      desc: "Anamnesis, motivo de consulta, alergias y antecedentes" },
-  { key: "fotos", label: "Fotos antes/después", desc: "Captura o sube fotos del paciente durante la atención" },
-  { key: "notas", label: "Notas clínicas",      desc: "Campo libre para el profesional después del tratamiento" },
-]
-
-function SeccionWizard() {
-  const [pasos, setPasos] = useState<WizardPasosConfig>(WIZARD_PASOS_DEFAULT)
-  const [guardando, setGuardando] = useState(false)
-  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
-
-  useEffect(() => {
-    getClinicaConfig().then(cfg => {
-      if (cfg.wizard_pasos) setPasos({ ...WIZARD_PASOS_DEFAULT, ...cfg.wizard_pasos })
-    })
-  }, [])
-
-  async function guardar() {
-    setGuardando(true); setFeedback(null)
-    const cfg = await getClinicaConfig()
-    const ok = await actualizarClinicaConfig({ ...cfg, wizard_pasos: pasos })
-    setFeedback(ok ? { tipo: "ok", msg: "Configuración guardada." } : { tipo: "error", msg: "Error al guardar." })
-    setGuardando(false)
-  }
-
-  return (
-    <div className="space-y-6">
-      <SectionHeader title="Wizard de atención" subtitle="Configura qué pasos aparecen al iniciar una cita" />
-      <div className="space-y-3">
-        {/* Paso fijo: Paciente */}
-        <div className="flex items-center justify-between p-3.5 rounded-xl border border-gray-100 bg-gray-50 opacity-60">
-          <div>
-            <p className="text-[13px] font-medium text-gray-700">Datos del paciente</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">Verificar y completar datos básicos del paciente</p>
-          </div>
-          <div className="w-10 h-6 rounded-full bg-blue-500 flex items-center justify-end px-1 cursor-not-allowed">
-            <div className="w-4 h-4 rounded-full bg-white" />
-          </div>
-        </div>
-        {/* Pasos configurables */}
-        {WIZARD_ITEMS.map(item => (
-          <div key={item.key} className="flex items-center justify-between p-3.5 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
-            <div>
-              <p className="text-[13px] font-medium text-gray-700">{item.label}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{item.desc}</p>
-            </div>
-            <button
-              onClick={() => setPasos(p => ({ ...p, [item.key]: !p[item.key] }))}
-              className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 ${pasos[item.key] ? "bg-blue-500 justify-end" : "bg-gray-200 justify-start"}`}
-            >
-              <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
-            </button>
-          </div>
-        ))}
-        {/* Paso fijo: Cierre */}
-        <div className="flex items-center justify-between p-3.5 rounded-xl border border-gray-100 bg-gray-50 opacity-60">
-          <div>
-            <p className="text-[13px] font-medium text-gray-700">Cierre de cita</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">Marcar cita como completada y registrar cobro</p>
-          </div>
-          <div className="w-10 h-6 rounded-full bg-blue-500 flex items-center justify-end px-1 cursor-not-allowed">
-            <div className="w-4 h-4 rounded-full bg-white" />
-          </div>
-        </div>
-      </div>
-      {feedback && (
-        <p className={`text-[12px] ${feedback.tipo === "ok" ? "text-green-600" : "text-red-500"}`}>{feedback.msg}</p>
-      )}
-      <div className="flex gap-2">
-        <Button onClick={guardar} disabled={guardando} size="sm" className="bg-[#2563EB] text-white text-[13px]">
-          {guardando ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : null}
-          Guardar cambios
-        </Button>
-      </div>
-    </div>
-  )
-}
-
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","wizard"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
 
@@ -2605,7 +2563,6 @@ function ConfiguracionInner() {
     google:         <SeccionGoogleCalendar />,
     plan:           <SeccionPlan />,
     seguridad:      <SeccionSeguridad />,
-    wizard:         <SeccionWizard />,
   }
 
   return (

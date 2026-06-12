@@ -12,7 +12,22 @@ const PUBLIC_API_PREFIXES = [
   '/api/cron/',
 ]
 
+// Routes that are part of the marketing site (no auth needed on any domain)
+const MARKETING_PATHS = ['/', '/privacidad', '/terminos']
+
+// Hosts that serve only the marketing landing (no dashboard access)
+const MARKETING_HOSTS = ['simpliclinic.cl', 'www.simpliclinic.cl']
+
 export async function proxy(request: NextRequest) {
+  const host = request.headers.get('host') ?? ''
+  const { pathname } = request.nextUrl
+
+  // On the marketing domain: allow everything through without auth check.
+  // The dashboard routes simply won't be linked from here.
+  if (MARKETING_HOSTS.some(h => host === h || host.startsWith(h + ':'))) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -36,12 +51,12 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
-
   // Allow public pages
   if (
+    MARKETING_PATHS.includes(pathname) ||
     pathname === '/login' ||
     pathname === '/register' ||
+    pathname === '/auth/set-session' ||
     pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/book/') ||
     pathname === '/book' ||

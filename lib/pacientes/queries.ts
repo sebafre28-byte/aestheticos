@@ -257,11 +257,24 @@ export type PacienteInput = {
   direccion?: string
 }
 
-export async function crearPaciente(input: PacienteInput): Promise<PacienteRow | null> {
+export async function crearPaciente(input: PacienteInput): Promise<PacienteRow | { error: string; codigo: string } | null> {
   const clinicaId = await getClinicaId()
   if (!clinicaId) return null
 
   const supabase = createClient()
+
+  // Verificar límite de pacientes según plan
+  const [{ count }, { data: sub }] = await Promise.all([
+    supabase.from('pacientes').select('*', { count: 'exact', head: true }).eq('clinica_id', clinicaId),
+    supabase.from('subscriptions').select('plan, estado, trial_ends_at').eq('clinica_id', clinicaId).maybeSingle(),
+  ])
+  const LIMITES_PACIENTES: Record<string, number> = { free: 200, pro: 1000, clinica: 5000 }
+  const esTrial = sub?.estado === 'trial' && sub?.trial_ends_at && new Date(sub.trial_ends_at) > new Date()
+  const planKey = esTrial ? 'clinica' : (sub?.plan ?? 'free')
+  const limitePacientes = LIMITES_PACIENTES[planKey] ?? 200
+  if ((count ?? 0) >= limitePacientes) {
+    return { error: `Límite de pacientes alcanzado (${limitePacientes}). Actualiza tu plan para agregar más.`, codigo: 'LIMITE_PACIENTES' }
+  }
   const rawRut = input.rut?.trim()
   const payload = {
     clinica_id: clinicaId,

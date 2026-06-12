@@ -2,19 +2,23 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { PLAN_LABELS } from './queries'
 
 type Plan = 'free' | 'pro' | 'clinica'
 type Estado = 'activa' | 'pausada' | 'cancelada' | 'trial'
+type Recurso = 'profesionales' | 'pacientes' | 'conversaciones_ia'
 
 type SubscripcionState = {
   plan: Plan | null
+  planLabel: string | null
   estado: Estado | null
   trialDiasRestantes: number | null
   esTrial: boolean
   trialVencido: boolean
   cargando: boolean
   puedeUsar: (feature: string) => boolean
-  limite: (recurso: 'profesionales' | 'pacientes') => number
+  limite: (recurso: 'profesionales' | 'pacientes' | 'conversaciones_ia') => number
+  convIaUsadas: number
 }
 
 const FEATURES: Record<string, Plan[]> = {
@@ -27,12 +31,12 @@ const FEATURES: Record<string, Plan[]> = {
   multiples_profesionales: ['pro', 'clinica'],
 }
 
-// Límites por plan. trial = mismos que pro. null = ilimitado
-const LIMITES: Record<string, Record<'profesionales' | 'pacientes', number | null>> = {
-  free:    { profesionales: 1,    pacientes: 50   },
-  pro:     { profesionales: 5,    pacientes: 500  },
-  clinica: { profesionales: null, pacientes: null },
-  trial:   { profesionales: 5,    pacientes: 500  },
+// Límites por plan. trial = mismos que clinica. null = ilimitado
+const LIMITES: Record<string, Record<'profesionales' | 'pacientes' | 'conversaciones_ia', number | null>> = {
+  free:    { profesionales: 1,    pacientes: 200,  conversaciones_ia: 0    },
+  pro:     { profesionales: 5,    pacientes: 1000, conversaciones_ia: 300  },
+  clinica: { profesionales: null, pacientes: 5000, conversaciones_ia: 1000 },
+  trial:   { profesionales: null, pacientes: 5000, conversaciones_ia: 1000 },
 }
 
 let cache: SubscripcionState | null = null
@@ -45,11 +49,13 @@ export function useSubscripcion(): SubscripcionState {
   const [state, setState] = useState<SubscripcionState>(
     cache ?? {
       plan: null,
+      planLabel: null,
       estado: null,
       trialDiasRestantes: null,
       esTrial: false,
       trialVencido: false,
       cargando: true,
+      convIaUsadas: 0,
       puedeUsar: () => false,
       limite: () => Infinity,
     }
@@ -70,6 +76,7 @@ export function useSubscripcion(): SubscripcionState {
         const plan = (data?.plan ?? null) as Plan | null
         const estado = (data?.estado ?? null) as Estado | null
         const esTrial = estado === 'trial'
+        const convIaUsadas: number = data?.conv_ia_usadas ?? 0
         let trialDiasRestantes: number | null = null
         let trialVencido = false
 
@@ -94,7 +101,7 @@ export function useSubscripcion(): SubscripcionState {
           return requeridos.includes(plan)
         }
 
-        function limite(recurso: 'profesionales' | 'pacientes'): number {
+        function limite(recurso: 'profesionales' | 'pacientes' | 'conversaciones_ia'): number {
           const planKey = trialActivo ? 'trial' : (plan ?? 'free')
           const val = LIMITES[planKey]?.[recurso]
           return val ?? Infinity
@@ -102,11 +109,13 @@ export function useSubscripcion(): SubscripcionState {
 
         const next: SubscripcionState = {
           plan,
+          planLabel: plan ? PLAN_LABELS[plan] : null,
           estado,
           trialDiasRestantes,
           esTrial,
           trialVencido,
           cargando: false,
+          convIaUsadas,
           puedeUsar,
           limite,
         }

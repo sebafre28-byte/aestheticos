@@ -191,6 +191,9 @@ export function ListaPacientes({
                   <p className={`text-[13px] font-medium truncate ${paciente.activo ? 'text-gray-900' : 'text-gray-400'}`}>
                     {paciente.nombre}
                   </p>
+                  {paciente.rut && (
+                    <p className="text-[11px] text-gray-400 truncate">{paciente.rut}</p>
+                  )}
                   <p className="text-[11px] text-gray-400 truncate">
                     {paciente.telefono || paciente.email || 'Sin contacto'}
                   </p>
