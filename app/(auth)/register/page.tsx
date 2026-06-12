@@ -57,23 +57,24 @@ export default function RegisterPage() {
       return
     }
 
+    // Enviar email de bienvenida (fire-and-forget) en ambos casos
+    fetch('/api/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo: 'bienvenida',
+        destinatario: email,
+        datos: {
+          nombre,
+          clinica_nombre,
+          dashboard_url: `${window.location.origin}/dashboard`,
+        },
+      }),
+    }).catch(() => {})
+
     // Si confirm email está desactivado en Supabase, la sesión ya existe → ir directo al dashboard
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      // Email de bienvenida en background
-      fetch('/api/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo: 'bienvenida',
-          destinatario: email,
-          datos: {
-            nombre,
-            clinica_nombre,
-            dashboard_url: `${window.location.origin}/dashboard`,
-          },
-        }),
-      }).catch(() => {})
       router.push('/dashboard')
       return
     }

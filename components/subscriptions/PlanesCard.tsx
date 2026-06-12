@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Check, Loader2, Zap, Building2, Star } from 'lucide-react'
+import CancelacionModal from './CancelacionModal'
 import {
   getSubscription,
   PLAN_LIMITS,
@@ -20,27 +21,30 @@ import { clearSubscripcionCache } from '@/lib/subscriptions/useSubscripcion'
 const PLAN_FEATURES: Record<Plan, string[]> = {
   free: [
     '1 profesional',
-    '30 citas por mes',
-    'Agenda vista día',
-    'Ficha de pacientes (hasta 20)',
+    'Hasta 200 pacientes',
+    'Agenda completa',
+    'Fichas clínicas',
+    'Booking público',
+    'Recordatorios por email',
+    'Soporte por email',
   ],
   pro: [
     'Hasta 5 profesionales',
-    'Citas ilimitadas',
-    'Agenda semana y mes',
-    'Recordatorios WhatsApp (200/mes)',
-    'Booking público online',
-    'Reportes de ingresos',
-    'Inbox de mensajes',
-    'Soporte por email',
+    'Hasta 1.000 pacientes',
+    'Todo lo de Simpli',
+    'Agente IA WhatsApp (300 conv/mes)',
+    'Recordatorios automáticos',
+    'Reportes avanzados',
+    'Roles de usuario',
+    'Soporte prioritario',
   ],
   clinica: [
     'Profesionales ilimitados',
-    'Todo lo de Pro',
-    'WhatsApp ilimitado',
-    'Soporte prioritario',
-    'API access',
-    'Próximo: multi-sucursal',
+    'Hasta 5.000 pacientes',
+    'Todo lo de Simpli+',
+    'Agente IA WhatsApp (1.000 conv/mes)',
+    'Onboarding dedicado',
+    'SLA prioritario',
   ],
 }
 
@@ -63,6 +67,7 @@ function PlanCard({
   clinicaId,
   onUpgrade,
   onPortal,
+  onCancel,
   loading,
   anual,
 }: {
@@ -71,6 +76,7 @@ function PlanCard({
   clinicaId: string | null
   onUpgrade: (plan: Plan) => void
   onPortal: () => void
+  onCancel: () => void
   loading: string | null
   anual: boolean
 }) {
@@ -176,6 +182,14 @@ function PlanCard({
           Plan gratuito
         </div>
       )}
+      {isCurrent && hasStripe && (
+        <button
+          onClick={onCancel}
+          className="w-full mt-2 text-[11px] text-gray-400 hover:text-red-500 transition-colors text-center"
+        >
+          Cancelar suscripción
+        </button>
+      )}
     </div>
   )
 }
@@ -183,11 +197,12 @@ function PlanCard({
 // ─── PlanesCard ───────────────────────────────────────────────────────────────
 
 export default function PlanesCard() {
-  const [subscription, setSubscription] = useState<Subscription | null>(null)
-  const [clinicaId, setClinicaId]       = useState<string | null>(null)
-  const [cargando, setCargando]         = useState(true)
-  const [loading, setLoading]           = useState<string | null>(null)
-  const [error, setError]               = useState<string | null>(null)
+  const [subscription, setSubscription]       = useState<Subscription | null>(null)
+  const [clinicaId, setClinicaId]             = useState<string | null>(null)
+  const [cargando, setCargando]               = useState(true)
+  const [loading, setLoading]                 = useState<string | null>(null)
+  const [error, setError]                     = useState<string | null>(null)
+  const [showCancelModal, setShowCancelModal] = useState(false)
   const [anual, setAnual]               = useState(false)
   const [syncing, setSyncing]           = useState(false)
   const searchParams                    = useSearchParams()
@@ -338,11 +353,19 @@ export default function PlanesCard() {
             clinicaId={clinicaId}
             onUpgrade={handleUpgrade}
             onPortal={handlePortal}
+            onCancel={() => setShowCancelModal(true)}
             loading={loading}
             anual={anual}
           />
         ))}
       </div>
+      {clinicaId && (
+        <CancelacionModal
+          open={showCancelModal}
+          onClose={() => setShowCancelModal(false)}
+          clinicaId={clinicaId}
+        />
+      )}
 
       {/* ROI pitch */}
       <div className="mt-5 p-4 bg-blue-50/60 rounded-xl border border-blue-100 text-center">
