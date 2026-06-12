@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { Check, Loader2, Zap, Building2, Star } from 'lucide-react'
 import CancelacionModal from './CancelacionModal'
 import {
@@ -14,7 +13,6 @@ import {
   type Plan,
 } from '@/lib/subscriptions/queries'
 import { getClinicaId } from '@/lib/onboarding/queries'
-import { clearSubscripcionCache } from '@/lib/subscriptions/useSubscripcion'
 
 // ─── Plan feature lists ────────────────────────────────────────────────────────
 
@@ -82,7 +80,7 @@ function PlanCard({
 }) {
   const isCurrent = subscription?.plan === plan
   const isPaid    = plan !== 'free'
-  const hasStripe = !!subscription?.stripe_customer_id
+  const hasFlow = !!subscription?.flow_customer_id
   const Icon      = PLAN_ICONS[plan]
   const priceMes  = PLAN_PRICES[plan]
   const priceAnual = PLAN_PRICES_ANUAL[plan]
@@ -153,7 +151,7 @@ function PlanCard({
 
       {/* CTA */}
       {isCurrent ? (
-        hasStripe ? (
+        hasFlow ? (
           <button
             disabled={isLoadingThis}
             onClick={onPortal}
@@ -182,7 +180,7 @@ function PlanCard({
           Plan gratuito
         </div>
       )}
-      {isCurrent && hasStripe && (
+      {isCurrent && hasFlow && (
         <button
           onClick={onCancel}
           className="w-full mt-2 text-[11px] text-gray-400 hover:text-red-500 transition-colors text-center"
@@ -204,9 +202,6 @@ export default function PlanesCard() {
   const [error, setError]                     = useState<string | null>(null)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [anual, setAnual]               = useState(false)
-  const [syncing, setSyncing]           = useState(false)
-  const searchParams                    = useSearchParams()
-  const syncedRef                       = useRef(false)
 
   useEffect(() => {
     Promise.all([getSubscription(), getClinicaId()]).then(([sub, id]) => {
@@ -214,29 +209,6 @@ export default function PlanesCard() {
       setClinicaId(id)
       setCargando(false)
 
-      // After checkout success, sync subscription directly from Stripe
-      if (searchParams.get('checkout') === 'success' && id && !syncedRef.current) {
-        syncedRef.current = true
-        setSyncing(true)
-        fetch('/api/stripe/sync-checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clinica_id: id }),
-        })
-          .then(r => r.json())
-          .then(data => {
-            if (data.synced) {
-              clearSubscripcionCache()
-              getSubscription().then(updated => {
-                setSubscription(updated)
-                // Clear the URL param
-                window.history.replaceState({}, '', '/configuracion?tab=plan')
-              })
-            }
-          })
-          .catch(console.error)
-          .finally(() => setSyncing(false))
-      }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -279,11 +251,11 @@ export default function PlanesCard() {
     }
   }
 
-  if (cargando || syncing) {
+  if (cargando) {
     return (
       <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
         <Loader2 className="size-4 animate-spin" />
-        {syncing ? 'Confirmando pago…' : 'Cargando plan…'}
+        Cargando plan…
       </div>
     )
   }
