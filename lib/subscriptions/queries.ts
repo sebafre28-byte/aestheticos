@@ -18,6 +18,8 @@ export type Subscription = {
   trial_ends_at: string | null
   current_period_start: string | null
   current_period_end: string | null
+  conv_ia_usadas: number
+  conv_ia_mes: string | null
   created_at: string
   updated_at: string
 }
@@ -25,34 +27,35 @@ export type Subscription = {
 // ─── Plan metadata ────────────────────────────────────────────────────────────
 
 export type PlanLimits = {
-  profesionales: number  // -1 = unlimited
-  citas_mes: number      // -1 = unlimited
+  profesionales: number   // -1 = ilimitado
+  pacientes: number       // -1 = ilimitado
+  conversaciones_ia: number  // 0 = sin acceso, -1 = ilimitado
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free:    { profesionales: 1,  citas_mes: 50 },
-  pro:     { profesionales: 5,  citas_mes: 500 },
-  clinica: { profesionales: -1, citas_mes: -1 },
+  free:    { profesionales: 1,  pacientes: 200,  conversaciones_ia: 0    },
+  pro:     { profesionales: 5,  pacientes: 1000, conversaciones_ia: 300  },
+  clinica: { profesionales: -1, pacientes: 5000, conversaciones_ia: 1000 },
 }
 
 export const PLAN_LABELS: Record<Plan, string> = {
-  free:    'Starter',
-  pro:     'Pro',
-  clinica: 'Clínica',
+  free:    'Solo',
+  pro:     'Clínica',
+  clinica: 'Pro',
 }
 
-// Precios mensuales en CLP — referencia: Reservo CL $50K/3 profs, Doctoralia CL $89K/individual
+// Precios mensuales en CLP (sin IVA)
 export const PLAN_PRICES: Record<Plan, number> = {
-  free:    0,
-  pro:     79900,
-  clinica: 129900,
+  free:    29900,
+  pro:     59900,
+  clinica: 99900,
 }
 
 // Precio anual (20% descuento, pago único)
 export const PLAN_PRICES_ANUAL: Record<Plan, number> = {
-  free:    0,
-  pro:     767000,    // 79.900 × 12 × 0.8
-  clinica: 1247000,   // 129.900 × 12 × 0.8
+  free:    287000,   // 29.900 × 12 × 0.8
+  pro:     575000,   // 59.900 × 12 × 0.8
+  clinica: 959000,   // 99.900 × 12 × 0.8
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
