@@ -1,5 +1,5 @@
 # SimpliClinic — Plan de trabajo v1.0
-> Última actualización: 2026-06-11
+> Última actualización: 2026-06-12
 > Objetivo: Lanzamiento público ~1 jul 2026
 
 ## REGLAS DE TRABAJO
@@ -139,6 +139,85 @@ _Módulo agregado para registrar fixes de producción fuera del plan original._
 
 ---
 
+---
+
+## MÓDULO 12 — PLAN Y FACTURACIÓN / FLOW.CL (2026-06-12)
+
+### Decisiones de arquitectura
+- **Pasarela de pago**: Flow.cl (reemplaza Stripe, que no opera en Chile)
+- **Modo producción**: `FLOW_SANDBOX=0` (NO sandbox — las credenciales de sandbox son distintas)
+- **Flujo de cobro**: Flow.cl cobra automáticamente vía Webpay One Click (tarjeta registrada)
+- **Planes en Flow**: 6 planes creados manualmente en panel Flow → Suscripciones → Planes
+  - SIMPLI_MENSUAL, SIMPLI+_MENSUAL, SIMPLIPRO_MENSUAL
+  - SIMPLI_ANUAL, SIMPLI+_ANUAL, SIMPLIPRO_ANUAL
+- **"Cargo Automático"**: debe estar ACTIVO en Flow → Medios de pago (ya activado)
+
+### Variables de entorno en Vercel (todas ya configuradas)
+```
+FLOW_API_KEY=...           # API key de Flow producción
+FLOW_SECRET_KEY=...        # Secret key para firma HMAC-SHA256
+FLOW_SANDBOX=0             # 0 = producción, 1 = sandbox
+FLOW_PLAN_FREE=...         # Plan ID mensual Simpli (free)
+FLOW_PLAN_PRO=...          # Plan ID mensual Simpli+
+FLOW_PLAN_CLINICA=...      # Plan ID mensual Simpli Pro
+FLOW_PLAN_FREE_ANUAL=...   # Plan ID anual Simpli
+FLOW_PLAN_PRO_ANUAL=...    # Plan ID anual Simpli+
+FLOW_PLAN_CLINICA_ANUAL=...# Plan ID anual Simpli Pro
+NEXT_PUBLIC_APP_URL=https://app.simpliclinic.cl
+```
+
+### Flujo de pago (cómo funciona end-to-end)
+1. Usuario hace click "Contratar" → POST `/api/flow/checkout`
+2. Flow crea/obtiene customer (con `externalId=clinica_id`)
+3. Flow devuelve URL Webpay para registro de tarjeta
+4. Usuario ingresa tarjeta en Webpay → Flow redirige a `/api/flow/subscription-confirm?token=...`
+5. Callback obtiene estado tarjeta (`getCardRegisterStatus`) y guarda `card_last4`, `card_type`
+6. Crea suscripción en Flow (`/subscription/create` con planId correcto mensual/anual)
+7. Flow cobra automáticamente según intervalo del plan (mensual o anual)
+8. Flow notifica cobros/fallas vía webhook → `/api/flow/webhook` (con verificación HMAC)
+
+### DB: tabla `subscriptions` — campos relevantes
+```
+plan              = 'free' | 'pro' | 'clinica'
+estado            = 'trial' | 'activa' | 'pausada' | 'cancelada'
+trial_ends_at     = timestamp (7 días desde registro)
+flow_customer_id  = ID del customer en Flow
+flow_subscription_id = ID de la suscripción en Flow
+card_last4        = últimos 4 dígitos de tarjeta
+card_type         = tipo de tarjeta (Visa, Mastercard, etc.)
+```
+
+### Migraciones aplicadas en Supabase
+- `049`: trigger `handle_new_user()` — crea subscription con `plan='free'`, `estado='trial'`, `trial_ends_at=now()+7d`
+- `050`: columna `cancelacion_motivo`
+- `051`: columnas `flow_customer_id`, `flow_subscription_id`
+- `052`: columnas `card_last4`, `card_type` ← **PENDIENTE aplicar en Supabase SQL Editor**
+
+### Archivos clave
+- `lib/subscriptions/flow.ts` — cliente REST Flow (HMAC signing, customer, subscription, webhook handler)
+- `lib/subscriptions/queries.ts` — tipos, PLAN_LIMITS, PLAN_LABELS, PLAN_PRICES
+- `lib/subscriptions/useSubscripcion.ts` — hook con caché: plan, estado, trial, puedeUsar(), limite()
+- `app/api/flow/checkout/route.ts` — inicia flujo de pago
+- `app/api/flow/subscription-confirm/route.ts` — callback post-registro tarjeta
+- `app/api/flow/webhook/route.ts` — recibe eventos Flow (subscription_paid, payment_failed, canceled)
+- `app/api/flow/portal/route.ts` — genera URL para actualizar tarjeta
+- `components/subscriptions/PlanesCard.tsx` — UI plan y facturación (TrialCard / ActivePlanCard / PlanCard)
+- `components/subscriptions/PlanGate.tsx` — bloquea features por plan
+- `components/subscriptions/TrialBanner.tsx` — banner trial en header
+
+### Estado del módulo
+- [x] Integración Flow.cl completa (customer, card registration, subscription, webhook)
+- [x] UI Plan y Facturación: TrialCard / ActivePlanCard / comparación de planes
+- [x] Feature gating: useSubscripcion + PlanGate bloquea features por plan
+- [x] Toggle anual: envía anual=true al checkout, usa plan IDs anuales de Flow
+- [x] Webhook verificado con HMAC-SHA256
+- [x] Pill en menú Configuración dinámica (Trial/Simpli/Simpli+/Pro)
+- [ ] Migración 052 pendiente aplicar en Supabase SQL Editor
+- [ ] Probar cobro real con tarjeta real (end-to-end post-trial)
+- [ ] Guardar campo `anual` en tabla subscriptions para saber si un plan es mensual o anual
+
+---
+
 ## ESTADO ACTUAL
 ```
 M0  Emails              ██████████ 100%  ✅ COMPLETO
@@ -153,6 +232,7 @@ M8  QA y Beta           ████████░░  80%  (falta onboarding b
 M9  Bugs producción     ██████████ 100%  ✅ COMPLETO (auditoría jun 2026)
 M10 Launch              ░░░░░░░░░░   0%  ← SIGUIENTE
 M11 Wizard cita         ░░░░░░░░░░   0%  (backlog post-launch)
+M12 Plan y Facturación  █████████░  90%  ✅ (falta migración 052, prueba cobro real, campo anual en DB)
 ```
 
 ### Pendientes de seguridad antes del launch (M1 incompletos)
