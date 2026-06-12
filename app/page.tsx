@@ -572,7 +572,7 @@ function Precios() {
   const planes = [
     {
       id: 'free',
-      nombre: 'Solo',
+      nombre: 'Simpli',
       descripcion: 'Para el profesional independiente',
       precio: 29900,
       precioAnual: 287000,
@@ -587,11 +587,11 @@ function Precios() {
         'Soporte por email',
       ],
       cta: 'Comenzar 7 días gratis',
-      ctaHref: '/register',
+      ctaHref: 'https://app.simpliclinic.cl/register',
     },
     {
       id: 'pro',
-      nombre: 'Clínica',
+      nombre: 'Simpli+',
       descripcion: 'Para clínicas pequeñas en crecimiento',
       precio: 59900,
       precioAnual: 575000,
@@ -599,19 +599,19 @@ function Precios() {
       features: [
         'Hasta 5 profesionales',
         'Hasta 1.000 pacientes',
-        'Todo lo del plan Solo',
+        'Todo lo de Simpli',
         'Agente IA WhatsApp (300 conv/mes)',
         'Recordatorios automáticos',
         'Reportes avanzados',
         'Roles de usuario',
         'Soporte prioritario',
       ],
-      cta: 'Comenzar 7 días gratis',
-      ctaHref: '/register',
+      cta: 'Contratar Simpli+',
+      ctaHref: 'https://app.simpliclinic.cl/register?plan=pro',
     },
     {
       id: 'clinica',
-      nombre: 'Pro',
+      nombre: 'Simpli Pro',
       descripcion: 'Para clínicas medianas o múltiples profesionales',
       precio: 99900,
       precioAnual: 959000,
@@ -619,13 +619,13 @@ function Precios() {
       features: [
         'Profesionales ilimitados',
         'Hasta 5.000 pacientes',
-        'Todo lo del plan Clínica',
+        'Todo lo de Simpli+',
         'Agente IA WhatsApp (1.000 conv/mes)',
         'Onboarding dedicado',
         'SLA prioritario',
       ],
-      cta: 'Comenzar 7 días gratis',
-      ctaHref: '/register',
+      cta: 'Contratar Simpli Pro',
+      ctaHref: 'https://app.simpliclinic.cl/register?plan=clinica',
     },
   ]
 
