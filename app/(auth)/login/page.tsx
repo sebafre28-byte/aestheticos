@@ -36,7 +36,14 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+    const isMarketingDomain = typeof window !== 'undefined' &&
+      (window.location.hostname === 'simpliclinic.cl' || window.location.hostname === 'www.simpliclinic.cl')
+    if (isMarketingDomain && appUrl) {
+      window.location.href = appUrl + '/dashboard'
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   return (
