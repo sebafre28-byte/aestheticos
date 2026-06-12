@@ -165,7 +165,8 @@ const TOOLS: Anthropic.Tool[] = [
         fecha: { type: 'string', description: 'YYYY-MM-DD' },
         hora: { type: 'string', description: 'HH:MM (de consultar_disponibilidad)' },
         nombre_paciente: { type: 'string', description: 'Nombre completo del paciente' },
-        email_paciente: { type: 'string', description: 'Email del paciente (opcional)' },
+        email_paciente: { type: 'string', description: 'Email del paciente' },
+        rut_paciente: { type: 'string', description: 'RUT del paciente, ej: 12.345.678-9' },
       },
       required: ['servicio_id', 'profesional_id', 'fecha', 'hora', 'nombre_paciente'],
     },
@@ -237,7 +238,7 @@ async function ejecutarTool(
       p_paciente_telefono: telefono,
       p_paciente_email: input.email_paciente ? String(input.email_paciente) : null,
       p_notas: 'Agendada vía WhatsApp (agente IA)',
-      p_paciente_rut: null,
+      p_paciente_rut: input.rut_paciente ? String(input.rut_paciente) : null,
     })
     if (error) return { result: JSON.stringify({ error: error.message }) }
     const res = data as { cita_id?: string; ok?: boolean; error?: string }
@@ -374,7 +375,7 @@ Ayudar al paciente a: agendar una cita, consultar sus citas, cancelar o reagenda
 REGLAS
 - Responde SIEMPRE en español chileno, cercano y profesional. Mensajes cortos: esto es WhatsApp, máximo 3-4 líneas por mensaje salvo que listes horarios.
 - NUNCA inventes horarios disponibles: usa consultar_disponibilidad antes de proponer horas.
-- Para agendar necesitas: servicio, profesional, fecha, hora confirmada por el paciente, su nombre completo y su email (para enviar confirmación). Pide solo lo que falte, de a poco: primero confirma la cita y luego pide el nombre y el email juntos en un mismo mensaje.
+- Para agendar necesitas: servicio, profesional, fecha, hora confirmada por el paciente, su nombre completo, su RUT y su email (para enviar confirmación). Pide solo lo que falte, de a poco: primero confirma la cita y luego pide nombre, RUT y email juntos en un mismo mensaje.
 - Si hay varios profesionales disponibles y el paciente no tiene preferencia, sugiere el que tenga más horarios libres.
 - Para reagendar: cancela la cita anterior y crea una nueva (confirma primero el nuevo horario con el paciente).
 - No des consejos médicos ni diagnósticos. Para temas clínicos, precios especiales, convenios o reclamos, usa escalar_a_humano.
