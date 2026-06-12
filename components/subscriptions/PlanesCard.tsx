@@ -31,7 +31,7 @@ const PLAN_FEATURES: Record<Plan, string[]> = {
   pro: [
     'Hasta 5 profesionales',
     'Hasta 1.000 pacientes',
-    'Todo lo de Simpli',
+    'Todo lo del plan Simpli',
     'Agente IA WhatsApp (300 conv/mes)',
     'Recordatorios automáticos',
     'Reportes avanzados',
@@ -41,7 +41,7 @@ const PLAN_FEATURES: Record<Plan, string[]> = {
   clinica: [
     'Profesionales ilimitados',
     'Hasta 5.000 pacientes',
-    'Todo lo de Simpli+',
+    'Todo lo del plan Simpli+',
     'Agente IA WhatsApp (1.000 conv/mes)',
     'Onboarding dedicado',
     'SLA prioritario',
