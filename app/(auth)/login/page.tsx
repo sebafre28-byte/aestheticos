@@ -41,7 +41,6 @@ export default function LoginPage() {
       (window.location.hostname === 'simpliclinic.cl' || window.location.hostname === 'www.simpliclinic.cl')
 
     if (isMarketingDomain && appUrl && data.session) {
-      // Pass tokens to app subdomain so it can establish the session there
       const params = new URLSearchParams({
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
