@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
 
-export default function SetSessionPage() {
+function SetSession() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -32,5 +32,17 @@ export default function SetSessionPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
     </div>
+  )
+}
+
+export default function SetSessionPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+      </div>
+    }>
+      <SetSession />
+    </Suspense>
   )
 }
