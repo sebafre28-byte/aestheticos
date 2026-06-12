@@ -24,10 +24,11 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
     if (!clinica) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
 
-    const flowCustomerId = await getOrCreateFlowCustomer(
-      clinica.email ?? user.email ?? '',
-      clinica.nombre ?? '',
-    )
+    const email = clinica.email ?? user.email ?? ''
+    const nombre = clinica.nombre ?? ''
+    console.log('[flow/checkout] creando customer', { email, nombre })
+    const flowCustomerId = await getOrCreateFlowCustomer(email, nombre)
+    console.log('[flow/checkout] customerId', flowCustomerId)
 
     const db = createAdminClient()
     await db.from('subscriptions').upsert({
@@ -37,8 +38,11 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'clinica_id' })
 
-    const returnUrl = `${request.nextUrl.origin}/api/flow/subscription-confirm?clinica_id=${clinica_id}&plan=${plan}&anual=${anual ?? false}`
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin
+    const returnUrl = `${appUrl}/api/flow/subscription-confirm?clinica_id=${clinica_id}&plan=${plan}&anual=${anual ?? false}`
+    console.log('[flow/checkout] returnUrl', returnUrl)
     const { url } = await createCardRegistrationUrl(flowCustomerId, returnUrl)
+    console.log('[flow/checkout] cardRegUrl', url)
 
     return NextResponse.json({ url })
   } catch (err) {
