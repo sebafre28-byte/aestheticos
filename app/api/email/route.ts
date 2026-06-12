@@ -873,6 +873,10 @@ export async function dispatchEmail(opts: {
     const d = opts.datos as unknown as { clinica_nombre: string }
     subject = `Tu suscripción a SimpliClinic fue cancelada`
     html = buildSistemaEmail(subject, `La suscripción de <strong>${d.clinica_nombre}</strong> ha sido cancelada.<br><br>Tu acceso se mantendrá hasta el fin del período pagado. Después podrás reactivar tu plan en cualquier momento desde Configuración.<br><br>Tus datos estarán disponibles por 90 días.`, 'Reactivar mi plan', `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/configuracion?tab=plan`, '#6B7280')
+  } else if (opts.tipo === 'winback') {
+    const d = opts.datos as unknown as { clinica_nombre: string }
+    subject = `¿Todo bien, ${d.clinica_nombre}? Aún puedes volver a SimpliClinic`
+    html = buildSistemaEmail(subject, `Hola, notamos que cancelaste tu suscripción de <strong>${d.clinica_nombre}</strong>.<br><br>Tus datos siguen seguros y tu cuenta puede reactivarse en cualquier momento — sin perder nada.<br><br>Si cancelaste por precio, el plan anual te da 2 meses gratis. Si fue por alguna función que te faltó, cuéntanos y lo priorizamos.`, 'Volver a SimpliClinic', `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/configuracion?tab=plan`, '#2563EB')
   } else {
     const t = opts.tipo as TipoEmailCita
     html = buildEmail(t, opts.datos as DatosCita, buildBody(t, opts.datos as DatosCita))

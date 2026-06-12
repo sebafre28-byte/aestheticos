@@ -41,3 +41,12 @@ jobs:
           curl -f -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             https://app.simpliclinic.cl/api/cron/expirar-trials
+
+  winback-emails:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Email win-back (7 días post-cancelación)
+        run: |
+          curl -f -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://app.simpliclinic.cl/api/cron/winback-emails
