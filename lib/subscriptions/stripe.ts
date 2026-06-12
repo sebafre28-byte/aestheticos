@@ -1,3 +1,4 @@
+// DEPRECATED: reemplazado por Flow
 // ─── Stripe REST helpers (no stripe package — uses native fetch) ──────────────
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
