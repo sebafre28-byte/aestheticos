@@ -101,14 +101,10 @@ export async function POST(req: NextRequest) {
     }).catch((err) => console.error('[book/notificar] admin error:', err))
   }
 
-  // Google Calendar sync
+  // Google Calendar sync (direct, no HTTP loopback)
   if (body.cita_id) {
-    const secret = process.env.INTERNAL_API_SECRET ?? ''
-    fetch(`${base}/api/citas/sync-google`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
-      body: JSON.stringify({ cita_id: body.cita_id, action: 'create' }),
-    }).catch((err) => console.error('[book/notificar] google sync error:', err))
+    const { syncCitaToGoogle } = await import('@/lib/google-calendar/sync')
+    syncCitaToGoogle(body.cita_id, 'create').catch((err) => console.error('[book/notificar] google sync error:', err))
   }
 
   return NextResponse.json({ ok: true })
