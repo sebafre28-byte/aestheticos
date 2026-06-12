@@ -21,8 +21,9 @@ import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
   crearProfesional, getClinicaId, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
   RECORDATORIOS_EMAIL_DEFAULT,
+  getWhatsappClinicaConfig, guardarWhatsappConfig,
   type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig, type RecordatoriosWspConfig,
-  type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig,
+  type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig, type WhatsappClinicaConfig,
 } from "@/lib/onboarding/queries"
 import {
   getUsuariosClinica, invitarUsuario, actualizarRolUsuario, toggleActivoUsuario, eliminarUsuario,
@@ -36,20 +37,46 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "equipo" | "horarios" | "disponibilidad" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
 
-const NAV: { id: SeccionId; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[] = [
-  { id: "clinica",       label: "Datos de la clínica",   icon: Building2 },
-  { id: "equipo",        label: "Equipo",                icon: Users },
-  { id: "horarios",       label: "Horarios de atención",  icon: Clock },
-  { id: "disponibilidad", label: "Disponibilidad",        icon: CalendarDays },
-  { id: "usuarios",       label: "Usuarios y roles",      icon: UserCog },
-  { id: "whatsapp",      label: "WhatsApp Business",     icon: MessageCircle },
-  { id: "recordatorios", label: "Recordatorios",         icon: Bell },
-  { id: "google",        label: "Google Calendar",       icon: CalendarDays },
-  { id: "plan",          label: "Plan y facturación",    icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
-  { id: "seguridad",     label: "Seguridad",             icon: Shield },
+type NavGroup = {
+  label: string
+  items: { id: SeccionId; label: string; icon: React.ElementType; badge?: string; badgeColor?: string }[]
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Clínica",
+    items: [
+      { id: "clinica",  label: "Datos generales",            icon: Building2 },
+      { id: "horarios", label: "Horarios y disponibilidad",  icon: Clock },
+    ],
+  },
+  {
+    label: "Equipo",
+    items: [
+      { id: "equipo",   label: "Profesionales",   icon: Users },
+      { id: "usuarios", label: "Usuarios y roles", icon: UserCog },
+    ],
+  },
+  {
+    label: "Comunicaciones",
+    items: [
+      { id: "whatsapp",      label: "WhatsApp Business", icon: MessageCircle },
+      { id: "recordatorios", label: "Recordatorios",     icon: Bell },
+      { id: "google",        label: "Google Calendar",   icon: CalendarDays },
+    ],
+  },
+  {
+    label: "Cuenta",
+    items: [
+      { id: "plan",      label: "Plan y facturación", icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
+      { id: "seguridad", label: "Seguridad",          icon: Shield },
+    ],
+  },
 ]
+
+const NAV = NAV_GROUPS.flatMap(g => g.items)
 
 const COLORES_PROF = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#EF4444", "#0EA5E9", "#14B8A6"]
 
@@ -822,22 +849,42 @@ function SeccionEquipo() {
 // ─── Sección WhatsApp ─────────────────────────────────────────────────────────
 
 function SeccionWhatsApp() {
-  const twilioFrom = process.env.NEXT_PUBLIC_TWILIO_WHATSAPP_FROM
-  const conectado = !!twilioFrom
-
+  const [config, setConfig] = useState<WhatsappClinicaConfig>({})
   const [plantillas, setPlantillas] = useState<PlantillaWsp[]>(PLANTILLAS_DEFAULT)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [textoEdit, setTextoEdit] = useState("")
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [guardandoCredenciales, setGuardandoCredenciales] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+  const [feedbackCred, setFeedbackCred] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+  const [mostrarToken, setMostrarToken] = useState(false)
+  const [mostrarGuia, setMostrarGuia] = useState(false)
 
   useEffect(() => {
-    getClinicaConfig().then((cfg) => {
+    Promise.all([getClinicaConfig(), getWhatsappClinicaConfig()]).then(([cfg, wsp]) => {
       if (cfg.plantillas?.length) setPlantillas(cfg.plantillas)
+      setConfig(wsp ?? {})
       setCargando(false)
     })
   }, [])
+
+  function updateConfig(partial: Partial<WhatsappClinicaConfig>) {
+    setConfig((prev) => ({ ...prev, ...partial }))
+  }
+
+  async function guardarCredenciales() {
+    setGuardandoCredenciales(true)
+    setFeedbackCred(null)
+    const ok = await guardarWhatsappConfig(config)
+    setGuardandoCredenciales(false)
+    if (ok) {
+      setFeedbackCred({ tipo: "ok", msg: "Configuración guardada." })
+      setTimeout(() => setFeedbackCred(null), 2500)
+    } else {
+      setFeedbackCred({ tipo: "error", msg: "No se pudo guardar." })
+    }
+  }
 
   function iniciarEdicion(pl: PlantillaWsp) {
     setEditandoId(pl.id)
@@ -868,22 +915,311 @@ function SeccionWhatsApp() {
 
   if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
 
+  const conectado = !!config.activo
+  const provider = config.provider ?? "twilio"
+
   return (
     <div>
-      <SectionHeader title="WhatsApp Business" subtitle="Conexión y plantillas de mensajes" />
+      <SectionHeader title="WhatsApp Business" subtitle="Conexión y credenciales por clínica" />
 
+      {/* Webhook URL */}
+      <div className="bg-blue-50/60 rounded-xl border border-blue-100 p-4 mb-6">
+        <div className="flex items-start gap-3">
+          <Link2 className="size-4 text-[#2563EB] mt-0.5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-semibold text-[#2563EB] mb-1">URL del webhook</p>
+            <p className="text-[11px] text-gray-500 mb-2">Pega esta URL al configurar el webhook en Meta o Twilio:</p>
+            <div className="flex items-center gap-2">
+              <code className="text-[11px] bg-white border border-blue-100 rounded-lg px-2.5 py-1 text-gray-700 font-mono truncate flex-1">
+                {typeof window !== "undefined" ? `${window.location.origin}/api/whatsapp/webhook` : "https://simpliclinic.cl/api/whatsapp/webhook"}
+              </code>
+              <button
+                type="button"
+                onClick={() => typeof window !== "undefined" && navigator.clipboard.writeText(`${window.location.origin}/api/whatsapp/webhook`)}
+                className="h-7 px-2.5 rounded-lg border border-blue-200 bg-white text-[11px] font-medium text-[#2563EB] hover:bg-blue-50 transition-colors shrink-0 flex items-center gap-1.5"
+              >
+                <Copy className="size-3" /> Copiar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Estado de conexión */}
       <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-6">
         <div className="flex items-center gap-4">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${conectado ? "bg-[#25D366]/10" : "bg-gray-200"}`}>
             {conectado ? <Wifi className="size-5 text-[#25D366]" /> : <WifiOff className="size-5 text-gray-400" />}
           </div>
           <div className="flex-1">
-            <p className="text-[14px] font-semibold text-gray-900">{conectado ? twilioFrom : "Sin número conectado"}</p>
-            <p className="text-[12px] text-gray-500 mt-0.5">{conectado ? "Número configurado vía Twilio Sandbox" : "Configura TWILIO_WHATSAPP_FROM en las variables de entorno"}</p>
+            <p className="text-[14px] font-semibold text-gray-900">
+              {conectado ? (config.numero_display || "Número configurado") : "Sin número conectado"}
+            </p>
+            <p className="text-[12px] text-gray-500 mt-0.5">
+              {conectado
+                ? `Proveedor: ${provider === "meta" ? "Meta WhatsApp Business API" : "Twilio"}`
+                : "Configura tus credenciales a continuación"}
+            </p>
           </div>
           <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${conectado ? "bg-emerald-50 text-[#10B981]" : "bg-red-50 text-red-400"}`}>
-            {conectado ? "Conectado" : "Desconectado"}
+            {conectado ? "Activo" : "Inactivo"}
           </span>
+        </div>
+      </div>
+
+      {/* Guía de configuración */}
+      <div className="mb-6">
+        <button
+          type="button"
+          onClick={() => setMostrarGuia((v) => !v)}
+          className="flex items-center gap-1.5 text-[12px] font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+        >
+          {mostrarGuia ? "Ocultar guía ↑" : "Ver guía de configuración →"}
+        </button>
+
+        {mostrarGuia && (
+          <div className="mt-3 bg-amber-50/60 rounded-xl border border-amber-100 p-5">
+            <p className="text-[13px] font-semibold text-gray-900 mb-4">
+              {provider === "meta"
+                ? "¿Cómo obtener tus credenciales de Meta?"
+                : "¿Cómo obtener tus credenciales de Twilio?"}
+            </p>
+
+            {provider === "meta" ? (
+              <ol className="space-y-3">
+                {[
+                  {
+                    n: 1,
+                    titulo: "Crear una app en Meta for Developers",
+                    desc: 'Entra a developers.facebook.com → "Mis apps" → "Crear app". Tipo: "Empresa" → sigue el flujo y asígnale un nombre.',
+                  },
+                  {
+                    n: 2,
+                    titulo: "Agregar WhatsApp a tu app",
+                    desc: 'En el panel de tu app → "Agregar producto" → "WhatsApp" → "Configurar".',
+                  },
+                  {
+                    n: 3,
+                    titulo: "Obtener el Phone Number ID",
+                    desc: 'Ve a WhatsApp → Configuración → Números de teléfono. Copia el "ID de número de teléfono" (empieza con números, ej: 123456789) → Pégalo en el campo "Phone Number ID".',
+                  },
+                  {
+                    n: 4,
+                    titulo: "Obtener el Access Token",
+                    desc: 'Ve a WhatsApp → Configuración → API Setup. Copia el "Temporary access token" (empieza con "EAA..."). Para producción: crea un token permanente en "System Users" del Business Manager → Pégalo en el campo "Access Token".',
+                  },
+                  {
+                    n: 5,
+                    titulo: "Configurar el webhook",
+                    desc: 'Ve a WhatsApp → Configuración → Webhook. URL de devolución de llamada: la URL del webhook de arriba. Token de verificación: escribe cualquier texto secreto y anótalo → Pégalo también en el campo "Verify Token" de este formulario. Suscríbete a: messages.',
+                  },
+                  {
+                    n: 6,
+                    titulo: "Agregar tu número de teléfono",
+                    desc: 'En el mismo panel agrega y verifica tu número de WhatsApp Business → Escríbelo en "Número de display" (ej: +56912345678).',
+                  },
+                ].map((paso) => (
+                  <li key={paso.n} className="flex gap-3">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-amber-200 text-amber-800 text-[11px] font-bold flex items-center justify-center mt-0.5">
+                      {paso.n}
+                    </span>
+                    <div>
+                      <p className="text-[12px] font-semibold text-gray-800">{paso.titulo}</p>
+                      <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{paso.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <ol className="space-y-3">
+                {[
+                  {
+                    n: 1,
+                    titulo: "Crear cuenta en Twilio",
+                    desc: 'Entra a twilio.com → "Sign up" (es gratis para empezar). Verifica tu email y número de teléfono.',
+                  },
+                  {
+                    n: 2,
+                    titulo: "Obtener Account SID y Auth Token",
+                    desc: 'En el Dashboard de Twilio (inicio) verás: "Account SID" (empieza con "AC...") y "Auth Token" (clic en el ojo para revelarlo) → Pégalos en los campos correspondientes.',
+                  },
+                  {
+                    n: 3,
+                    titulo: "Activar el Sandbox de WhatsApp (para pruebas)",
+                    desc: 'Menú izquierdo → Messaging → Try it out → Send a WhatsApp message. Sigue las instrucciones para conectar tu número personal al sandbox. El número del sandbox aparece como "From" (ej: whatsapp:+14155238886) → Pégalo en el campo "From Number".',
+                  },
+                  {
+                    n: 4,
+                    titulo: "Configurar el webhook",
+                    desc: 'En Messaging → Settings → WhatsApp Sandbox Settings. "When a message comes in": la URL del webhook de arriba. Método: HTTP POST.',
+                  },
+                  {
+                    n: 5,
+                    titulo: "Para producción (número propio)",
+                    desc: "Messaging → Senders → WhatsApp Senders → solicita un número aprobado por Meta (requiere Business Verification, puede tardar días).",
+                  },
+                ].map((paso) => (
+                  <li key={paso.n} className="flex gap-3">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-amber-200 text-amber-800 text-[11px] font-bold flex items-center justify-center mt-0.5">
+                      {paso.n}
+                    </span>
+                    <div>
+                      <p className="text-[12px] font-semibold text-gray-800">{paso.titulo}</p>
+                      <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{paso.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Formulario de credenciales */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 space-y-4">
+        <p className="text-[13px] font-semibold text-gray-900">Credenciales de acceso</p>
+
+        {/* Selector de proveedor */}
+        <div>
+          <Label className="text-[12px] text-gray-600 mb-1.5 block">Proveedor</Label>
+          <div className="flex gap-2">
+            {(["meta", "twilio"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => updateConfig({ provider: p })}
+                className={`flex-1 py-2 px-3 rounded-lg border text-[12px] font-medium transition-colors ${
+                  provider === p
+                    ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                    : "border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                {p === "meta" ? "Meta (WhatsApp Business API)" : "Twilio"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Número display */}
+        <div>
+          <Label className="text-[12px] text-gray-600 mb-1.5 block">Número de WhatsApp (ej: +56912345678)</Label>
+          <Input
+            value={config.numero_display ?? ""}
+            onChange={(e) => updateConfig({ numero_display: e.target.value })}
+            placeholder="+56912345678"
+            className="text-[13px] h-9"
+          />
+        </div>
+
+        {provider === "meta" ? (
+          <>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Phone Number ID</Label>
+              <Input
+                value={config.phone_number_id ?? ""}
+                onChange={(e) => updateConfig({ phone_number_id: e.target.value })}
+                placeholder="1234567890"
+                className="text-[13px] h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Access Token</Label>
+              <div className="relative">
+                <Input
+                  type={mostrarToken ? "text" : "password"}
+                  value={config.access_token ?? ""}
+                  onChange={(e) => updateConfig({ access_token: e.target.value })}
+                  placeholder="EAA..."
+                  className="text-[13px] h-9 pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarToken((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {mostrarToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Verify Token (webhook)</Label>
+              <Input
+                value={config.verify_token ?? ""}
+                onChange={(e) => updateConfig({ verify_token: e.target.value })}
+                placeholder="mi_token_secreto"
+                className="text-[13px] h-9"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Account SID</Label>
+              <Input
+                value={config.account_sid ?? ""}
+                onChange={(e) => updateConfig({ account_sid: e.target.value })}
+                placeholder="ACxxxxxxxxxxxxxxxx"
+                className="text-[13px] h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Auth Token</Label>
+              <div className="relative">
+                <Input
+                  type={mostrarToken ? "text" : "password"}
+                  value={config.auth_token ?? ""}
+                  onChange={(e) => updateConfig({ auth_token: e.target.value })}
+                  placeholder="••••••••••••••••"
+                  className="text-[13px] h-9 pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarToken((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {mostrarToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Número de origen (whatsapp:+...)</Label>
+              <Input
+                value={config.from_number ?? ""}
+                onChange={(e) => updateConfig({ from_number: e.target.value })}
+                placeholder="whatsapp:+14155238886"
+                className="text-[13px] h-9"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Activar conexión */}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={() => updateConfig({ activo: !config.activo })}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.activo ? "bg-[#25D366]" : "bg-gray-200"}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${config.activo ? "translate-x-4.5" : "translate-x-0.5"}`} />
+          </button>
+          <span className="text-[12px] text-gray-600">Conexión activa</span>
+        </div>
+
+        <Feedback f={feedbackCred} />
+
+        <div className="flex items-center justify-between pt-1">
+          <p className="text-[11px] text-gray-400 flex items-center gap-1">
+            <Shield className="size-3" />
+            Tus credenciales se almacenan cifradas en tu base de datos privada
+          </p>
+          <Button
+            onClick={guardarCredenciales}
+            disabled={guardandoCredenciales}
+            className="h-8 text-[12px] border-0 text-white"
+            style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}
+          >
+            {guardandoCredenciales ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
+            Guardar credenciales
+          </Button>
         </div>
       </div>
 
@@ -1039,6 +1375,9 @@ function SeccionRecordatorios() {
 
   // ── Agente IA state ──
   const [agenteActivo, setAgenteActivo] = useState(false)
+  const [agenteNombre, setAgenteNombre] = useState("")
+  const [agenteTono, setAgenteTono] = useState<'cercano' | 'formal'>('cercano')
+  const [agenteInstrucciones, setAgenteInstrucciones] = useState("")
 
   // ── Preview modal ──
   const [previewTipo, setPreviewTipo] = useState<PreviewTipo | null>(null)
@@ -1061,6 +1400,9 @@ function SeccionRecordatorios() {
         setEmailCfg(cfg.recordatorios_email)
       }
       setAgenteActivo(cfg.agente_wsp?.activo === true)
+      setAgenteNombre(cfg.agente_wsp?.nombre_asistente ?? "")
+      setAgenteTono(cfg.agente_wsp?.tono === 'formal' ? 'formal' : 'cercano')
+      setAgenteInstrucciones(cfg.agente_wsp?.instrucciones_extra ?? "")
       setCargando(false)
     })
   }, [])
@@ -1079,7 +1421,12 @@ function SeccionRecordatorios() {
       ...cfg,
       recordatorios_wsp: { activo, minutos_antes: mins, template },
       recordatorios_email: emailCfg,
-      agente_wsp: { activo: agenteActivo },
+      agente_wsp: {
+        activo: agenteActivo,
+        nombre_asistente: agenteNombre.trim() || undefined,
+        tono: agenteTono,
+        instrucciones_extra: agenteInstrucciones.trim() || undefined,
+      },
     })
     setGuardando(false)
     if (ok) {
@@ -1112,13 +1459,69 @@ function SeccionRecordatorios() {
           </div>
         </div>
         {agenteActivo && (
-          <div className="pl-9">
+          <div className="pl-9 space-y-4">
             <div className="bg-violet-50 rounded-xl border border-violet-100 p-4 text-[12px] text-violet-900 space-y-1">
               <p>✓ Los pacientes pueden agendar, consultar y cancelar citas escribiendo por WhatsApp.</p>
               <p>✓ El agente conoce tus servicios, profesionales y horarios, y solo ofrece horas realmente disponibles.</p>
               <p>✓ Si el paciente lo pide o el tema es clínico, deriva la conversación a tu equipo (aparece en el Inbox).</p>
               <p className="text-violet-600">Requiere WhatsApp conectado. No olvides guardar los cambios.</p>
             </div>
+
+            {/* Personalización del agente */}
+            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-4">
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-1">Nombre del asistente</p>
+                <input
+                  type="text"
+                  value={agenteNombre}
+                  onChange={(e) => setAgenteNombre(e.target.value)}
+                  placeholder="ej: Sofi"
+                  className="h-8 w-full max-w-[240px] px-2.5 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                />
+              </div>
+
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-2">Tono de conversación</p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { label: "Cercano", value: 'cercano' },
+                    { label: "Formal",  value: 'formal' },
+                  ] as const).map((op) => (
+                    <button
+                      key={op.value}
+                      type="button"
+                      onClick={() => setAgenteTono(op.value)}
+                      className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${agenteTono === op.value ? "border-violet-600 bg-violet-50 text-violet-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  {agenteTono === 'formal' ? 'Trata a los pacientes de usted, sin emojis.' : 'Trato cercano y profesional, estilo chileno.'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-1">Instrucciones adicionales</p>
+                <p className="text-[12px] text-gray-400 mb-2">Reglas propias de tu clínica que el agente debe seguir</p>
+                <textarea
+                  value={agenteInstrucciones}
+                  onChange={(e) => setAgenteInstrucciones(e.target.value)}
+                  rows={4}
+                  placeholder="ej: No agendar primeras horas del lunes. Los tratamientos láser requieren evaluación previa."
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-[13px] text-gray-900 leading-relaxed placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
+                />
+              </div>
+            </div>
+
+            <a
+              href="/configuracion/agente-test"
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-700 hover:text-violet-900"
+            >
+              <MessageCircle className="size-3.5" />
+              Probar el agente en el simulador →
+            </a>
           </div>
         )}
       </div>
@@ -1865,7 +2268,7 @@ function SeccionUsuarios() {
   )
 }
 
-// ─── Sección Horarios ────────────────────────────────────────────────────────
+// ─── Sección Horarios de la clínica ─────────────────────────────────────────
 
 const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
 
@@ -1879,7 +2282,7 @@ const HORARIOS_DEFAULT: HorariosConfig = {
   domingo:   { activo: false, desde: '09:00', hasta: '18:00' },
 }
 
-function SeccionHorarios() {
+function SeccionHorariosClinica() {
   const [horarios, setHorarios] = useState<HorariosConfig>(HORARIOS_DEFAULT)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -1932,7 +2335,7 @@ function SeccionHorarios() {
 
   return (
     <div>
-      <SectionHeader title="Horarios de atención" subtitle="Define los días y horarios en que atiendes pacientes" />
+      <p className="text-[12px] text-gray-400 mb-4">Define los días y horarios en que la clínica atiende pacientes.</p>
       <div className="space-y-2 mb-6">
         {DIAS.map((dia) => {
           const h = horarios[dia] ?? { activo: false, desde: '09:00', hasta: '18:00' }
@@ -2064,10 +2467,9 @@ function SeccionDisponibilidad() {
   if (profesionales.length === 0) {
     return (
       <div>
-        <SectionHeader title="Disponibilidad por profesional" subtitle="Configura el horario individual de cada profesional" />
         <div className="text-center py-12">
           <CalendarDays className="size-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-[13px] text-gray-500">No hay profesionales registrados.</p>
+          <p className="text-[13px] text-gray-500">No hay profesionales registrados. Agrega uno en <strong>Profesionales</strong>.</p>
         </div>
       </div>
     )
@@ -2077,8 +2479,7 @@ function SeccionDisponibilidad() {
 
   return (
     <div>
-      <SectionHeader title="Disponibilidad por profesional" subtitle="Configura el horario individual de cada profesional" />
-
+      <p className="text-[12px] text-gray-400 mb-4">Selecciona un profesional para configurar su disponibilidad semanal.</p>
       <div className="flex gap-2 flex-wrap mb-6">
         {profesionales.map((p) => {
           const initials = p.nombre.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
@@ -2152,6 +2553,32 @@ function SeccionDisponibilidad() {
   )
 }
 
+// ─── Sección Horarios unificada ───────────────────────────────────────────────
+
+function SeccionHorariosUnificada() {
+  const [tab, setTab] = useState<'clinica' | 'profesional'>('clinica')
+  return (
+    <div>
+      <SectionHeader title="Horarios y disponibilidad" subtitle="Configura los horarios de la clínica y de cada profesional" />
+      <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setTab('clinica')}
+          className={`h-7 px-4 rounded-md text-[12px] font-medium transition-colors ${tab === 'clinica' ? 'bg-white text-[#0B132B] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          Horarios de la clínica
+        </button>
+        <button
+          onClick={() => setTab('profesional')}
+          className={`h-7 px-4 rounded-md text-[12px] font-medium transition-colors ${tab === 'profesional' ? 'bg-white text-[#0B132B] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          Por profesional
+        </button>
+      </div>
+      {tab === 'clinica' ? <SeccionHorariosClinica /> : <SeccionDisponibilidad />}
+    </div>
+  )
+}
+
 // ─── Header card ─────────────────────────────────────────────────────────────
 
 function ClinicaHeaderCard() {
@@ -2194,7 +2621,7 @@ function BtnCerrarSesion() {
     window.location.href = "/login"
   }
   return (
-    <button onClick={cerrar} className="w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+    <button onClick={cerrar} className="w-full flex items-center gap-2.5 h-10 sm:h-9 px-3 rounded-lg text-[13px] font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors whitespace-nowrap">
       <LogOut className="size-[15px] shrink-0" /> Cerrar sesión
     </button>
   )
@@ -2205,7 +2632,7 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","disponibilidad","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
 
@@ -2223,8 +2650,7 @@ function ConfiguracionInner() {
   const SECCIONES: Record<SeccionId, React.ReactNode> = {
     clinica:        <SeccionClinica />,
     equipo:         <SeccionEquipo />,
-    horarios:       <SeccionHorarios />,
-    disponibilidad: <SeccionDisponibilidad />,
+    horarios:       <SeccionHorariosUnificada />,
     usuarios:       <SeccionUsuarios />,
     whatsapp:       <SeccionWhatsApp />,
     recordatorios:  <SeccionRecordatorios />,
@@ -2243,22 +2669,41 @@ function ConfiguracionInner() {
       <ClinicaHeaderCard />
 
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 flex-1 min-h-0">
-        <nav className="sm:w-[200px] w-full shrink-0 space-y-0.5">
-          {NAV.map((item) => {
-            const Icon = item.icon
-            const isActive = activa === item.id
-            return (
-              <button key={item.id} onClick={() => setActiva(item.id)}
-                className={`w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left ${isActive ? "bg-blue-50 text-[#2563EB]" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}>
-                <Icon className={`size-[15px] shrink-0 ${isActive ? "text-[#2563EB]" : "text-gray-400"}`} />
-                <span className="flex-1 truncate">{item.label}</span>
-                {item.badge && (
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${item.badgeColor}`}>{item.badge}</span>
-                )}
-              </button>
-            )
-          })}
-          <div className="pt-3 mt-3 border-t border-gray-100">
+        <nav className="sm:w-[210px] w-full shrink-0 hidden sm:block">
+          {NAV_GROUPS.map((group, gi) => (
+            <div key={group.label} className={gi > 0 ? "mt-4" : ""}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-3 mb-1">{group.label}</p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon
+                  const isActive = activa === item.id
+                  return (
+                    <button key={item.id} onClick={() => setActiva(item.id)}
+                      className={`w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left ${isActive ? "bg-blue-50 text-[#2563EB]" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}>
+                      <Icon className={`size-[15px] shrink-0 ${isActive ? "text-[#2563EB]" : "text-gray-400"}`} />
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {item.badge && (
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${item.badgeColor}`}>{item.badge}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+          {/* Mobile: chips horizontales */}
+          <div className="sm:hidden flex gap-1 overflow-x-auto pb-2 -mx-4 px-4">
+            {NAV.map((item) => {
+              const isActive = activa === item.id
+              return (
+                <button key={item.id} onClick={() => setActiva(item.id)}
+                  className={`shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-lg text-[12px] font-medium whitespace-nowrap border transition-colors ${isActive ? "bg-blue-50 text-[#2563EB] border-blue-100" : "text-gray-500 border-gray-100 bg-white hover:bg-gray-50"}`}>
+                  {item.label}
+                </button>
+              )
+            })}
+          </div>
+          <div className="pt-3 mt-4 border-t border-gray-100">
             <BtnCerrarSesion />
           </div>
         </nav>
