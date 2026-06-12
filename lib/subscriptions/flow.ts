@@ -72,10 +72,8 @@ export async function getOrCreateFlowCustomer(email: string, name: string): Prom
     return data.customerId
   } catch {
     // Ya existe — buscar por email
-    const data = await flowGet('/customer/list', { filter: email, start: '0', limit: '1' })
-    const customer = data.data?.[0]
-    if (!customer?.customerId) throw new Error(`Cliente Flow no encontrado para: ${email}`)
-    return customer.customerId
+    const data = await flowGet('/customer/getByEmail', { email })
+    return data.customerId
   }
 }
 
@@ -117,20 +115,9 @@ export async function changeFlowPlan(subscriptionId: string, plan: Plan, anual =
 
 // ─── Webhook handler ──────────────────────────────────────────────────────────
 
-export function verifyFlowWebhook(body: Record<string, string>): boolean {
-  const { s, ...rest } = body
-  if (!s) return false
-  const expected = signParams(rest)
-  return expected === s
-}
-
 export async function handleFlowWebhook(
   body: Record<string, string>,
 ): Promise<{ handled: boolean; error?: string }> {
-  if (!verifyFlowWebhook(body)) {
-    return { handled: false, error: 'Firma inválida' }
-  }
-
   const supabase = createAdminClient()
   const { event, subscriptionId } = body
 

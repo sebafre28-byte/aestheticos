@@ -37,8 +37,7 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'clinica_id' })
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin
-    const returnUrl = `${appUrl}/api/flow/subscription-confirm?clinica_id=${clinica_id}&plan=${plan}&anual=${anual ?? false}`
+    const returnUrl = `${request.nextUrl.origin}/api/flow/subscription-confirm?clinica_id=${clinica_id}&plan=${plan}&anual=${anual ?? false}`
     const { url } = await createCardRegistrationUrl(flowCustomerId, returnUrl)
 
     return NextResponse.json({ url })
