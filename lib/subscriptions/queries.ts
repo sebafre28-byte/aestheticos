@@ -33,27 +33,29 @@ export type PlanLimits = {
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free:    { profesionales: 1,  pacientes: 200,   conversaciones_ia: 0    },
-  pro:     { profesionales: 5,  pacientes: 1000,  conversaciones_ia: 300  },
-  clinica: { profesionales: -1, pacientes: 5000,  conversaciones_ia: 1000 },
+  free:    { profesionales: 1,  pacientes: 200,  conversaciones_ia: 0    },
+  pro:     { profesionales: 5,  pacientes: 1000, conversaciones_ia: 300  },
+  clinica: { profesionales: -1, pacientes: 5000, conversaciones_ia: 1000 },
 }
 
 export const PLAN_LABELS: Record<Plan, string> = {
-  free:    'Simpli',
-  pro:     'Simpli+',
-  clinica: 'Simpli Pro',
+  free:    'Solo',
+  pro:     'Clínica',
+  clinica: 'Pro',
 }
 
+// Precios mensuales en CLP (sin IVA)
 export const PLAN_PRICES: Record<Plan, number> = {
   free:    29900,
   pro:     59900,
   clinica: 99900,
 }
 
+// Precio anual (20% descuento, pago único)
 export const PLAN_PRICES_ANUAL: Record<Plan, number> = {
-  free:    287000,
-  pro:     575000,
-  clinica: 959000,
+  free:    287000,   // 29.900 × 12 × 0.8
+  pro:     575000,   // 59.900 × 12 × 0.8
+  clinica: 959000,   // 99.900 × 12 × 0.8
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────

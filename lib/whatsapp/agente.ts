@@ -459,17 +459,15 @@ export async function responderConAgente(params: {
     .maybeSingle()
   if (conv?.estado === 'humano') return { texto: null, escalado: false }
 
-  // Verificar cupo de conversaciones IA
-  const { data: convCheck } = await supabase.rpc('incrementar_conv_ia', { p_clinica_id: clinica.id })
-  const convData = convCheck as { permitido: boolean; usadas: number; limite: number } | null
-  if (!convData?.permitido) {
-    await supabase.from('mensajes_inbox').insert({
-      conversacion_id: conversacionId,
-      direccion: 'saliente',
-      contenido: 'Lo siento, el servicio de atención automática no está disponible en este momento. Por favor, contacta directamente a la clínica. 📞',
-      estado_whatsapp: 'enviado',
-    })
-    return { texto: null, escalado: false }
+  // Verificar cupo de conversaciones IA del plan
+  const { data: convCheck } = await supabase.rpc('incrementar_conv_ia', { p_clinica_id: clinicaId })
+  const cuota = convCheck as { permitido: boolean; usadas: number; limite: number } | null
+  if (!cuota?.permitido) {
+    return { texto: 'Lo siento, el servicio de atención automática no está disponible en este momento. Por favor, contacta directamente a la clínica. 📞', escalado: false }
+  }
+  // Notificar al admin si está al 90% del límite (asíncrono, no bloquea)
+  if (cuota.limite > 0 && cuota.usadas >= Math.floor(cuota.limite * 0.9)) {
+    notificarLimiteConvIA(supabase, clinicaId, cuota.usadas, cuota.limite).catch(() => {})
   }
 
   const [{ data: servicios }, { data: profesionales }, { data: historial }] = await Promise.all([
@@ -487,19 +485,6 @@ export async function responderConAgente(params: {
   ])
 
   if (!servicios?.length || !profesionales?.length) return { texto: null, escalado: false }
-
-  // Verificar cupo de conversaciones IA
-  const { data: convCheck } = await supabase.rpc('incrementar_conv_ia', { p_clinica_id: clinicaId })
-  const convData = convCheck as { permitido: boolean; usadas: number; limite: number } | null
-  if (!convData?.permitido) {
-    await supabase.from('mensajes_inbox').insert({
-      conversacion_id: conversacionId,
-      direccion: 'saliente',
-      contenido: 'Lo siento, el servicio de atención automática no está disponible en este momento. Por favor, contacta directamente a la clínica. 📞',
-      estado_whatsapp: 'enviado',
-    })
-    return { ok: false, razon: 'limite_conv_ia' } as unknown as RespuestaAgente
-  }
 
   // Historial cronológico → mensajes Claude (colapsando roles consecutivos)
   const ordenado = (historial ?? []).reverse()
