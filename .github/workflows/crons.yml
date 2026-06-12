@@ -23,3 +23,21 @@ jobs:
           curl -f -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             https://app.simpliclinic.cl/api/cron/email-recordatorios
+
+  trial-emails:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Emails ciclo de vida trial
+        run: |
+          curl -f -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://app.simpliclinic.cl/api/cron/trial-emails
+
+  expirar-trials:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Expirar trials vencidos
+        run: |
+          curl -f -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://app.simpliclinic.cl/api/cron/expirar-trials

@@ -202,22 +202,28 @@ export async function handleStripeWebhook(
       break
     }
 
-    case 'customer.subscription.deleted': {
-      const sub = event.data.object as { id: string }
-      await supabase
-        .from('subscriptions')
-        .update({ estado: 'cancelada', updated_at: new Date().toISOString() })
-        .eq('stripe_subscription_id', sub.id)
-      break
-    }
-
     case 'invoice.payment_failed': {
-      const invoice = event.data.object as { subscription?: string }
+      const invoice = event.data.object as { subscription?: string; next_payment_attempt?: number }
       if (!invoice.subscription) break
-      await supabase
+      const { data: sub } = await supabase
         .from('subscriptions')
         .update({ estado: 'pausada', updated_at: new Date().toISOString() })
         .eq('stripe_subscription_id', invoice.subscription)
+        .select('clinica_id, clinicas(email, nombre)')
+        .single()
+      // Notify admin by email
+      if (sub) {
+        const clinica = Array.isArray(sub.clinicas) ? sub.clinicas[0] : sub.clinicas
+        const email = (clinica as { email?: string | null } | null)?.email
+        const nombre = (clinica as { nombre?: string | null } | null)?.nombre ?? ''
+        if (email) {
+          const { dispatchEmail } = await import('@/app/api/email/route')
+          const proximo = invoice.next_payment_attempt
+            ? new Date(invoice.next_payment_attempt * 1000).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })
+            : undefined
+          dispatchEmail({ tipo: 'pago_fallido', destinatario: email, datos: { clinica_nombre: nombre, proximo_intento: proximo } as never }).catch(() => {})
+        }
+      }
       break
     }
 
@@ -232,13 +238,44 @@ export async function handleStripeWebhook(
     }
 
     case 'invoice.payment_succeeded': {
-      // Payment retry succeeded — reactivate subscription
-      const invoice = event.data.object as { subscription?: string }
+      const invoice = event.data.object as { subscription?: string; billing_reason?: string }
       if (!invoice.subscription) break
-      await supabase
+      const { data: sub } = await supabase
         .from('subscriptions')
         .update({ estado: 'activa', updated_at: new Date().toISOString() })
         .eq('stripe_subscription_id', invoice.subscription)
+        .select('clinica_id, clinicas(email, nombre)')
+        .single()
+      // Only email if it was a recovery (not the initial payment)
+      if (sub && invoice.billing_reason === 'subscription_cycle') {
+        const clinica = Array.isArray(sub.clinicas) ? sub.clinicas[0] : sub.clinicas
+        const email = (clinica as { email?: string | null } | null)?.email
+        const nombre = (clinica as { nombre?: string | null } | null)?.nombre ?? ''
+        if (email) {
+          const { dispatchEmail } = await import('@/app/api/email/route')
+          dispatchEmail({ tipo: 'pago_recuperado', destinatario: email, datos: { clinica_nombre: nombre } as never }).catch(() => {})
+        }
+      }
+      break
+    }
+
+    case 'customer.subscription.deleted': {
+      const sub2 = event.data.object as { id: string }
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .update({ estado: 'cancelada', updated_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', sub2.id)
+        .select('clinica_id, clinicas(email, nombre)')
+        .single()
+      if (subData) {
+        const clinica = Array.isArray(subData.clinicas) ? subData.clinicas[0] : subData.clinicas
+        const email = (clinica as { email?: string | null } | null)?.email
+        const nombre = (clinica as { nombre?: string | null } | null)?.nombre ?? ''
+        if (email) {
+          const { dispatchEmail } = await import('@/app/api/email/route')
+          dispatchEmail({ tipo: 'suscripcion_cancelada', destinatario: email, datos: { clinica_nombre: nombre } as never }).catch(() => {})
+        }
+      }
       break
     }
 
