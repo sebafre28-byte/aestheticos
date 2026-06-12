@@ -301,7 +301,6 @@ export default function InboxPage() {
     const supabase = createClient()
     const channel = supabase
       .channel('inbox-realtime')
-      // New messages
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes_inbox' }, (payload) => {
         const nuevo = payload.new as Mensaje & { conversacion_id: string }
         setSeleccionada(prev => {
@@ -328,15 +327,15 @@ export default function InboxPage() {
           )
         })
       })
-      // New conversations or estado/no_leidos changes
+      // New conversations appear without reload
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversaciones' }, () => {
         cargarConversaciones()
       })
+      // Estado changes (escalation, archive, spam) reflect instantly
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversaciones' }, (payload) => {
         const updated = payload.new as Conversacion & { id: string }
         setConversaciones(prev => {
           const exists = prev.some(c => c.id === updated.id)
-          // If it's now archivada/spam and we're showing only activa/humano, remove it
           if (!exists) return prev
           if (updated.estado === 'archivada' || updated.estado === 'spam') {
             return prev.filter(c => c.id !== updated.id)
