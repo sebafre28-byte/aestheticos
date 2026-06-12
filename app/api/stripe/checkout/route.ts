@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'clinica_id y plan son requeridos' }, { status: 400 })
     }
 
-    if (!['pro', 'clinica'].includes(plan)) {
+    if (!['free', 'pro', 'clinica'].includes(plan)) {
       return NextResponse.json({ error: 'Plan inválido' }, { status: 400 })
     }
 
