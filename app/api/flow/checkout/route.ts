@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
 
     const email = clinica.email ?? user.email ?? ''
     const nombre = clinica.nombre ?? ''
-    console.log('[flow/checkout] creando customer', { email, nombre })
-    const flowCustomerId = await getOrCreateFlowCustomer(email, nombre)
+    console.log('[flow/checkout] creando customer', { email, nombre, clinica_id })
+    const flowCustomerId = await getOrCreateFlowCustomer(email, nombre, clinica_id)
     console.log('[flow/checkout] customerId', flowCustomerId)
 
     const db = createAdminClient()
