@@ -548,7 +548,7 @@ function dispararNotificacionCita(cita: CitaConRelaciones) {
   }
   return fetch(`${base}/api/notificar-cita`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
     body: JSON.stringify({
       tipo: 'nueva_cita',
       canal: 'agenda',
