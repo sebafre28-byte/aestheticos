@@ -246,7 +246,7 @@ export default function PlanesCard() {
     setLoading(plan)
     setError(null)
     try {
-      const res  = await fetch('/api/stripe/checkout', {
+      const res  = await fetch('/api/flow/checkout', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ clinica_id: clinicaId, plan, anual }),
@@ -265,7 +265,7 @@ export default function PlanesCard() {
     setLoading('portal')
     setError(null)
     try {
-      const res  = await fetch('/api/stripe/portal', {
+      const res  = await fetch('/api/flow/portal', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ clinica_id: clinicaId }),
