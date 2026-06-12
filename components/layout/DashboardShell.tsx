@@ -1,37 +1,46 @@
 'use client'
 
 import { useState } from 'react'
-import { LockIcon } from 'lucide-react'
+import Link from 'next/link'
 import { Sidebar } from '@/components/sidebar'
 import { MobileHeader } from '@/components/layout/MobileHeader'
 import { TrialBanner } from '@/components/subscriptions/TrialBanner'
+import { PaywallOverlay } from '@/components/subscriptions/PaywallOverlay'
 import { usePresenceBroadcast } from '@/lib/auth/usePresence'
 import { useSubscripcion } from '@/lib/subscriptions/useSubscripcion'
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   usePresenceBroadcast()
-  const { trialVencido, plan, estado, cargando } = useSubscripcion()
-  const bloqueado = !cargando && trialVencido && estado !== 'activa' && !['pro', 'clinica'].includes(plan ?? '')
+  const { trialVencido, plan, estado, cargando, planLabel, esTrial, trialDiasRestantes } = useSubscripcion()
+
+  // Bloqueo por suscripción cancelada o pausada
+  const bloqueadoPorSuscripcion = !cargando && (estado === 'cancelada' || estado === 'pausada')
+
+  // Bloqueo legacy: trial vencido sin plan pago
+  const bloqueadoPorTrial = !cargando && trialVencido && estado !== 'activa' && !['pro', 'clinica'].includes(plan ?? '')
+
+  // Banner de aviso (no bloqueante): trial vence en menos de 2 días
+  const mostrarAvisoTrial = !cargando && esTrial && !trialVencido && trialDiasRestantes !== null && trialDiasRestantes <= 2
+
+  // Fecha formateada para el banner de aviso
+  const fechaVencimiento = mostrarAvisoTrial
+    ? new Date(Date.now() + (trialDiasRestantes ?? 0) * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL', {
+        day: 'numeric',
+        month: 'long',
+      })
+    : null
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
-      {bloqueado && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center mx-4">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <LockIcon className="w-8 h-8 text-red-500" />
-            </div>
-            <h2 className="text-[18px] font-bold text-gray-900 mb-2">Tu período de prueba venció</h2>
-            <p className="text-[14px] text-gray-500 mb-6">Activa un plan para seguir usando SimpliClinic y gestionar tu clínica.</p>
-            <a
-              href="/configuracion?tab=planes"
-              className="block w-full h-11 rounded-xl bg-[#2563EB] text-white font-semibold text-[14px] flex items-center justify-center hover:bg-blue-700 transition-colors"
-            >
-              Ver planes
-            </a>
-          </div>
-        </div>
+      {/* Paywall: suscripción pausada o cancelada */}
+      {bloqueadoPorSuscripcion && (
+        <PaywallOverlay estado={estado as 'cancelada' | 'pausada'} planLabel={planLabel} />
+      )}
+
+      {/* Paywall legacy: trial vencido sin plan pago */}
+      {!bloqueadoPorSuscripcion && bloqueadoPorTrial && (
+        <PaywallOverlay estado="cancelada" planLabel={planLabel} />
       )}
 
       {/* Desktop sidebar — always visible md+ */}
@@ -62,6 +71,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       {/* Main content — push down on mobile for fixed header */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <TrialBanner />
+        {/* Banner de aviso: trial próximo a vencer (no bloqueante) */}
+        {mostrarAvisoTrial && (
+          <div className="bg-amber-400 text-amber-900 py-2 px-4 flex items-center justify-between gap-4 text-[13px]">
+            <span className="flex-1 text-center font-medium">
+              Tu prueba vence el {fechaVencimiento}. Activa un plan para no perder el acceso.
+            </span>
+            <Link
+              href="/configuracion?tab=plan"
+              className="bg-amber-900/15 hover:bg-amber-900/25 transition-colors px-3 py-1 rounded-full text-[12px] font-semibold shrink-0"
+            >
+              Ver planes
+            </Link>
+          </div>
+        )}
         <main className="flex-1 overflow-auto pt-14 md:pt-0">{children}</main>
       </div>
     </div>
