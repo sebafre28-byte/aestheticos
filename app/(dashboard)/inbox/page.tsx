@@ -301,6 +301,7 @@ export default function InboxPage() {
     const supabase = createClient()
     const channel = supabase
       .channel('inbox-realtime')
+      // New messages
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes_inbox' }, (payload) => {
         const nuevo = payload.new as Mensaje & { conversacion_id: string }
         setSeleccionada(prev => {
@@ -327,9 +328,30 @@ export default function InboxPage() {
           )
         })
       })
+      // New conversations or estado/no_leidos changes
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversaciones' }, () => {
+        cargarConversaciones()
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversaciones' }, (payload) => {
+        const updated = payload.new as Conversacion & { id: string }
+        setConversaciones(prev => {
+          const exists = prev.some(c => c.id === updated.id)
+          // If it's now archivada/spam and we're showing only activa/humano, remove it
+          if (!exists) return prev
+          if (updated.estado === 'archivada' || updated.estado === 'spam') {
+            return prev.filter(c => c.id !== updated.id)
+          }
+          return prev.map(c => c.id === updated.id ? { ...c, estado: updated.estado, no_leidos: updated.no_leidos } : c)
+        })
+        setSeleccionada(prev => {
+          if (!prev || prev.id !== updated.id) return prev
+          if (updated.estado === 'archivada' || updated.estado === 'spam') return null
+          return { ...prev, estado: updated.estado, no_leidos: updated.no_leidos }
+        })
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [])
+  }, [cargarConversaciones])
 
   async function handleEnviar() {
     if (!texto.trim() || !seleccionada || enviando) return
