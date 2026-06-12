@@ -56,6 +56,7 @@ export async function proxy(request: NextRequest) {
     MARKETING_PATHS.includes(pathname) ||
     pathname === '/login' ||
     pathname === '/register' ||
+    pathname === '/auth/set-session' ||
     pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/book/') ||
     pathname === '/book' ||
