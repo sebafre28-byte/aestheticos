@@ -405,6 +405,24 @@ REGLAS
 - Usa emojis con moderación (uno por mensaje máximo).`
 }
 
+// ─── Notificación de límite ───────────────────────────────────
+
+async function notificarLimiteConvIA(supabase: SupabaseClient, clinicaId: string, usadas: number, limite: number) {
+  const { data: clinicaRow } = await supabase.from('clinicas').select('email, nombre').eq('id', clinicaId).single()
+  if (!clinicaRow?.email) return
+  const { dispatchEmail } = await import('@/app/api/email/route')
+  await dispatchEmail({
+    tipo: 'limite_conv_ia',
+    destinatario: clinicaRow.email as string,
+    datos: {
+      clinica_nombre: clinicaRow.nombre as string,
+      conv_usadas: usadas,
+      conv_limite: limite,
+      porcentaje: Math.round((usadas / limite) * 100),
+    } as never,
+  })
+}
+
 // ─── Entrada principal ────────────────────────────────────────
 
 export function agenteActivo(clinica: { configuracion: ClinicaAgente['configuracion'] }): boolean {
@@ -440,6 +458,17 @@ export async function responderConAgente(params: {
     .eq('id', conversacionId)
     .maybeSingle()
   if (conv?.estado === 'humano') return { texto: null, escalado: false }
+
+  // Verificar cupo de conversaciones IA del plan
+  const { data: convCheck } = await supabase.rpc('incrementar_conv_ia', { p_clinica_id: clinicaId })
+  const cuota = convCheck as { permitido: boolean; usadas: number; limite: number } | null
+  if (!cuota?.permitido) {
+    return { texto: 'Lo siento, el servicio de atención automática no está disponible en este momento. Por favor, contacta directamente a la clínica. 📞', escalado: false }
+  }
+  // Notificar al admin si está al 90% del límite (asíncrono, no bloquea)
+  if (cuota.limite > 0 && cuota.usadas >= Math.floor(cuota.limite * 0.9)) {
+    notificarLimiteConvIA(supabase, clinicaId, cuota.usadas, cuota.limite).catch(() => {})
+  }
 
   const [{ data: servicios }, { data: profesionales }, { data: historial }] = await Promise.all([
     supabase.from('servicios')

@@ -828,6 +828,10 @@ export async function dispatchEmail(opts: {
   } else if (opts.tipo === 'invitacion_equipo') {
     const r = buildInviteEmail(opts.datos as DatosInvitacion)
     html = r.html; subject = r.subject
+  } else if (opts.tipo === 'limite_conv_ia') {
+    const d = opts.datos as unknown as { clinica_nombre: string; conv_usadas: number; conv_limite: number; porcentaje: number }
+    subject = `⚠️ Estás al ${d.porcentaje}% de tu límite de conversaciones IA — ${d.clinica_nombre}`
+    html = `<p>Hola,</p><p>Tu clínica <strong>${d.clinica_nombre}</strong> ha usado <strong>${d.conv_usadas} de ${d.conv_limite}</strong> conversaciones IA este mes (${d.porcentaje}%).</p><p>Si se agotan, el agente dejará de responder automáticamente hasta el próximo mes.</p><p><a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/configuracion?tab=plan">Ver mi plan →</a></p>`
   } else {
     const t = opts.tipo as TipoEmailCita
     html = buildEmail(t, opts.datos as DatosCita, buildBody(t, opts.datos as DatosCita))

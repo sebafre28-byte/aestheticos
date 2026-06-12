@@ -315,7 +315,7 @@ function Hero() {
             className="w-full sm:w-auto h-12 px-7 rounded-xl text-[15px] font-bold text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-blue-200"
             style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
           >
-            Comenzar gratis — 14 días sin costo <ArrowRight className="size-4" />
+            Comenzar gratis — 7 días sin costo <ArrowRight className="size-4" />
           </Link>
           <Link
             href="/login"
@@ -571,36 +571,60 @@ function Precios() {
 
   const planes = [
     {
-      id: 'starter',
-      nombre: 'Starter',
-      descripcion: 'Para clínicas que están comenzando',
-      precio: 0,
-      precioAnual: 0,
+      id: 'free',
+      nombre: 'Solo',
+      descripcion: 'Para el profesional independiente',
+      precio: 29900,
+      precioAnual: 287000,
       destacado: false,
-      features: ['1 profesional', 'Agenda completa', 'Fichas de pacientes', 'Booking público', 'Soporte por email'],
-      cta: 'Comenzar gratis',
+      features: [
+        '1 profesional',
+        'Hasta 200 pacientes',
+        'Agenda completa',
+        'Fichas clínicas',
+        'Booking público',
+        'Recordatorios por email',
+        'Soporte por email',
+      ],
+      cta: 'Comenzar 7 días gratis',
       ctaHref: '/register',
     },
     {
       id: 'pro',
-      nombre: 'Pro',
-      descripcion: 'Para clínicas en crecimiento',
-      precio: 79900,
-      precioAnual: 767000,
+      nombre: 'Clínica',
+      descripcion: 'Para clínicas pequeñas en crecimiento',
+      precio: 59900,
+      precioAnual: 575000,
       destacado: true,
-      features: ['Hasta 5 profesionales', 'Todo lo de Starter', 'Agente IA por WhatsApp', 'Recordatorios automáticos', 'Reportes avanzados', 'Roles de usuario', 'Soporte prioritario'],
-      cta: 'Comenzar 14 días gratis',
+      features: [
+        'Hasta 5 profesionales',
+        'Hasta 1.000 pacientes',
+        'Todo lo del plan Solo',
+        'Agente IA WhatsApp (300 conv/mes)',
+        'Recordatorios automáticos',
+        'Reportes avanzados',
+        'Roles de usuario',
+        'Soporte prioritario',
+      ],
+      cta: 'Comenzar 7 días gratis',
       ctaHref: '/register',
     },
     {
       id: 'clinica',
-      nombre: 'Clínica',
-      descripcion: 'Para clínicas con múltiples sedes o grandes equipos',
-      precio: 129900,
-      precioAnual: 1247000,
+      nombre: 'Pro',
+      descripcion: 'Para clínicas medianas o múltiples profesionales',
+      precio: 99900,
+      precioAnual: 959000,
       destacado: false,
-      features: ['Profesionales ilimitados', 'Todo lo de Pro', 'Citas ilimitadas', 'API avanzada', 'Onboarding dedicado', 'SLA prioritario'],
-      cta: 'Comenzar 14 días gratis',
+      features: [
+        'Profesionales ilimitados',
+        'Hasta 5.000 pacientes',
+        'Todo lo del plan Clínica',
+        'Agente IA WhatsApp (1.000 conv/mes)',
+        'Onboarding dedicado',
+        'SLA prioritario',
+      ],
+      cta: 'Comenzar 7 días gratis',
       ctaHref: '/register',
     },
   ]
@@ -721,7 +745,7 @@ function CTA() {
             className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-[15px] font-bold text-white transition-all hover:scale-[1.02] shadow-lg"
             style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
           >
-            Comenzar gratis — 14 días <ArrowRight className="size-4" />
+            Comenzar gratis — 7 días <ArrowRight className="size-4" />
           </Link>
           <p className="text-[12px] text-blue-300 mt-4">Sin tarjeta · Sin compromisos · Setup en minutos</p>
         </div>
