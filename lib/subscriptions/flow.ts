@@ -91,6 +91,15 @@ export async function createCardRegistrationUrl(
   return { url: `${data.url}?token=${data.token}` }
 }
 
+export async function getCardRegisterStatus(token: string): Promise<{
+  status: string
+  customerId: string
+  creditCardType?: string
+  last4CardDigits?: string
+}> {
+  return flowGet('/customer/getRegisterStatus', { token })
+}
+
 // ─── Subscription ─────────────────────────────────────────────────────────────
 
 export async function createFlowSubscription(
