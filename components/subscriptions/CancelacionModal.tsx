@@ -34,7 +34,7 @@ export default function CancelacionModal({ open, onClose, clinicaId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ clinica_id: clinicaId, motivo }),
       })
-      const res = await fetch('/api/stripe/portal', {
+      const res = await fetch('/api/flow/portal', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ clinica_id: clinicaId }),
