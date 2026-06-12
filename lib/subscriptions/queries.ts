@@ -14,6 +14,8 @@ export type Subscription = {
   plan: Plan
   estado: EstadoSuscripcion
   stripe_customer_id: string | null
+  flow_customer_id: string | null
+  flow_subscription_id: string | null
   stripe_subscription_id: string | null
   trial_ends_at: string | null
   current_period_start: string | null
@@ -39,9 +41,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
 }
 
 export const PLAN_LABELS: Record<Plan, string> = {
-  free:    'Solo',
-  pro:     'Clínica',
-  clinica: 'Pro',
+  free:    'Simpli',
+  pro:     'Simpli+',
+  clinica: 'Simpli Pro',
 }
 
 // Precios mensuales en CLP (sin IVA)

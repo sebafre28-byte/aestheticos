@@ -1,3 +1,5 @@
+// ─── Flow.cl REST helpers (no SDK — uses native fetch + HMAC-SHA256) ──────────
+
 import { createHmac } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Plan } from './queries'
@@ -6,16 +8,13 @@ const FLOW_API = process.env.FLOW_SANDBOX === '1'
   ? 'https://sandbox.flow.cl/api'
   : 'https://www.flow.cl/api'
 
-// Firma HMAC-SHA256 requerida por Flow
 function signParams(params: Record<string, string>): string {
   const secret = process.env.FLOW_SECRET_KEY
   if (!secret) throw new Error('FLOW_SECRET_KEY no configurado')
-  const sorted = Object.keys(params).sort()
-  const toSign = sorted.map(k => `${k}${params[k]}`).join('')
+  const toSign = Object.keys(params).sort().map(k => `${k}${params[k]}`).join('')
   return createHmac('sha256', secret).update(toSign).digest('hex')
 }
 
-// Hace un POST a la API de Flow con firma
 async function flowPost(endpoint: string, params: Record<string, string>) {
   const apiKey = process.env.FLOW_API_KEY
   if (!apiKey) throw new Error('FLOW_API_KEY no configurado')
@@ -28,26 +27,24 @@ async function flowPost(endpoint: string, params: Record<string, string>) {
     body: body.toString(),
   })
   const json = await res.json()
-  if (!res.ok || json.code) throw new Error(json.message ?? `Flow error en ${endpoint}`)
+  if (!res.ok) throw new Error(json.message ?? `Flow error en ${endpoint}`)
   return json
 }
 
-// Hace un GET a la API de Flow con firma
 async function flowGet(endpoint: string, params: Record<string, string>) {
   const apiKey = process.env.FLOW_API_KEY
   if (!apiKey) throw new Error('FLOW_API_KEY no configurado')
   const allParams = { ...params, apiKey }
   const s = signParams(allParams)
   const qs = new URLSearchParams({ ...allParams, s })
-  const res = await fetch(`${FLOW_API}${endpoint}?${qs}`, {
-    method: 'GET',
-  })
+  const res = await fetch(`${FLOW_API}${endpoint}?${qs}`)
   const json = await res.json()
-  if (!res.ok || json.code) throw new Error(json.message ?? `Flow error en ${endpoint}`)
+  if (!res.ok) throw new Error(json.message ?? `Flow error en ${endpoint}`)
   return json
 }
 
-// Mapeo plan → Flow Plan ID (desde env vars)
+// ─── Plan ID mapping ──────────────────────────────────────────────────────────
+
 function getPlanId(plan: Plan, anual = false): string {
   if (anual) {
     const ids: Record<Plan, string | undefined> = {
@@ -67,33 +64,33 @@ function getPlanId(plan: Plan, anual = false): string {
   return id
 }
 
-// Crear o recuperar un customer en Flow por email
+// ─── Customer ─────────────────────────────────────────────────────────────────
+
 export async function getOrCreateFlowCustomer(email: string, name: string): Promise<string> {
-  // Intentar crear — si ya existe Flow retorna el customerId existente
   try {
     const data = await flowPost('/customer/create', { email, name })
     return data.customerId
   } catch {
-    // Si ya existe, buscar por email
+    // Ya existe — buscar por email
     const data = await flowGet('/customer/getByEmail', { email })
     return data.customerId
   }
 }
 
-// Iniciar registro de tarjeta — retorna URL para redirigir al cliente
 export async function createCardRegistrationUrl(
   customerId: string,
   returnUrl: string,
-): Promise<{ url: string; token: string }> {
+): Promise<{ url: string }> {
   const data = await flowPost('/customer/register', {
     customerId,
     url_return: returnUrl,
   })
-  return { url: `${data.url}?token=${data.token}`, token: data.token }
+  return { url: `${data.url}?token=${data.token}` }
 }
 
-// Suscribir cliente a un plan (después de registrar tarjeta)
-export async function createSubscription(
+// ─── Subscription ─────────────────────────────────────────────────────────────
+
+export async function createFlowSubscription(
   customerId: string,
   plan: Plan,
   anual = false,
@@ -102,36 +99,27 @@ export async function createSubscription(
   const data = await flowPost('/subscription/create', {
     planId,
     customerId,
-    trial_period_days: '0', // ya manejamos el trial nosotros
+    trial_period_days: '0',
   })
   return { subscriptionId: data.subscriptionId }
 }
 
-// Cancelar suscripción
 export async function cancelFlowSubscription(subscriptionId: string): Promise<void> {
   await flowPost('/subscription/cancel', { subscriptionId })
 }
 
-// Cambiar de plan
-export async function changePlan(subscriptionId: string, plan: Plan, anual = false): Promise<void> {
+export async function changeFlowPlan(subscriptionId: string, plan: Plan, anual = false): Promise<void> {
   const planId = getPlanId(plan, anual)
   await flowPost('/subscription/changePlan', { subscriptionId, planId })
 }
 
-// Verificar webhook de Flow: recibe token, retorna estado del pago
-export async function verifyFlowWebhook(token: string) {
-  return flowGet('/payment/getStatus', { token })
-}
+// ─── Webhook handler ──────────────────────────────────────────────────────────
 
-// Manejar webhook de suscripción de Flow
 export async function handleFlowWebhook(
   body: Record<string, string>,
 ): Promise<{ handled: boolean; error?: string }> {
   const supabase = createAdminClient()
-
-  // Flow envía event + subscriptionId + customerId en el body
-  const event = body.event
-  const subscriptionId = body.subscriptionId
+  const { event, subscriptionId } = body
 
   if (!event || !subscriptionId) {
     return { handled: false, error: 'Parámetros inválidos' }
@@ -145,6 +133,7 @@ export async function handleFlowWebhook(
         .eq('flow_subscription_id', subscriptionId)
       break
     }
+
     case 'subscription_payment_failed': {
       const { data: sub } = await supabase
         .from('subscriptions')
@@ -163,6 +152,7 @@ export async function handleFlowWebhook(
       }
       break
     }
+
     case 'subscription_canceled': {
       const { data: sub } = await supabase
         .from('subscriptions')
@@ -181,6 +171,7 @@ export async function handleFlowWebhook(
       }
       break
     }
+
     default:
       break
   }

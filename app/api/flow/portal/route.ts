@@ -15,7 +15,12 @@ export async function POST(request: NextRequest) {
     if (!clinica_id) return NextResponse.json({ error: 'clinica_id requerido' }, { status: 400 })
 
     const db = createAdminClient()
-    const { data: sub } = await db.from('subscriptions').select('flow_customer_id').eq('clinica_id', clinica_id).single()
+    const { data: sub } = await db
+      .from('subscriptions')
+      .select('flow_customer_id')
+      .eq('clinica_id', clinica_id)
+      .single()
+
     if (!sub?.flow_customer_id) return NextResponse.json({ error: 'Sin suscripción activa' }, { status: 400 })
 
     const returnUrl = `${request.nextUrl.origin}/configuracion?tab=plan`

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { Check, Loader2, Zap, Building2, Star } from 'lucide-react'
 import CancelacionModal from './CancelacionModal'
 import {
@@ -14,7 +13,6 @@ import {
   type Plan,
 } from '@/lib/subscriptions/queries'
 import { getClinicaId } from '@/lib/onboarding/queries'
-import { clearSubscripcionCache } from '@/lib/subscriptions/useSubscripcion'
 
 // ─── Plan feature lists ────────────────────────────────────────────────────────
 
@@ -31,7 +29,7 @@ const PLAN_FEATURES: Record<Plan, string[]> = {
   pro: [
     'Hasta 5 profesionales',
     'Hasta 1.000 pacientes',
-    'Todo lo de Simpli',
+    'Todo lo del plan Simpli',
     'Agente IA WhatsApp (300 conv/mes)',
     'Recordatorios automáticos',
     'Reportes avanzados',
@@ -41,7 +39,7 @@ const PLAN_FEATURES: Record<Plan, string[]> = {
   clinica: [
     'Profesionales ilimitados',
     'Hasta 5.000 pacientes',
-    'Todo lo de Simpli+',
+    'Todo lo del plan Simpli+',
     'Agente IA WhatsApp (1.000 conv/mes)',
     'Onboarding dedicado',
     'SLA prioritario',
@@ -204,7 +202,6 @@ export default function PlanesCard() {
   const [error, setError]                     = useState<string | null>(null)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [anual, setAnual]               = useState(false)
-  const searchParams                    = useSearchParams()
 
   useEffect(() => {
     Promise.all([getSubscription(), getClinicaId()]).then(([sub, id]) => {
@@ -212,14 +209,6 @@ export default function PlanesCard() {
       setClinicaId(id)
       setCargando(false)
 
-      // After checkout success, clear URL param and refresh subscription
-      if (searchParams.get('checkout') === 'success') {
-        clearSubscripcionCache()
-        getSubscription().then(updated => {
-          setSubscription(updated)
-          window.history.replaceState({}, '', '/configuracion?tab=plan')
-        })
-      }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

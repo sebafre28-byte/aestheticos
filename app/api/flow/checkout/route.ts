@@ -16,23 +16,27 @@ export async function POST(request: NextRequest) {
     if (!clinica_id || !plan) return NextResponse.json({ error: 'clinica_id y plan requeridos' }, { status: 400 })
     if (!['free', 'pro', 'clinica'].includes(plan)) return NextResponse.json({ error: 'Plan inválido' }, { status: 400 })
 
-    const { data: clinica } = await supabase.from('clinicas').select('id, nombre, email').eq('id', clinica_id).eq('owner_id', user.id).maybeSingle()
+    const { data: clinica } = await supabase
+      .from('clinicas')
+      .select('id, nombre, email')
+      .eq('id', clinica_id)
+      .eq('owner_id', user.id)
+      .maybeSingle()
     if (!clinica) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
 
-    // Crear customer en Flow
-    const flowCustomerId = await getOrCreateFlowCustomer(clinica.email ?? user.email ?? '', clinica.nombre ?? '')
+    const flowCustomerId = await getOrCreateFlowCustomer(
+      clinica.email ?? user.email ?? '',
+      clinica.nombre ?? '',
+    )
 
-    // Guardar flow_customer_id y plan deseado en subscriptions
     const db = createAdminClient()
     await db.from('subscriptions').upsert({
       clinica_id,
       flow_customer_id: flowCustomerId,
       plan,
-      estado: 'trial',
       updated_at: new Date().toISOString(),
     }, { onConflict: 'clinica_id' })
 
-    // URL de retorno después de registrar tarjeta
     const returnUrl = `${request.nextUrl.origin}/api/flow/subscription-confirm?clinica_id=${clinica_id}&plan=${plan}&anual=${anual ?? false}`
     const { url } = await createCardRegistrationUrl(flowCustomerId, returnUrl)
 
