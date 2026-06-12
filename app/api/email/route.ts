@@ -809,6 +809,51 @@ function buildInviteEmail(d: DatosInvitacion): { subject: string; html: string }
   return { subject, html }
 }
 
+// ─── Direct sender (no HTTP loopback) ───────────────────────────────────────
+
+export async function dispatchEmail(opts: {
+  tipo: string
+  destinatario: string
+  datos: DatosCita | DatosInvitacion | DatosBienvenida
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+
+  let html: string
+  let subject: string
+
+  if (opts.tipo === 'bienvenida') {
+    const r = buildWelcomeEmail(opts.datos as DatosBienvenida)
+    html = r.html; subject = r.subject
+  } else if (opts.tipo === 'invitacion_equipo') {
+    const r = buildInviteEmail(opts.datos as DatosInvitacion)
+    html = r.html; subject = r.subject
+  } else {
+    const t = opts.tipo as TipoEmailCita
+    html = buildEmail(t, opts.datos as DatosCita, buildBody(t, opts.datos as DatosCita))
+    subject = getSubject(t, opts.datos as DatosCita)
+  }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: process.env.EMAIL_FROM ?? 'SimpliClinic <onboarding@resend.dev>',
+        to: [opts.destinatario],
+        subject,
+        html,
+      }),
+    })
+    if (!res.ok) {
+      const t = await res.text()
+      console.error('[dispatchEmail] Resend error:', res.status, t)
+    }
+  } catch (err) {
+    console.error('[dispatchEmail] fetch error:', err)
+  }
+}
+
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {

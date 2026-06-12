@@ -48,7 +48,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   const { puedeUsar } = useSubscripcion()
 
   // ─── Estado general ───────────────────────────────────────────────────────
-  const [vista, setVista] = useState<Vista>('dia')
+  const [vista, setVista] = useState<Vista>('semana')
 
   // Force día view on mobile
   useEffect(() => {
