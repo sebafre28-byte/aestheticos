@@ -176,9 +176,14 @@ function PlanCard({
           Actualizar a {PLAN_LABELS[plan]}
         </button>
       ) : (
-        <div className="w-full h-9 rounded-xl bg-gray-50 text-gray-400 text-[13px] font-medium flex items-center justify-center">
-          Plan gratuito
-        </div>
+        <button
+          disabled={isLoadingThis || !clinicaId}
+          onClick={() => onUpgrade(plan)}
+          className="w-full h-9 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
+        >
+          {isLoadingThis ? <Loader2 className="size-3.5 animate-spin" /> : null}
+          Activar plan gratuito
+        </button>
       )}
       {isCurrent && hasFlow && (
         <button
