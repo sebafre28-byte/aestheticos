@@ -26,11 +26,12 @@ function toFormData(obj: Record<string, string | number | undefined>): string {
 // These env vars must be set with the actual Stripe price IDs
 function getPriceId(plan: Plan, anual = false): string {
   if (anual) {
-    if (plan === 'pro') return process.env.STRIPE_PRICE_PRO_ANUAL ?? getPriceId(plan, false)
+    if (plan === 'free')    return process.env.STRIPE_PRICE_FREE_ANUAL    ?? getPriceId(plan, false)
+    if (plan === 'pro')     return process.env.STRIPE_PRICE_PRO_ANUAL     ?? getPriceId(plan, false)
     if (plan === 'clinica') return process.env.STRIPE_PRICE_CLINICA_ANUAL ?? getPriceId(plan, false)
   }
   const ids: Record<Plan, string | undefined> = {
-    free:    undefined,
+    free:    process.env.STRIPE_PRICE_FREE,
     pro:     process.env.STRIPE_PRICE_PRO,
     clinica: process.env.STRIPE_PRICE_CLINICA,
   }

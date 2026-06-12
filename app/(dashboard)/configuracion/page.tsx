@@ -1901,6 +1901,17 @@ function SeccionPlan() {
     <div>
       <SectionHeader title="Plan y facturación" subtitle="Gestiona tu suscripción de SimpliClinic" />
       <Suspense><PlanesCard /></Suspense>
+      <div className="mt-8 pt-6 border-t border-gray-100">
+        <p className="text-[13px] font-semibold text-gray-700 mb-1">Exportar datos</p>
+        <p className="text-[12px] text-gray-400 mb-3">Descarga un CSV con todos los pacientes de tu clínica.</p>
+        <a
+          href="/api/export/pacientes"
+          download
+          className="inline-flex items-center gap-2 px-4 h-9 rounded-xl border border-gray-200 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          Descargar pacientes (.csv)
+        </a>
+      </div>
     </div>
   )
 }
