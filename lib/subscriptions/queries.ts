@@ -39,9 +39,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
 }
 
 export const PLAN_LABELS: Record<Plan, string> = {
-  free:    'Solo',
-  pro:     'Clínica',
-  clinica: 'Pro',
+  free:    'Simpli',
+  pro:     'Simpli+',
+  clinica: 'Simpli Pro',
 }
 
 export const PLAN_PRICES: Record<Plan, number> = {
