@@ -327,9 +327,30 @@ export default function InboxPage() {
           )
         })
       })
+      // New conversations appear without reload
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversaciones' }, () => {
+        cargarConversaciones()
+      })
+      // Estado changes (escalation, archive, spam) reflect instantly
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversaciones' }, (payload) => {
+        const updated = payload.new as Conversacion & { id: string }
+        setConversaciones(prev => {
+          const exists = prev.some(c => c.id === updated.id)
+          if (!exists) return prev
+          if (updated.estado === 'archivada' || updated.estado === 'spam') {
+            return prev.filter(c => c.id !== updated.id)
+          }
+          return prev.map(c => c.id === updated.id ? { ...c, estado: updated.estado, no_leidos: updated.no_leidos } : c)
+        })
+        setSeleccionada(prev => {
+          if (!prev || prev.id !== updated.id) return prev
+          if (updated.estado === 'archivada' || updated.estado === 'spam') return null
+          return { ...prev, estado: updated.estado, no_leidos: updated.no_leidos }
+        })
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [])
+  }, [cargarConversaciones])
 
   async function handleEnviar() {
     if (!texto.trim() || !seleccionada || enviando) return
