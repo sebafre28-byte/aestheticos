@@ -958,7 +958,10 @@ export async function POST(req: NextRequest) {
 
   // Require either internal secret (server-to-server) or valid user session
   const internalSecret = req.headers.get('x-internal-secret')
-  const isInternalCall = process.env.INTERNAL_API_SECRET && internalSecret === process.env.INTERNAL_API_SECRET
+  const isInternalCall = internalSecret && (
+    (process.env.INTERNAL_API_SECRET && internalSecret === process.env.INTERNAL_API_SECRET) ||
+    (process.env.CRON_SECRET && internalSecret === process.env.CRON_SECRET)
+  )
   if (!isInternalCall) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
