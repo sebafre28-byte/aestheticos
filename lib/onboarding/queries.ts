@@ -70,16 +70,30 @@ export type WhatsappClinicaConfig = {
   activo?: boolean
 }
 
+export type WizardRolPaso = 'cualquiera' | 'profesional' | 'recepcionista'
+
 export type WizardPasosConfig = {
+  activo: boolean
   ficha: boolean
   fotos: boolean
   notas: boolean
+  rol_paciente: WizardRolPaso
+  rol_ficha: WizardRolPaso
+  rol_fotos: WizardRolPaso
+  rol_notas: WizardRolPaso
+  rol_cierre: WizardRolPaso
 }
 
 export const WIZARD_PASOS_DEFAULT: WizardPasosConfig = {
+  activo: true,
   ficha: true,
   fotos: true,
   notas: true,
+  rol_paciente: 'recepcionista',
+  rol_ficha: 'profesional',
+  rol_fotos: 'profesional',
+  rol_notas: 'profesional',
+  rol_cierre: 'recepcionista',
 }
 
 export type ClinicaConfiguracion = {
