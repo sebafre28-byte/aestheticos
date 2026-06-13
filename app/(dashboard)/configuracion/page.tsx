@@ -7,7 +7,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, FileText,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
@@ -34,10 +34,14 @@ import {
   getProfesionales, getDisponibilidadProfesional, setDisponibilidadProfesional,
   type ProfesionalRow, type DisponibilidadRow,
 } from "@/lib/agenda/queries"
+import {
+  getPlantillas, upsertPlantilla, eliminarPlantilla, CONSENTIMIENTO_DEFAULT,
+  type ConsentimientoPlantilla,
+} from "@/lib/consentimientos/queries"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "consentimiento"
 
 type NavGroup = {
   label: string
@@ -62,9 +66,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Comunicaciones",
     items: [
-      { id: "whatsapp",      label: "WhatsApp Business", icon: MessageCircle },
-      { id: "recordatorios", label: "Recordatorios",     icon: Bell },
-      { id: "google",        label: "Google Calendar",   icon: CalendarDays },
+      { id: "whatsapp",       label: "WhatsApp Business",    icon: MessageCircle },
+      { id: "recordatorios",  label: "Recordatorios",        icon: Bell },
+      { id: "google",         label: "Google Calendar",      icon: CalendarDays },
+      { id: "consentimiento", label: "Consentimiento inform.", icon: FileText },
     ],
   },
   {
@@ -2643,7 +2648,7 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","consentimiento"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
   const { plan: planActual, estado: estadoActual, esTrial } = useSubscripcion()
@@ -2669,6 +2674,7 @@ function ConfiguracionInner() {
     google:         <SeccionGoogleCalendar />,
     plan:           <SeccionPlan />,
     seguridad:      <SeccionSeguridad />,
+    consentimiento: <SeccionConsentimientoConfig />,
   }
 
   return (
@@ -2729,6 +2735,149 @@ function ConfiguracionInner() {
         <div className="flex-1 bg-white rounded-xl border border-gray-100 p-6 overflow-auto">
           {SECCIONES[activa]}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Sección Consentimiento Informado ────────────────────────────────────────
+
+function SeccionConsentimientoConfig() {
+  const supabase = createClient()
+  const [clinicaId, setClinicaId] = useState<string | null>(null)
+  const [plantillas, setPlantillas] = useState<ConsentimientoPlantilla[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState<Partial<ConsentimientoPlantilla> | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data } = await supabase.from('usuarios_clinica').select('clinica_id').eq('user_id', user.id).maybeSingle()
+      if (data) {
+        setClinicaId(data.clinica_id)
+        const ps = await getPlantillas(data.clinica_id)
+        setPlantillas(ps)
+      }
+      setLoading(false)
+    })
+  }, [])
+
+  async function save() {
+    if (!clinicaId || !editing) return
+    setSaving(true)
+    try {
+      const updated = await upsertPlantilla(clinicaId, {
+        id: editing.id,
+        titulo: editing.titulo ?? 'Consentimiento Informado',
+        contenido: editing.contenido ?? '',
+        servicio_id: editing.servicio_id ?? null,
+      })
+      if (updated) {
+        setPlantillas(prev => editing.id
+          ? prev.map(p => p.id === updated.id ? updated : p)
+          : [...prev, updated]
+        )
+      }
+      setEditing(null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function remove(id: string) {
+    if (!clinicaId || !confirm('¿Eliminar plantilla?')) return
+    await eliminarPlantilla(clinicaId, id)
+    setPlantillas(prev => prev.filter(p => p.id !== id))
+  }
+
+  if (loading) return <div className="flex items-center gap-2 py-10 justify-center"><Loader2 className="size-4 animate-spin text-gray-300" /></div>
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-[15px] font-semibold text-gray-900">Consentimiento Informado</h2>
+        <p className="text-[13px] text-gray-400 mt-0.5">
+          Personaliza el documento que firman tus pacientes antes de cada procedimiento.
+        </p>
+      </div>
+
+      {/* Lista de plantillas */}
+      {plantillas.length === 0 && !editing && (
+        <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center">
+          <FileText className="size-8 text-gray-300 mx-auto mb-3" />
+          <p className="text-sm text-gray-500 font-medium">Sin plantillas personalizadas</p>
+          <p className="text-xs text-gray-400 mt-1 mb-4">Si no creas una, se usará el texto estándar de SimpliClinic.</p>
+          <Button size="sm" onClick={() => setEditing({ titulo: 'Consentimiento Informado', contenido: CONSENTIMIENTO_DEFAULT })}>
+            <Plus className="size-3.5 mr-1.5" /> Crear plantilla
+          </Button>
+        </div>
+      )}
+
+      {plantillas.length > 0 && (
+        <div className="space-y-3">
+          {plantillas.map(p => (
+            <div key={p.id} className="border border-gray-100 rounded-xl p-4 bg-white flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-800 truncate">{p.titulo}</p>
+                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{p.contenido.slice(0, 120)}…</p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button variant="outline" size="sm" onClick={() => setEditing(p)} className="text-xs h-7 px-2.5">
+                  <Pencil className="size-3 mr-1" /> Editar
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => remove(p.id)} className="text-xs h-7 px-2.5 text-red-500 hover:text-red-600 hover:border-red-200">
+                  <Trash2 className="size-3" />
+                </Button>
+              </div>
+            </div>
+          ))}
+          {!editing && (
+            <Button variant="outline" size="sm" onClick={() => setEditing({ titulo: 'Consentimiento Informado', contenido: CONSENTIMIENTO_DEFAULT })} className="text-xs">
+              <Plus className="size-3.5 mr-1.5" /> Agregar plantilla
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Editor */}
+      {editing && (
+        <div className="border border-blue-100 rounded-xl p-5 bg-blue-50/30 space-y-4">
+          <p className="text-sm font-semibold text-gray-800">{editing.id ? 'Editar plantilla' : 'Nueva plantilla'}</p>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Título del documento</Label>
+            <Input
+              value={editing.titulo ?? ''}
+              onChange={e => setEditing(prev => prev ? { ...prev, titulo: e.target.value } : prev)}
+              placeholder="Consentimiento Informado"
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Contenido del documento</Label>
+            <textarea
+              value={editing.contenido ?? ''}
+              onChange={e => setEditing(prev => prev ? { ...prev, contenido: e.target.value } : prev)}
+              rows={16}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-y font-mono"
+              placeholder="Escribe aquí el texto del consentimiento..."
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={() => setEditing(null)}>Cancelar</Button>
+            <Button size="sm" onClick={save} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
+              {saving ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
+              Guardar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+        <p className="text-xs text-gray-500 leading-relaxed">
+          <strong>¿Sin plantilla personalizada?</strong> Se enviará el consentimiento estándar de SimpliClinic.
+          Si creas una plantilla, se usará automáticamente para todas las citas de tu clínica.
+        </p>
       </div>
     </div>
   )
