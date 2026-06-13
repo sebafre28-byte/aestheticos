@@ -196,9 +196,10 @@ export function BloqueCita({
     <div
       role="button"
       tabIndex={0}
-      onClick={() => { if (!didDragRef.current) onClick(cita) }}
+      onClick={() => { if (!didDragRef.current) { setTooltip(null); onClick(cita) } }}
       onKeyDown={(e) => e.key === 'Enter' && onClick(cita)}
       onMouseDown={iniciarMove}
+      onTouchStart={() => setTooltip(null)}
       draggable={!onMove}
       onDragStart={(event) => {
         if (onMove) return
@@ -285,11 +286,12 @@ export function BloqueCompacto({ cita, onClick }: BloqueCompactoProps) {
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onClick(cita)}
+      onClick={() => { setTooltip(null); onClick(cita) }}
       onKeyDown={(e) => e.key === 'Enter' && onClick(cita)}
       onMouseEnter={(e) => setTooltip({ x: e.clientX, y: e.clientY })}
       onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY })}
       onMouseLeave={() => setTooltip(null)}
+      onTouchStart={() => setTooltip(null)}
       className="relative rounded px-1.5 py-1 mb-0.5 cursor-pointer transition-all hover:brightness-95 overflow-hidden"
       style={{
         backgroundColor: hexToRgba(color, 0.1),
