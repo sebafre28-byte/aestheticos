@@ -2,11 +2,17 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getOrCreateFlowCustomer, createCardRegistrationUrl } from '@/lib/subscriptions/flow'
+import { checkoutRatelimit, getIp } from '@/lib/ratelimit'
 import type { Plan } from '@/lib/subscriptions/queries'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  if (checkoutRatelimit) {
+    const { success } = await checkoutRatelimit.limit(getIp(request.headers))
+    if (!success) return NextResponse.json({ error: 'Demasiadas solicitudes. Espera un momento.' }, { status: 429 })
+  }
+
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
