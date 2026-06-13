@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Send, CheckCircle2, Clock, AlertCircle, Loader2, X, Download } from 'lucide-react'
+import { FileText, Send, CheckCircle2, Clock, AlertCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { format, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { createPortal } from 'react-dom'
+import { ModalFirmaConsentimiento } from '@/components/consentimientos/ModalFirmaConsentimiento'
 import type { CitaConRelaciones } from '@/lib/agenda/queries'
 
 type Solicitud = {
@@ -15,71 +15,6 @@ type Solicitud = {
   firmado_at: string | null
   created_at: string
   expires_at: string
-}
-
-type FirmaData = {
-  firma_img: string | null
-  firmado_at: string | null
-  email_destino: string
-}
-
-function ModalFirma({ solicitudId, onClose }: { solicitudId: string; onClose: () => void }) {
-  const [data, setData] = useState<FirmaData | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch(`/api/consentimiento/firma?id=${solicitudId}`)
-      .then(r => r.json())
-      .then(setData)
-      .finally(() => setLoading(false))
-  }, [solicitudId])
-
-  function descargar() {
-    if (!data?.firma_img) return
-    const a = document.createElement('a')
-    a.href = data.firma_img
-    a.download = `firma_consentimiento_${solicitudId.slice(0, 8)}.png`
-    a.click()
-  }
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <p className="text-sm font-semibold text-gray-800">Firma del paciente</p>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100">
-            <X className="size-4 text-gray-400" />
-          </button>
-        </div>
-        <div className="p-5">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="size-5 animate-spin text-gray-300" />
-            </div>
-          ) : !data?.firma_img ? (
-            <p className="text-sm text-gray-400 text-center py-6">Firma no disponible</p>
-          ) : (
-            <>
-              <div className="border border-gray-100 rounded-xl overflow-hidden bg-gray-50 mb-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={data.firma_img} alt="Firma" className="w-full" />
-              </div>
-              {data.firmado_at && (
-                <p className="text-xs text-gray-400 text-center mb-3">
-                  Firmado el {format(new Date(data.firmado_at), "d 'de' MMMM yyyy 'a las' HH:mm", { locale: es })}
-                  {data.email_destino && ` · ${data.email_destino}`}
-                </p>
-              )}
-              <Button variant="outline" size="sm" onClick={descargar} className="w-full gap-2 text-xs">
-                <Download className="size-3.5" /> Descargar firma PNG
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body,
-  )
 }
 
 export function SeccionConsentimiento({ cita }: { cita: CitaConRelaciones }) {
@@ -175,7 +110,7 @@ export function SeccionConsentimiento({ cita }: { cita: CitaConRelaciones }) {
             onClick={() => setVerFirmaId(firmado.id)}
             className="text-[11px] text-green-700 hover:text-green-800 font-medium shrink-0 ml-2 underline underline-offset-2"
           >
-            Ver firma
+            Ver / PDF
           </button>
         </div>
       ) : hasPendiente ? (
@@ -229,7 +164,7 @@ export function SeccionConsentimiento({ cita }: { cita: CitaConRelaciones }) {
       )}
 
       {verFirmaId && typeof document !== 'undefined' && (
-        <ModalFirma solicitudId={verFirmaId} onClose={() => setVerFirmaId(null)} />
+        <ModalFirmaConsentimiento solicitudId={verFirmaId} onClose={() => setVerFirmaId(null)} />
       )}
     </div>
   )
