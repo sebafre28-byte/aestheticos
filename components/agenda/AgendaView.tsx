@@ -57,13 +57,6 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     }
   }, [])
 
-  // On mobile: auto-select first professional (avoid cluttered multi-column view)
-  useEffect(() => {
-    if (typeof window === 'undefined' || window.innerWidth >= 768) return
-    if (profesionales.length > 0 && profsFiltrados.length === 0) {
-      setProfsFiltrados([profesionales[0].id])
-    }
-  }, [profesionales]) // eslint-disable-line react-hooks/exhaustive-deps
   const [fechaActual, setFechaActual] = useState(new Date())
   const [citas, setCitas] = useState<CitaConRelaciones[]>([])
   const [bloqueos, setBloqueos] = useState<BloqueoProfesional[]>([])
@@ -75,6 +68,14 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   const [horaFinLaboral, setHoraFinLaboral] = useState<number>(18)
 
   const [profsFiltrados, setProfsFiltrados] = useState<string[]>([])
+
+  // On mobile: auto-select first professional (avoid cluttered multi-column view)
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return
+    if (profesionales.length > 0 && profsFiltrados.length === 0) {
+      setProfsFiltrados([profesionales[0].id])
+    }
+  }, [profesionales]) // eslint-disable-line react-hooks/exhaustive-deps
   const [fechaJump, setFechaJump] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [mostrarAyudaTeclado, setMostrarAyudaTeclado] = useState(false)
 
