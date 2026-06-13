@@ -26,7 +26,15 @@ export type TipoEmailCita =
   | 'cancelacion_admin'
   | 'post_cita'
 
-export type TipoEmail = TipoEmailCita | 'invitacion_equipo' | 'bienvenida'
+export type TipoEmail = TipoEmailCita | 'invitacion_equipo' | 'bienvenida' | 'consentimiento_informado'
+
+export interface DatosConsentimiento {
+  paciente_nombre: string
+  clinica_nombre: string
+  servicio_nombre: string
+  fecha_cita: string
+  link_firma: string
+}
 
 export interface DatosBienvenida {
   nombre: string
@@ -602,6 +610,77 @@ function getSubject(tipo: TipoEmailCita, datos: DatosCita): string {
   return `Tu cita fue cancelada · ${c}`
 }
 
+// ─── Consentimiento informado email ──────────────────────────────────────────
+
+function buildConsentimientoEmail(d: DatosConsentimiento): { subject: string; html: string } {
+  const subject = `Consentimiento informado para tu cita — ${d.clinica_nombre}`
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background:#EEF2F7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EEF2F7;">
+  <tr>
+    <td align="center" style="padding:36px 16px 48px;">
+      <table cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#7C3AED 0%,#6D28D9 100%);padding:36px 36px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td>
+                  <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:2px;">&#128221;&nbsp; DOCUMENTO</p>
+                  <h1 style="margin:0;font-size:22px;font-weight:800;color:#ffffff;line-height:1.3;">Consentimiento Informado</h1>
+                  <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.85);">${d.clinica_nombre}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 36px;">
+            <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
+              Hola <strong>${d.paciente_nombre}</strong>,<br/>
+              ${d.clinica_nombre} te solicita firmar el consentimiento informado para tu próxima cita.
+            </p>
+            <table cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#F5F3FF;border-radius:10px;border:1px solid #DDD6FE;margin:0 0 24px;">
+              <tr><td style="padding:16px 20px;">
+                <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:1px;">Detalle de tu cita</p>
+                <p style="margin:0 0 4px;font-size:14px;color:#374151;"><strong>Procedimiento:</strong> ${d.servicio_nombre}</p>
+                <p style="margin:0;font-size:14px;color:#374151;"><strong>Fecha:</strong> ${d.fecha_cita}</p>
+              </td></tr>
+            </table>
+            <p style="margin:0 0 20px;font-size:14px;color:#6B7280;line-height:1.6;">
+              Por favor lee el documento completo y fírmalo digitalmente antes de tu cita. Solo toma un par de minutos desde tu teléfono.
+            </p>
+            <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+              <tr>
+                <td align="center">
+                  <a href="${d.link_firma}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#7C3AED 0%,#6D28D9 100%);color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;padding:14px 36px;border-radius:10px;letter-spacing:0.3px;">
+                    &#9998; Leer y Firmar ahora →
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:20px 0 0;font-size:12px;color:#9CA3AF;text-align:center;">
+              Este enlace es válido por 72 horas. Si tienes problemas, contacta a ${d.clinica_nombre} directamente.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 36px 24px;border-top:1px solid #F1F5F9;background:#FAFAFA;">
+            <p style="margin:0;font-size:11px;color:#9CA3AF;text-align:center;">
+              Powered by <strong>SimpliClinic</strong> &mdash; Gestión clínica inteligente
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`
+  return { subject, html }
+}
+
 // ─── Public builder for preview endpoint ─────────────────────────────────────
 
 export function buildEmailHtml(tipo: TipoEmailCita, datos: DatosCita): string {
@@ -828,6 +907,9 @@ export async function dispatchEmail(opts: {
   } else if (opts.tipo === 'invitacion_equipo') {
     const r = buildInviteEmail(opts.datos as DatosInvitacion)
     html = r.html; subject = r.subject
+  } else if (opts.tipo === 'consentimiento_informado') {
+    const r = buildConsentimientoEmail(opts.datos as unknown as DatosConsentimiento)
+    html = r.html; subject = r.subject
   } else if (opts.tipo === 'limite_conv_ia') {
     const d = opts.datos as unknown as { clinica_nombre: string; conv_usadas: number; conv_limite: number; porcentaje: number }
     subject = `⚠️ Estás al ${d.porcentaje}% de tu límite de conversaciones IA — ${d.clinica_nombre}`
@@ -906,6 +988,10 @@ export async function POST(req: NextRequest) {
     const inv = buildInviteEmail(datos as DatosInvitacion)
     html = inv.html
     subject = inv.subject
+  } else if (tipo === 'consentimiento_informado') {
+    const cons = buildConsentimientoEmail(datos as unknown as DatosConsentimiento)
+    html = cons.html
+    subject = cons.subject
   } else {
     const t = tipo as TipoEmailCita
     html = buildEmail(t, datos as DatosCita, buildBody(t, datos as DatosCita))

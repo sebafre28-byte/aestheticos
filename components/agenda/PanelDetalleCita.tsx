@@ -19,6 +19,7 @@ import { getNotasClinicas, crearNotaClinica, eliminarNotaClinica, type NotaClini
 import { getClinicaBasica } from '@/lib/onboarding/queries'
 import MiniPanelFichas from '@/components/fichas/MiniPanelFichas'
 import WizardIniciarCita from '@/components/agenda/WizardIniciarCita'
+import { SeccionConsentimiento } from './SeccionConsentimiento'
 
 // Configuración visual del badge prominente de estado
 const estadoConfig: Record<EstadoCita, {
@@ -515,6 +516,8 @@ export function PanelDetalleCita({
               />
             )}
           </div>
+
+          <SeccionConsentimiento cita={cita} />
 
           {!isVistaProfe && onPagoActualizado && (
             <SeccionCobroCita cita={cita} onPagoActualizado={onPagoActualizado} />
