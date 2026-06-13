@@ -129,7 +129,7 @@ export function ListaPendientes({ onCitaConfirmada }: Props) {
 
       {/* Panel desplegable */}
       {abierto && (
-        <div className="absolute top-full right-0 mt-1 w-[440px] bg-white border border-gray-100 rounded-xl shadow-2xl z-30 overflow-hidden">
+        <div className="absolute top-full right-0 mt-1 w-[440px] max-w-[calc(100vw-16px)] bg-white border border-gray-100 rounded-xl shadow-2xl z-30 overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
             <div>

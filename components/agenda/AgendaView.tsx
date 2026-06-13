@@ -56,6 +56,14 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       setVista('dia')
     }
   }, [])
+
+  // On mobile: auto-select first professional (avoid cluttered multi-column view)
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return
+    if (profesionales.length > 0 && profsFiltrados.length === 0) {
+      setProfsFiltrados([profesionales[0].id])
+    }
+  }, [profesionales]) // eslint-disable-line react-hooks/exhaustive-deps
   const [fechaActual, setFechaActual] = useState(new Date())
   const [citas, setCitas] = useState<CitaConRelaciones[]>([])
   const [bloqueos, setBloqueos] = useState<BloqueoProfesional[]>([])
@@ -678,11 +686,11 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <span className="text-[11px] text-gray-400 font-medium">Mostrar:</span>
 
-          {/* "Todos" solo visible si no es vista profesional */}
+          {/* "Todos" solo visible si no es vista profesional — oculto en mobile */}
           {!isVistaProfe && (
             <button
               onClick={() => setProfsFiltrados([])}
-              className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
+              className={`hidden sm:inline-flex h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors ${
                 profsFiltrados.length === 0
                   ? 'bg-gray-900 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -761,7 +769,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
       })()}
 
       {/* ── Cuerpo principal ── */}
-      <div className="flex-1 min-h-0 flex gap-5">
+      <div className="flex-1 min-h-0 overflow-hidden flex gap-5">
         {/* Mini calendario lateral — solo desktop, solo vistas día/semana */}
         {(vista === 'dia' || vista === 'semana') && (
           <MiniCalendario
@@ -773,7 +781,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
             }}
           />
         )}
-        <div className="flex-1 min-w-0 relative">
+        <div className="flex-1 min-w-0 h-full relative">
         {errorCarga && (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-red-50 border border-red-100">
             <div className="text-center">
