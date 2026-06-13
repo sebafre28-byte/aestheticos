@@ -2897,13 +2897,17 @@ const ROL_OPCIONES: { value: WizardRolPaso; label: string }[] = [
   { value: 'recepcionista', label: 'Recepcionista' },
 ]
 
-const PASOS_CONFIG: { key: keyof WizardPasosConfig; label: string; rolKey: keyof WizardPasosConfig; siempre?: boolean }[] = [
-  { key: 'ficha' as never, label: 'Datos del paciente', rolKey: 'rol_paciente', siempre: true },
-  { key: 'ficha',          label: 'Ficha clínica',      rolKey: 'rol_ficha' },
-  { key: 'fotos',          label: 'Fotos',               rolKey: 'rol_fotos' },
-  { key: 'notas',          label: 'Notas clínicas',      rolKey: 'rol_notas' },
-  { key: 'ficha' as never, label: 'Cierre y cobro',      rolKey: 'rol_cierre', siempre: true },
-]
+function MiniToggle({ activo, onChange }: { activo: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}
+    >
+      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${activo ? 'translate-x-4' : ''}`} />
+    </button>
+  )
+}
 
 function SeccionWizardConfig() {
   const [cfg, setCfg] = useState<WizardPasosConfig>(WIZARD_PASOS_DEFAULT)
@@ -2913,7 +2917,8 @@ function SeccionWizardConfig() {
 
   useEffect(() => {
     getClinicaConfig().then(c => {
-      setCfg({ ...WIZARD_PASOS_DEFAULT, ...(c.wizard_pasos ?? {}) })
+      const saved = c.wizard_pasos ?? {}
+      setCfg({ ...WIZARD_PASOS_DEFAULT, ...saved })
       setCargando(false)
     })
   }, [])
@@ -2928,6 +2933,14 @@ function SeccionWizardConfig() {
   }
 
   if (cargando) return <div className="flex justify-center py-12"><Loader2 className="size-5 animate-spin text-gray-300" /></div>
+
+  const pasos = [
+    { label: 'Datos del paciente', desc: 'Verificar RUT y email', rolKey: 'rol_paciente' as const, toggleKey: null },
+    { label: 'Ficha clínica',      desc: 'Formulario del tratamiento', rolKey: 'rol_ficha' as const, toggleKey: 'ficha' as const },
+    { label: 'Fotos',              desc: 'Fotos antes y después',      rolKey: 'rol_fotos' as const, toggleKey: 'fotos' as const },
+    { label: 'Notas clínicas',     desc: 'Observaciones de la sesión', rolKey: 'rol_notas' as const, toggleKey: 'notas' as const },
+    { label: 'Cierre y cobro',     desc: 'Registrar pago y completar', rolKey: 'rol_cierre' as const, toggleKey: null },
+  ]
 
   return (
     <div className="space-y-6">
@@ -2945,6 +2958,7 @@ function SeccionWizardConfig() {
           <p className="text-[12px] text-gray-500 mt-0.5">Al iniciar una cita, se abre el flujo guiado paso a paso</p>
         </div>
         <button
+          type="button"
           onClick={() => setCfg(p => ({ ...p, activo: !p.activo }))}
           className={`relative w-11 h-6 rounded-full transition-colors ${cfg.activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}
         >
@@ -2954,108 +2968,41 @@ function SeccionWizardConfig() {
 
       {cfg.activo && (
         <div className="space-y-3">
-          <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide">Pasos y responsables</p>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Pasos y responsables</p>
           <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
-            {/* Paciente — siempre activo */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white">
-              <div className="flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-gray-300 shrink-0" />
-                <div>
-                  <p className="text-[13px] font-medium text-gray-700">Datos del paciente</p>
-                  <p className="text-[11px] text-gray-400">Siempre activo</p>
+            {pasos.map((paso) => {
+              const activo = paso.toggleKey ? cfg[paso.toggleKey] : true
+              return (
+                <div key={paso.label} className={`px-4 py-3 bg-white transition-opacity ${activo ? '' : 'opacity-50'}`}>
+                  <div className="flex items-center gap-3">
+                    {paso.toggleKey ? (
+                      <MiniToggle
+                        activo={cfg[paso.toggleKey]}
+                        onChange={() => setCfg(p => ({ ...p, [paso.toggleKey!]: !p[paso.toggleKey!] }))}
+                      />
+                    ) : (
+                      <span className="w-9 h-5 flex items-center justify-center text-[10px] font-bold text-gray-400 bg-gray-100 rounded-full shrink-0">
+                        ON
+                      </span>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-gray-800">{paso.label}</p>
+                      <p className="text-[11px] text-gray-400">{paso.desc}</p>
+                    </div>
+                    <select
+                      value={cfg[paso.rolKey]}
+                      onChange={e => setCfg(p => ({ ...p, [paso.rolKey]: e.target.value as WizardRolPaso }))}
+                      className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 shrink-0"
+                    >
+                      {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
                 </div>
-              </div>
-              <select
-                value={cfg.rol_paciente}
-                onChange={e => setCfg(p => ({ ...p, rol_paciente: e.target.value as WizardRolPaso }))}
-                className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
-              >
-                {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-
-            {/* Ficha clínica */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white">
-              <div className="flex items-center gap-3">
-                <button onClick={() => setCfg(p => ({ ...p, ficha: !p.ficha }))}
-                  className={`w-2 h-2 rounded-full shrink-0 transition-colors ${cfg.ficha ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
-                <div>
-                  <p className={`text-[13px] font-medium ${cfg.ficha ? 'text-gray-700' : 'text-gray-400'}`}>Ficha clínica</p>
-                  <p className="text-[11px] text-gray-400">Formulario del tratamiento</p>
-                </div>
-              </div>
-              <select
-                disabled={!cfg.ficha}
-                value={cfg.rol_ficha}
-                onChange={e => setCfg(p => ({ ...p, rol_ficha: e.target.value as WizardRolPaso }))}
-                className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-40"
-              >
-                {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-
-            {/* Fotos */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white">
-              <div className="flex items-center gap-3">
-                <button onClick={() => setCfg(p => ({ ...p, fotos: !p.fotos }))}
-                  className={`w-2 h-2 rounded-full shrink-0 transition-colors ${cfg.fotos ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
-                <div>
-                  <p className={`text-[13px] font-medium ${cfg.fotos ? 'text-gray-700' : 'text-gray-400'}`}>Fotos</p>
-                  <p className="text-[11px] text-gray-400">Fotos antes y después</p>
-                </div>
-              </div>
-              <select
-                disabled={!cfg.fotos}
-                value={cfg.rol_fotos}
-                onChange={e => setCfg(p => ({ ...p, rol_fotos: e.target.value as WizardRolPaso }))}
-                className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-40"
-              >
-                {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-
-            {/* Notas */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white">
-              <div className="flex items-center gap-3">
-                <button onClick={() => setCfg(p => ({ ...p, notas: !p.notas }))}
-                  className={`w-2 h-2 rounded-full shrink-0 transition-colors ${cfg.notas ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
-                <div>
-                  <p className={`text-[13px] font-medium ${cfg.notas ? 'text-gray-700' : 'text-gray-400'}`}>Notas clínicas</p>
-                  <p className="text-[11px] text-gray-400">Observaciones de la sesión</p>
-                </div>
-              </div>
-              <select
-                disabled={!cfg.notas}
-                value={cfg.rol_notas}
-                onChange={e => setCfg(p => ({ ...p, rol_notas: e.target.value as WizardRolPaso }))}
-                className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-40"
-              >
-                {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-
-            {/* Cierre — siempre activo */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white">
-              <div className="flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-gray-300 shrink-0" />
-                <div>
-                  <p className="text-[13px] font-medium text-gray-700">Cierre y cobro</p>
-                  <p className="text-[11px] text-gray-400">Siempre activo</p>
-                </div>
-              </div>
-              <select
-                value={cfg.rol_cierre}
-                onChange={e => setCfg(p => ({ ...p, rol_cierre: e.target.value as WizardRolPaso }))}
-                className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
-              >
-                {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
+              )
+            })}
           </div>
-
           <p className="text-[11px] text-gray-400">
-            El punto azul indica que el paso está activo. Haz clic para activar/desactivar.
-            Los roles en gris son solo de referencia — cualquier usuario puede completar cualquier paso con una advertencia.
+            Los roles son de referencia — cualquier usuario puede completar cualquier paso, pero verá un aviso si no le corresponde.
           </p>
         </div>
       )}
