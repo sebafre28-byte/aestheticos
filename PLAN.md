@@ -117,10 +117,10 @@ _Módulo agregado para registrar fixes de producción fuera del plan original._
 ---
 
 ## MÓDULO 10 — LAUNCH
-- [ ] 10.1 Dominio `simpliclinic.cl` + DNS
-- [ ] 10.2 Email `@simpliclinic.cl` verificado en Resend
-- [ ] 10.3 Stripe en modo LIVE (no test)
-- [ ] 10.4 Variables de entorno producción actualizadas en Vercel
+- [ ] 10.1 Dominio `simpliclinic.cl` + DNS (acción del usuario)
+- [ ] 10.2 Email `@simpliclinic.cl` verificado en Resend (acción del usuario)
+- [x] 10.3 Flow.cl en modo producción — reemplaza Stripe (no opera en Chile)
+- [x] 10.4 Variables de entorno producción actualizadas en Vercel
 - [ ] 10.5 Anuncio beta → launch público
 
 ---

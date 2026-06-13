@@ -119,7 +119,7 @@ function ActivePlanCard({
   const plan = subscription.plan
   const Icon = PLAN_ICONS[plan]
   const isLoadingPortal = loading === 'portal'
-  const sub = subscription as Subscription & { card_last4?: string; card_type?: string }
+  const sub = subscription as Subscription & { card_last4?: string; card_type?: string; billing_period?: string }
 
   return (
     <div className="mb-6 rounded-2xl border border-[#2563EB]/20 bg-gradient-to-br from-blue-50 to-white p-5">
@@ -139,9 +139,14 @@ function ActivePlanCard({
                 {subscription.estado === 'activa'  ? '● Activa' :
                  subscription.estado === 'pausada' ? '⚠ Pausada' : '✕ Cancelada'}
               </span>
+              {sub.billing_period && (
+                <span className="text-[11px] text-gray-400">
+                  {sub.billing_period === 'anual' ? '📅 Plan anual' : '🔄 Plan mensual'}
+                </span>
+              )}
               {subscription.current_period_end && subscription.estado === 'activa' && (
                 <span className="text-[11px] text-gray-400">
-                  Próximo cobro: {new Date(subscription.current_period_end).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  · Próximo cobro: {new Date(subscription.current_period_end).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </span>
               )}
             </div>

@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
       flow_subscription_id: subscriptionId,
       plan,
       estado: 'activa',
+      billing_period: anual ? 'anual' : 'mensual',
       ...(card_last4 ? { card_last4, card_type } : {}),
       updated_at: new Date().toISOString(),
     }).eq('clinica_id', clinica_id)
