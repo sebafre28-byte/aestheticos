@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { crearSolicitud } from '@/lib/consentimientos/queries'
+import { buildConsentimientoEmail, type DatosConsentimiento } from '@/app/api/email/route'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -54,16 +55,38 @@ export async function POST(request: NextRequest) {
   const clinicaNombre = clinica?.nombre ?? 'La clínica'
   const fechaCita = format(new Date(cita.inicio), "EEEE d 'de' MMMM 'a las' HH:mm", { locale: es })
 
-  const internalSecret = process.env.CRON_SECRET ?? ''
-  await fetch(`${appUrl}/api/email`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-internal-secret': internalSecret },
-    body: JSON.stringify({
-      tipo: 'consentimiento_informado',
-      destinatario: email_destino,
-      datos: { paciente_nombre: pacienteNombre, clinica_nombre: clinicaNombre, servicio_nombre: servicioNombre, fecha_cita: fechaCita, link_firma: link },
-    }),
-  })
+  // Llamar directo a Resend — evita self-loopback HTTP que falla en Vercel
+  const apiKey = process.env.RESEND_API_KEY
+  if (apiKey) {
+    const datos: DatosConsentimiento = {
+      paciente_nombre: pacienteNombre,
+      clinica_nombre: clinicaNombre,
+      servicio_nombre: servicioNombre,
+      fecha_cita: fechaCita,
+      link_firma: link,
+    }
+    const { subject, html } = buildConsentimientoEmail(datos)
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: process.env.EMAIL_FROM ?? 'SimpliClinic <onboarding@resend.dev>',
+          to: [email_destino],
+          subject,
+          html,
+        }),
+      })
+      if (!res.ok) {
+        const t = await res.text()
+        console.error('[consentimiento/send] Resend error:', res.status, t)
+      }
+    } catch (err) {
+      console.error('[consentimiento/send] fetch error:', err)
+    }
+  } else {
+    console.warn('[consentimiento/send] RESEND_API_KEY no configurada')
+  }
 
   return NextResponse.json({ ok: true, solicitud_id: solicitud.id })
 }

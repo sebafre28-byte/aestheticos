@@ -612,7 +612,7 @@ function getSubject(tipo: TipoEmailCita, datos: DatosCita): string {
 
 // ─── Consentimiento informado email ──────────────────────────────────────────
 
-function buildConsentimientoEmail(d: DatosConsentimiento): { subject: string; html: string } {
+export function buildConsentimientoEmail(d: DatosConsentimiento): { subject: string; html: string } {
   const subject = `Consentimiento informado para tu cita — ${d.clinica_nombre}`
   const html = `<!DOCTYPE html>
 <html lang="es">
