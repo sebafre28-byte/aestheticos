@@ -30,17 +30,17 @@ export function MetricCard({
 }: MetricCardProps) {
   return (
     <Card className="gap-0 border border-slate-100 bg-white rounded-2xl py-0 shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between px-6 pb-2 pt-5">
-        <CardTitle className="text-[11px] text-slate-400 uppercase tracking-wide font-medium">{title}</CardTitle>
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${accentStyles[accent]}`}>
-          <Icon className="h-4 w-4" />
+      <CardHeader className="flex flex-row items-center justify-between px-4 sm:px-6 pb-2 pt-4 sm:pt-5">
+        <CardTitle className="text-[10px] sm:text-[11px] text-slate-400 uppercase tracking-wide font-medium">{title}</CardTitle>
+        <div className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg ${accentStyles[accent]}`}>
+          <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </div>
       </CardHeader>
-      <CardContent className="px-6 pb-5 space-y-2">
-        <div className="flex items-end justify-between gap-2">
-          <p className="text-2xl font-bold tracking-tight text-[#0B132B]">{value}</p>
+      <CardContent className="px-4 sm:px-6 pb-4 sm:pb-5 space-y-2">
+        <div className="flex items-end justify-between gap-1">
+          <p className="text-xl sm:text-2xl font-bold tracking-tight text-[#0B132B] truncate">{value}</p>
           {trend != null && (
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${trend.subio ? 'text-emerald-600 bg-emerald-50' : 'text-red-500 bg-red-50'}`}>
+            <span className={`shrink-0 rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold ${trend.subio ? 'text-emerald-600 bg-emerald-50' : 'text-red-500 bg-red-50'}`}>
               {trend.subio ? '+' : '-'}{trend.valor}%{trend.label ? ` ${trend.label}` : ''}
             </span>
           )}

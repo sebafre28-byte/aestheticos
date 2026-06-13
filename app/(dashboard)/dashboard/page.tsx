@@ -114,13 +114,13 @@ export default async function DashboardPage() {
 
         {/* KPI 3: Ocupación semanal */}
         <div className="gap-0 border border-slate-100 bg-white rounded-2xl py-0 shadow-sm">
-          <div className="flex flex-row items-center justify-between px-6 pb-2 pt-5">
-            <span className="text-[11px] text-slate-400 uppercase tracking-wide font-medium">Ocupación semanal</span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg text-[#0B132B] bg-[#0B132B]/10">
-              <Clock3 className="h-4 w-4" />
+          <div className="flex flex-row items-center justify-between px-4 sm:px-6 pb-2 pt-4 sm:pt-5">
+            <span className="text-[10px] sm:text-[11px] text-slate-400 uppercase tracking-wide font-medium">Ocupación semanal</span>
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-[#0B132B] bg-[#0B132B]/10">
+              <Clock3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="px-6 pb-5 space-y-2">
+          <div className="px-4 sm:px-6 pb-4 sm:pb-5 space-y-2">
             <div className="flex items-end gap-2">
               <p className="text-2xl font-bold tracking-tight text-[#0B132B]">{data.ocupacionSemanal.tasa}%</p>
               <OcupacionColor tasa={data.ocupacionSemanal.tasa} />
@@ -219,16 +219,16 @@ export default async function DashboardPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-50">
-                  <th className="text-left text-[11px] text-slate-400 uppercase tracking-wide font-medium pb-3">Profesional</th>
-                  <th className="text-right text-[11px] text-slate-400 uppercase tracking-wide font-medium pb-3">Citas</th>
-                  <th className="text-right text-[11px] text-slate-400 uppercase tracking-wide font-medium pb-3">Ingresos</th>
-                  <th className="text-right text-[11px] text-slate-400 uppercase tracking-wide font-medium pb-3">Ocup.</th>
+                  <th className="text-left text-[11px] text-slate-400 uppercase tracking-wide font-medium pb-3 pr-4">Profesional</th>
+                  <th className="text-right text-[11px] text-slate-400 uppercase tracking-wide font-medium pb-3 px-3 whitespace-nowrap">Citas</th>
+                  <th className="text-right text-[11px] text-slate-400 uppercase tracking-wide font-medium pb-3 px-3 whitespace-nowrap">Ingresos</th>
+                  <th className="text-right text-[11px] text-slate-400 uppercase tracking-wide font-medium pb-3 pl-3 whitespace-nowrap">Ocup.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {data.profesionalStats.map((prof) => (
                   <tr key={prof.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-3">
+                    <td className="py-3 pr-4">
                       <div className="flex items-center gap-3">
                         <div
                           className="h-7 w-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
@@ -239,9 +239,9 @@ export default async function DashboardPage() {
                         <span className="text-sm font-medium text-[#0B132B] truncate max-w-[140px]">{prof.nombre}</span>
                       </div>
                     </td>
-                    <td className="text-right text-sm font-semibold text-[#0B132B] py-3">{prof.citasMes}</td>
-                    <td className="text-right text-sm font-semibold text-[#0B132B] py-3">{formatCLP(prof.ingresosMes)}</td>
-                    <td className="text-right text-[12px] text-slate-400 py-3">—</td>
+                    <td className="text-right text-sm font-semibold text-[#0B132B] py-3 px-3">{prof.citasMes}</td>
+                    <td className="text-right text-sm font-semibold text-[#0B132B] py-3 px-3 whitespace-nowrap">{formatCLP(prof.ingresosMes)}</td>
+                    <td className="text-right text-[12px] text-slate-400 py-3 pl-3">—</td>
                   </tr>
                 ))}
               </tbody>
