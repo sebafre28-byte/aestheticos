@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   X, ChevronRight, ChevronLeft, Check, User, FileText,
-  Camera, ClipboardList, CheckCircle2, Loader2, Upload, Trash2, Image,
+  Camera, ClipboardList, CheckCircle2, Loader2, Upload, Trash2, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,31 +14,47 @@ import { crearNotaClinica } from '@/lib/pacientes/queries'
 import { crearFicha } from '@/lib/fichas/queries'
 import { TEMPLATES, TIPOS_TRATAMIENTO, type TipoTratamiento } from '@/lib/fichas/templates'
 import { createClient } from '@/lib/supabase/client'
-import { getClinicaConfig, WIZARD_PASOS_DEFAULT, type WizardPasosConfig } from '@/lib/onboarding/queries'
+import { getClinicaConfig, WIZARD_PASOS_DEFAULT, type WizardPasosConfig, type WizardRolPaso } from '@/lib/onboarding/queries'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type RolUsuario = 'admin' | 'profesional' | 'recepcionista' | 'coordinador'
+
 type Props = {
   cita: CitaConRelaciones
   onCerrar: () => void
   onCompletada: (citaId: string) => void
+  rolUsuario?: RolUsuario
 }
 
 type Paso = {
   id: number
   titulo: string
   icono: React.ElementType
+  rol: WizardRolPaso
 }
 
 const PASOS: Paso[] = [
-  { id: 1, titulo: 'Paciente',       icono: User },
-  { id: 2, titulo: 'Ficha clínica',  icono: FileText },
-  { id: 3, titulo: 'Fotos',          icono: Camera },
-  { id: 4, titulo: 'Notas',          icono: ClipboardList },
-  { id: 5, titulo: 'Cierre',         icono: CheckCircle2 },
+  { id: 1, titulo: 'Paciente',       icono: User,         rol: 'recepcionista' },
+  { id: 2, titulo: 'Ficha clínica',  icono: FileText,     rol: 'profesional' },
+  { id: 3, titulo: 'Fotos',          icono: Camera,       rol: 'profesional' },
+  { id: 4, titulo: 'Notas',          icono: ClipboardList, rol: 'profesional' },
+  { id: 5, titulo: 'Cierre',         icono: CheckCircle2, rol: 'recepcionista' },
 ]
+
+function esRolPropio(rolPaso: WizardRolPaso, rolUsuario: RolUsuario): boolean {
+  if (rolPaso === 'cualquiera') return true
+  if (rolUsuario === 'admin' || rolUsuario === 'coordinador') return true
+  return rolPaso === rolUsuario
+}
+
+const ROL_LABEL: Record<WizardRolPaso, string> = {
+  cualquiera: 'Cualquier rol',
+  profesional: 'Profesional',
+  recepcionista: 'Recepcionista',
+}
 
 type FotoPreview = { file: File; url: string; tipo: 'antes' | 'despues'; subiendo: boolean; id?: string }
 
@@ -596,25 +612,36 @@ const PASO_ID_NOTAS    = 4
 const PASO_ID_CIERRE   = 5
 
 function buildPasosActivos(cfg: WizardPasosConfig): Paso[] {
-  return PASOS.filter(p => {
-    if (p.id === PASO_ID_PACIENTE || p.id === PASO_ID_CIERRE) return true
-    if (p.id === PASO_ID_FICHA)  return cfg.ficha
-    if (p.id === PASO_ID_FOTOS)  return cfg.fotos
-    if (p.id === PASO_ID_NOTAS)  return cfg.notas
-    return true
-  })
+  const rolMap: Record<number, WizardRolPaso> = {
+    [PASO_ID_PACIENTE]: cfg.rol_paciente ?? 'recepcionista',
+    [PASO_ID_FICHA]:    cfg.rol_ficha    ?? 'profesional',
+    [PASO_ID_FOTOS]:    cfg.rol_fotos    ?? 'profesional',
+    [PASO_ID_NOTAS]:    cfg.rol_notas    ?? 'profesional',
+    [PASO_ID_CIERRE]:   cfg.rol_cierre   ?? 'recepcionista',
+  }
+  return PASOS
+    .filter(p => {
+      if (p.id === PASO_ID_PACIENTE || p.id === PASO_ID_CIERRE) return true
+      if (p.id === PASO_ID_FICHA)  return cfg.ficha
+      if (p.id === PASO_ID_FOTOS)  return cfg.fotos
+      if (p.id === PASO_ID_NOTAS)  return cfg.notas
+      return true
+    })
+    .map(p => ({ ...p, rol: rolMap[p.id] ?? p.rol }))
 }
 
-export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Props) {
+export default function WizardIniciarCita({ cita, onCerrar, onCompletada, rolUsuario = 'admin' }: Props) {
   const [pasoIdx, setPasoIdx] = useState(0)
   const [fichaId, setFichaId] = useState<string | null>(null)
   const [notaGuardada, setNotaGuardada] = useState(false)
   const [completada, setCompletada] = useState(false)
   const [pasosActivos, setPasosActivos] = useState<Paso[]>(PASOS)
+  const [confirmarCierre, setConfirmarCierre] = useState(false)
 
   const paciente = cita.pacientes
   const totalPasos = pasosActivos.length
   const pasoActual = pasosActivos[pasoIdx]
+  const esPropio = pasoActual ? esRolPropio(pasoActual.rol, rolUsuario) : true
 
   useEffect(() => {
     getClinicaConfig().then(cfg => {
@@ -643,15 +670,13 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 shrink-0">
         <div>
-          <p className="text-[14px] font-semibold text-gray-900">
-            Atención en curso
-          </p>
+          <p className="text-[14px] font-semibold text-gray-900">Atención en curso</p>
           <p className="text-[12px] text-gray-400">
             {paciente?.nombre} · {cita.servicios?.nombre}
           </p>
         </div>
         <button
-          onClick={onCerrar}
+          onClick={() => completada ? onCerrar() : setConfirmarCierre(true)}
           className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
         >
           <X className="size-4 text-gray-400" />
@@ -671,14 +696,19 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
             const Icono = p.icono
             const activo = pasoIdx === idx
             const completo = pasoIdx > idx
+            const esMio = esRolPropio(p.rol, rolUsuario)
             return (
               <button
                 key={p.id}
                 onClick={() => completo && setPasoIdx(idx)}
                 className={`flex flex-col items-center gap-0.5 transition-opacity ${pasoIdx < idx ? 'opacity-30' : ''} ${completo ? 'cursor-pointer' : 'cursor-default'}`}
               >
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${completo ? 'bg-[#2563EB]' : activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors relative ${completo ? 'bg-[#2563EB]' : activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}>
                   {completo ? <Check className="size-3.5 text-white" /> : <Icono className={`size-3.5 ${activo ? 'text-white' : 'text-gray-400'}`} />}
+                  {/* Dot indicating foreign role */}
+                  {!esMio && !completo && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-white" />
+                  )}
                 </div>
                 <span className={`text-[9px] font-medium hidden sm:block ${activo ? 'text-[#2563EB]' : 'text-gray-400'}`}>{p.titulo}</span>
               </button>
@@ -703,9 +733,24 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
             </div>
           ) : (
             <>
-              <h2 className="text-[15px] font-semibold text-gray-900 mb-4">
-                {pasoActual?.titulo}
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[15px] font-semibold text-gray-900">{pasoActual?.titulo}</h2>
+                {pasoActual && pasoActual.rol !== 'cualquiera' && (
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${esPropio ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
+                    {ROL_LABEL[pasoActual.rol]}
+                  </span>
+                )}
+              </div>
+
+              {/* Warning if this step belongs to a different role */}
+              {!esPropio && (
+                <div className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+                  <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-[12px] text-amber-700">
+                    Este paso corresponde al <strong>{ROL_LABEL[pasoActual?.rol ?? 'cualquiera']}</strong>. Puedes completarlo igualmente, pero lo ideal es que lo realice el rol indicado.
+                  </p>
+                </div>
+              )}
 
               {pasoActual?.id === PASO_ID_PACIENTE && <PasoPaciente cita={cita} />}
               {pasoActual?.id === PASO_ID_FICHA    && <PasoFicha cita={cita} onFichaGuardada={id => setFichaId(id)} />}
@@ -739,6 +784,32 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada }: Prop
               Siguiente <ChevronRight className="size-4" />
             </button>
           ) : null}
+        </div>
+      )}
+
+      {/* ── Modal confirmación cierre ── */}
+      {confirmarCierre && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-6 space-y-4">
+            <p className="text-[15px] font-semibold text-gray-900">¿Salir de la atención?</p>
+            <p className="text-[13px] text-gray-500 leading-relaxed">
+              Los datos del paso actual no guardados se perderán. Los pasos anteriores ya quedaron registrados.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmarCierre(false)}
+                className="flex-1 h-10 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Continuar
+              </button>
+              <button
+                onClick={onCerrar}
+                className="flex-1 h-10 rounded-xl bg-red-500 hover:bg-red-600 text-[13px] font-semibold text-white transition-colors"
+              >
+                Salir
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

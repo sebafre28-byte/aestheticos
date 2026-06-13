@@ -7,7 +7,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, FileText,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, FileText, ClipboardList,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
@@ -24,6 +24,7 @@ import {
   getWhatsappClinicaConfig, guardarWhatsappConfig,
   type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig, type RecordatoriosWspConfig,
   type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig, type WhatsappClinicaConfig,
+  type WizardPasosConfig, type WizardRolPaso, WIZARD_PASOS_DEFAULT,
 } from "@/lib/onboarding/queries"
 import {
   getUsuariosClinica, invitarUsuario, actualizarRolUsuario, toggleActivoUsuario, eliminarUsuario,
@@ -41,7 +42,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "consentimiento"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "consentimiento" | "wizard"
 
 type NavGroup = {
   label: string
@@ -70,6 +71,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "recordatorios",  label: "Recordatorios",        icon: Bell },
       { id: "google",         label: "Google Calendar",      icon: CalendarDays },
       { id: "consentimiento", label: "Consentimiento inform.", icon: FileText },
+      { id: "wizard",         label: "Wizard de atención",   icon: ClipboardList },
     ],
   },
   {
@@ -2648,7 +2650,7 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","consentimiento"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","consentimiento","wizard"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
   const { plan: planActual, estado: estadoActual, esTrial } = useSubscripcion()
@@ -2675,6 +2677,7 @@ function ConfiguracionInner() {
     plan:           <SeccionPlan />,
     seguridad:      <SeccionSeguridad />,
     consentimiento: <SeccionConsentimientoConfig />,
+    wizard:         <SeccionWizardConfig />,
   }
 
   return (
@@ -2882,6 +2885,190 @@ function SeccionConsentimientoConfig() {
           Si creas una plantilla, se usará automáticamente para todas las citas de tu clínica.
         </p>
       </div>
+    </div>
+  )
+}
+
+// ─── Sección Wizard de Atención ──────────────────────────────────────────────
+
+const ROL_OPCIONES: { value: WizardRolPaso; label: string }[] = [
+  { value: 'cualquiera',    label: 'Cualquier rol' },
+  { value: 'profesional',   label: 'Profesional' },
+  { value: 'recepcionista', label: 'Recepcionista' },
+]
+
+const PASOS_CONFIG: { key: keyof WizardPasosConfig; label: string; rolKey: keyof WizardPasosConfig; siempre?: boolean }[] = [
+  { key: 'ficha' as never, label: 'Datos del paciente', rolKey: 'rol_paciente', siempre: true },
+  { key: 'ficha',          label: 'Ficha clínica',      rolKey: 'rol_ficha' },
+  { key: 'fotos',          label: 'Fotos',               rolKey: 'rol_fotos' },
+  { key: 'notas',          label: 'Notas clínicas',      rolKey: 'rol_notas' },
+  { key: 'ficha' as never, label: 'Cierre y cobro',      rolKey: 'rol_cierre', siempre: true },
+]
+
+function SeccionWizardConfig() {
+  const [cfg, setCfg] = useState<WizardPasosConfig>(WIZARD_PASOS_DEFAULT)
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [ok, setOk] = useState(false)
+
+  useEffect(() => {
+    getClinicaConfig().then(c => {
+      setCfg({ ...WIZARD_PASOS_DEFAULT, ...(c.wizard_pasos ?? {}) })
+      setCargando(false)
+    })
+  }, [])
+
+  async function guardar() {
+    setGuardando(true)
+    setOk(false)
+    const config = await getClinicaConfig()
+    await actualizarClinicaConfig({ ...config, wizard_pasos: cfg })
+    setGuardando(false)
+    setOk(true)
+  }
+
+  if (cargando) return <div className="flex justify-center py-12"><Loader2 className="size-5 animate-spin text-gray-300" /></div>
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-[15px] font-semibold text-gray-900">Wizard de atención</h2>
+        <p className="text-[13px] text-gray-500 mt-1">
+          Guía paso a paso al iniciar una cita. Configura qué pasos mostrar y qué rol es responsable de cada uno.
+        </p>
+      </div>
+
+      {/* Toggle principal */}
+      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+        <div>
+          <p className="text-[13px] font-semibold text-gray-900">Activar wizard</p>
+          <p className="text-[12px] text-gray-500 mt-0.5">Al iniciar una cita, se abre el flujo guiado paso a paso</p>
+        </div>
+        <button
+          onClick={() => setCfg(p => ({ ...p, activo: !p.activo }))}
+          className={`relative w-11 h-6 rounded-full transition-colors ${cfg.activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${cfg.activo ? 'translate-x-5' : ''}`} />
+        </button>
+      </div>
+
+      {cfg.activo && (
+        <div className="space-y-3">
+          <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide">Pasos y responsables</p>
+          <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+            {/* Paciente — siempre activo */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white">
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-gray-300 shrink-0" />
+                <div>
+                  <p className="text-[13px] font-medium text-gray-700">Datos del paciente</p>
+                  <p className="text-[11px] text-gray-400">Siempre activo</p>
+                </div>
+              </div>
+              <select
+                value={cfg.rol_paciente}
+                onChange={e => setCfg(p => ({ ...p, rol_paciente: e.target.value as WizardRolPaso }))}
+                className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+              >
+                {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+
+            {/* Ficha clínica */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setCfg(p => ({ ...p, ficha: !p.ficha }))}
+                  className={`w-2 h-2 rounded-full shrink-0 transition-colors ${cfg.ficha ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
+                <div>
+                  <p className={`text-[13px] font-medium ${cfg.ficha ? 'text-gray-700' : 'text-gray-400'}`}>Ficha clínica</p>
+                  <p className="text-[11px] text-gray-400">Formulario del tratamiento</p>
+                </div>
+              </div>
+              <select
+                disabled={!cfg.ficha}
+                value={cfg.rol_ficha}
+                onChange={e => setCfg(p => ({ ...p, rol_ficha: e.target.value as WizardRolPaso }))}
+                className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-40"
+              >
+                {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+
+            {/* Fotos */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setCfg(p => ({ ...p, fotos: !p.fotos }))}
+                  className={`w-2 h-2 rounded-full shrink-0 transition-colors ${cfg.fotos ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
+                <div>
+                  <p className={`text-[13px] font-medium ${cfg.fotos ? 'text-gray-700' : 'text-gray-400'}`}>Fotos</p>
+                  <p className="text-[11px] text-gray-400">Fotos antes y después</p>
+                </div>
+              </div>
+              <select
+                disabled={!cfg.fotos}
+                value={cfg.rol_fotos}
+                onChange={e => setCfg(p => ({ ...p, rol_fotos: e.target.value as WizardRolPaso }))}
+                className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-40"
+              >
+                {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+
+            {/* Notas */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setCfg(p => ({ ...p, notas: !p.notas }))}
+                  className={`w-2 h-2 rounded-full shrink-0 transition-colors ${cfg.notas ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
+                <div>
+                  <p className={`text-[13px] font-medium ${cfg.notas ? 'text-gray-700' : 'text-gray-400'}`}>Notas clínicas</p>
+                  <p className="text-[11px] text-gray-400">Observaciones de la sesión</p>
+                </div>
+              </div>
+              <select
+                disabled={!cfg.notas}
+                value={cfg.rol_notas}
+                onChange={e => setCfg(p => ({ ...p, rol_notas: e.target.value as WizardRolPaso }))}
+                className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-40"
+              >
+                {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+
+            {/* Cierre — siempre activo */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white">
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-gray-300 shrink-0" />
+                <div>
+                  <p className="text-[13px] font-medium text-gray-700">Cierre y cobro</p>
+                  <p className="text-[11px] text-gray-400">Siempre activo</p>
+                </div>
+              </div>
+              <select
+                value={cfg.rol_cierre}
+                onChange={e => setCfg(p => ({ ...p, rol_cierre: e.target.value as WizardRolPaso }))}
+                className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+              >
+                {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-gray-400">
+            El punto azul indica que el paso está activo. Haz clic para activar/desactivar.
+            Los roles en gris son solo de referencia — cualquier usuario puede completar cualquier paso con una advertencia.
+          </p>
+        </div>
+      )}
+
+      <Button
+        onClick={guardar}
+        disabled={guardando}
+        className="h-9 text-[13px] border-0 text-white"
+        style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
+      >
+        {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : 'Guardar configuración'}
+      </Button>
+      {ok && <p className="text-[12px] text-emerald-600 flex items-center gap-1"><CheckCircle2 className="size-3.5" />Guardado</p>}
     </div>
   )
 }
