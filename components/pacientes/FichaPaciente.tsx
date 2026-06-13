@@ -18,6 +18,10 @@ import {
   UserCheck,
   UserX,
   X,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,8 +38,9 @@ import {
 
 const PanelFichas = lazy(() => import('@/components/fichas/PanelFichas'))
 const PanelGaleria = lazy(() => import('@/components/galeria/PanelGaleria'))
+const PanelConsentimientos = lazy(() => import('@/components/pacientes/PanelConsentimientos'))
 
-type Tab = 'informacion' | 'historial' | 'salud' | 'notas' | 'fichas' | 'galeria'
+type Tab = 'informacion' | 'historial' | 'salud' | 'notas' | 'fichas' | 'galeria' | 'consentimientos'
 
 type Props = {
   pacienteId: string
@@ -280,6 +285,7 @@ export function FichaPaciente({
     { key: 'notas', label: 'Notas' },
     { key: 'fichas', label: 'Fichas', badge: fichasCount > 0 ? fichasCount : undefined },
     { key: 'galeria', label: 'Galería' },
+    { key: 'consentimientos', label: 'Consentimientos' },
   ]
 
   return (
@@ -525,6 +531,13 @@ export function FichaPaciente({
           {tab === 'galeria' && (
             <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
               <PanelGaleria pacienteId={pacienteId} />
+            </Suspense>
+          )}
+
+          {/* ---- CONSENTIMIENTOS ---- */}
+          {tab === 'consentimientos' && (
+            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
+              <PanelConsentimientos pacienteId={pacienteId} />
             </Suspense>
           )}
 
