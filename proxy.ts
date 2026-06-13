@@ -10,6 +10,7 @@ const PUBLIC_API_PREFIXES = [
   '/api/health',
   '/api/cancelar',
   '/api/cron/',
+  '/api/consentimiento/sign',
 ]
 
 // Routes that are part of the marketing site (no auth needed on any domain)
@@ -60,7 +61,8 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/book/') ||
     pathname === '/book' ||
-    pathname.startsWith('/cancelar/')
+    pathname.startsWith('/cancelar/') ||
+    pathname.startsWith('/consentimiento/')
   ) {
     return supabaseResponse
   }
