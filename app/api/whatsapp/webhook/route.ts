@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { handleInboundTwilioMessage } from '@/lib/whatsapp/jobs'
 import { responderConAgente } from '@/lib/whatsapp/agente'
 import { getWhatsappProvider, toWhatsAppE164 } from '@/lib/whatsapp/provider'
+import { whatsappRatelimit, getIp } from '@/lib/ratelimit'
 
 export const runtime = 'nodejs'
 
@@ -259,6 +260,11 @@ export async function GET(request: NextRequest) {
 // ─── POST — route by provider ─────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  if (whatsappRatelimit) {
+    const { success } = await whatsappRatelimit.limit(getIp(request.headers))
+    if (!success) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const provider = (process.env.WHATSAPP_PROVIDER ?? 'twilio').toLowerCase()
 
   if (provider === 'meta') {
