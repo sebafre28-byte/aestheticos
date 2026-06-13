@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { CheckCircle2, AlertCircle, Clock, Loader2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { CONSENTIMIENTO_DEFAULT } from '@/lib/consentimientos/queries'
 
 type SolicitudData = {
   id: string
@@ -198,7 +199,7 @@ export default function ConsentimientoPage() {
   }
 
   const titulo = solicitud.plantilla?.titulo ?? 'Consentimiento Informado'
-  const contenido = solicitud.plantilla?.contenido ?? ''
+  const contenido = solicitud.plantilla?.contenido ?? CONSENTIMIENTO_DEFAULT
   const pacienteNombre = solicitud.cita?.pacientes?.nombre ?? ''
   const servicioNombre = solicitud.cita?.servicios?.nombre ?? ''
   const clinicaNombre = solicitud.clinica?.nombre ?? ''
