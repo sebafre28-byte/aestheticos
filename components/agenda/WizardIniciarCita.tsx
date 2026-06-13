@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   X, ChevronRight, ChevronLeft, Check, User, FileText,
   Camera, ClipboardList, CheckCircle2, Loader2, Upload, Trash2, AlertTriangle,
+  ShieldCheck, Clock, Send,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,11 +38,12 @@ type Paso = {
 }
 
 const PASOS: Paso[] = [
-  { id: 1, titulo: 'Paciente',       icono: User,         rol: 'recepcionista' },
-  { id: 2, titulo: 'Ficha clínica',  icono: FileText,     rol: 'profesional' },
-  { id: 3, titulo: 'Fotos',          icono: Camera,       rol: 'profesional' },
-  { id: 4, titulo: 'Notas',          icono: ClipboardList, rol: 'profesional' },
-  { id: 5, titulo: 'Cierre',         icono: CheckCircle2, rol: 'recepcionista' },
+  { id: 1, titulo: 'Paciente',         icono: User,         rol: 'recepcionista' },
+  { id: 6, titulo: 'Consentimiento',   icono: ShieldCheck,  rol: 'recepcionista' },
+  { id: 2, titulo: 'Ficha clínica',    icono: FileText,     rol: 'profesional' },
+  { id: 3, titulo: 'Fotos',            icono: Camera,       rol: 'profesional' },
+  { id: 4, titulo: 'Notas',            icono: ClipboardList, rol: 'profesional' },
+  { id: 5, titulo: 'Cierre',           icono: CheckCircle2, rol: 'recepcionista' },
 ]
 
 function esRolPropio(rolPaso: WizardRolPaso, rolUsuario: RolUsuario): boolean {
@@ -173,6 +175,146 @@ function PasoPaciente({ cita }: { cita: CitaConRelaciones }) {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── Paso 6: Consentimiento informado ────────────────────────────────────────
+
+type SolicitudConsent = {
+  id: string
+  email_destino: string
+  estado: 'pendiente' | 'firmado' | 'expirado'
+  firmado_at: string | null
+  expires_at: string
+}
+
+function PasoConsentimiento({ cita }: { cita: CitaConRelaciones }) {
+  const [solicitudes, setSolicitudes] = useState<SolicitudConsent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [email, setEmail] = useState((cita.pacientes as { email?: string } | null)?.email ?? '')
+  const [showForm, setShowForm] = useState(false)
+
+  useEffect(() => { loadSolicitudes() }, [cita.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function loadSolicitudes() {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/consentimiento/status?cita_id=${cita.id}`)
+      const d = await res.json()
+      setSolicitudes(d.solicitudes ?? [])
+    } finally { setLoading(false) }
+  }
+
+  async function enviar() {
+    if (!email.trim()) return
+    setSending(true)
+    try {
+      await fetch('/api/consentimiento/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cita_id: cita.id, email_destino: email.trim() }),
+      })
+      setShowForm(false)
+      await loadSolicitudes()
+    } finally { setSending(false) }
+  }
+
+  const firmado = solicitudes.find(s => s.estado === 'firmado')
+  const pendiente = solicitudes[0]?.estado === 'pendiente' && new Date(solicitudes[0].expires_at) > new Date() ? solicitudes[0] : null
+
+  if (loading) return (
+    <div className="flex items-center gap-2 py-6 justify-center">
+      <Loader2 className="size-4 animate-spin text-gray-300" />
+      <span className="text-[13px] text-gray-400">Verificando consentimiento…</span>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      {firmado ? (
+        <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+          <CheckCircle2 className="size-5 text-emerald-500 shrink-0" />
+          <div>
+            <p className="text-[14px] font-semibold text-emerald-800">Consentimiento firmado</p>
+            {firmado.firmado_at && (
+              <p className="text-[12px] text-emerald-600 mt-0.5">
+                Firmado el {format(new Date(firmado.firmado_at), "d \'de\' MMMM \'a las\' HH:mm", { locale: es })}
+              </p>
+            )}
+          </div>
+        </div>
+      ) : pendiente ? (
+        <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl space-y-3">
+          <div className="flex items-start gap-3">
+            <Clock className="size-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[14px] font-semibold text-amber-800">Pendiente de firma</p>
+              <p className="text-[12px] text-amber-600 mt-0.5">Enviado a {pendiente.email_destino}</p>
+              <p className="text-[11px] text-amber-500 mt-0.5">
+                El paciente aún no ha firmado el documento
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setEmail(pendiente.email_destino); setShowForm(true) }}
+            className="w-full h-8 rounded-lg border border-amber-200 bg-white text-[12px] font-medium text-amber-700 hover:bg-amber-50 transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Send className="size-3.5" /> Reenviar consentimiento
+          </button>
+        </div>
+      ) : (
+        <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="size-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-[14px] font-semibold text-gray-800">Sin consentimiento</p>
+              <p className="text-[12px] text-gray-500 mt-0.5">
+                El paciente no ha firmado el consentimiento informado para esta cita.
+              </p>
+            </div>
+          </div>
+          {!showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="w-full h-9 rounded-lg border-0 text-[13px] font-medium text-white flex items-center justify-center gap-1.5"
+              style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}
+            >
+              <Send className="size-3.5" /> Enviar consentimiento por email
+            </button>
+          )}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="space-y-3 p-4 bg-white border border-gray-200 rounded-xl">
+          <p className="text-[12px] font-medium text-gray-600">Email del paciente</p>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="paciente@email.com"
+            className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+          />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowForm(false)} className="flex-1 text-xs h-8">
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={enviar} disabled={!email.trim() || sending}
+              className="flex-1 text-xs h-8 border-0 text-white gap-1"
+              style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}
+            >
+              {sending ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />}
+              Enviar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <p className="text-[11px] text-gray-400 text-center">
+        Puedes continuar aunque no esté firmado — el sistema lo registrará como pendiente.
+      </p>
     </div>
   )
 }
@@ -605,23 +747,26 @@ function PasoCierre({
 // ─── Wizard principal ─────────────────────────────────────────────────────────
 
 // Mapeo de id de paso original → componente
-const PASO_ID_PACIENTE = 1
-const PASO_ID_FICHA    = 2
-const PASO_ID_FOTOS    = 3
-const PASO_ID_NOTAS    = 4
-const PASO_ID_CIERRE   = 5
+const PASO_ID_PACIENTE       = 1
+const PASO_ID_CONSENTIMIENTO = 6
+const PASO_ID_FICHA          = 2
+const PASO_ID_FOTOS          = 3
+const PASO_ID_NOTAS          = 4
+const PASO_ID_CIERRE         = 5
 
 function buildPasosActivos(cfg: WizardPasosConfig): Paso[] {
   const rolMap: Record<number, WizardRolPaso> = {
-    [PASO_ID_PACIENTE]: cfg.rol_paciente ?? 'recepcionista',
-    [PASO_ID_FICHA]:    cfg.rol_ficha    ?? 'profesional',
-    [PASO_ID_FOTOS]:    cfg.rol_fotos    ?? 'profesional',
-    [PASO_ID_NOTAS]:    cfg.rol_notas    ?? 'profesional',
-    [PASO_ID_CIERRE]:   cfg.rol_cierre   ?? 'recepcionista',
+    [PASO_ID_PACIENTE]:       cfg.rol_paciente       ?? 'recepcionista',
+    [PASO_ID_CONSENTIMIENTO]: cfg.rol_consentimiento ?? 'recepcionista',
+    [PASO_ID_FICHA]:          cfg.rol_ficha          ?? 'profesional',
+    [PASO_ID_FOTOS]:          cfg.rol_fotos          ?? 'profesional',
+    [PASO_ID_NOTAS]:          cfg.rol_notas          ?? 'profesional',
+    [PASO_ID_CIERRE]:         cfg.rol_cierre         ?? 'recepcionista',
   }
   return PASOS
     .filter(p => {
       if (p.id === PASO_ID_PACIENTE || p.id === PASO_ID_CIERRE) return true
+      if (p.id === PASO_ID_CONSENTIMIENTO) return cfg.consentimiento ?? true
       if (p.id === PASO_ID_FICHA)  return cfg.ficha
       if (p.id === PASO_ID_FOTOS)  return cfg.fotos
       if (p.id === PASO_ID_NOTAS)  return cfg.notas
@@ -752,7 +897,8 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada, rolUsu
                 </div>
               )}
 
-              {pasoActual?.id === PASO_ID_PACIENTE && <PasoPaciente cita={cita} />}
+              {pasoActual?.id === PASO_ID_PACIENTE       && <PasoPaciente cita={cita} />}
+              {pasoActual?.id === PASO_ID_CONSENTIMIENTO && <PasoConsentimiento cita={cita} />}
               {pasoActual?.id === PASO_ID_FICHA    && <PasoFicha cita={cita} onFichaGuardada={id => setFichaId(id)} />}
               {pasoActual?.id === PASO_ID_FOTOS    && <PasoFotos cita={cita} />}
               {pasoActual?.id === PASO_ID_NOTAS    && <PasoNotas cita={cita} onNotaGuardada={() => setNotaGuardada(true)} />}

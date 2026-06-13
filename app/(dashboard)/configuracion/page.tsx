@@ -2935,11 +2935,12 @@ function SeccionWizardConfig() {
   if (cargando) return <div className="flex justify-center py-12"><Loader2 className="size-5 animate-spin text-gray-300" /></div>
 
   const pasos = [
-    { label: 'Datos del paciente', desc: 'Verificar RUT y email', rolKey: 'rol_paciente' as const, toggleKey: null },
-    { label: 'Ficha clínica',      desc: 'Formulario del tratamiento', rolKey: 'rol_ficha' as const, toggleKey: 'ficha' as const },
-    { label: 'Fotos',              desc: 'Fotos antes y después',      rolKey: 'rol_fotos' as const, toggleKey: 'fotos' as const },
-    { label: 'Notas clínicas',     desc: 'Observaciones de la sesión', rolKey: 'rol_notas' as const, toggleKey: 'notas' as const },
-    { label: 'Cierre y cobro',     desc: 'Registrar pago y completar', rolKey: 'rol_cierre' as const, toggleKey: null },
+    { label: 'Datos del paciente',     desc: 'Verificar RUT y email',              rolKey: 'rol_paciente'       as const, toggleKey: null },
+    { label: 'Consentimiento',         desc: 'Envío y verificación de firma',       rolKey: 'rol_consentimiento' as const, toggleKey: 'consentimiento' as const },
+    { label: 'Ficha clínica',          desc: 'Formulario del tratamiento',          rolKey: 'rol_ficha'          as const, toggleKey: 'ficha'          as const },
+    { label: 'Fotos',                  desc: 'Fotos antes y después',               rolKey: 'rol_fotos'          as const, toggleKey: 'fotos'          as const },
+    { label: 'Notas clínicas',         desc: 'Observaciones de la sesión',          rolKey: 'rol_notas'          as const, toggleKey: 'notas'          as const },
+    { label: 'Cierre y cobro',         desc: 'Registrar pago y completar',          rolKey: 'rol_cierre'         as const, toggleKey: null },
   ]
 
   return (
