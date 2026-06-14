@@ -232,12 +232,12 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
           <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setAbierto(false)} />
 
           {/* Bottom sheet (móvil) / dropdown (desktop) */}
-          <div className="fixed inset-x-0 bottom-0 z-[60] max-h-[75vh] rounded-t-2xl bg-white shadow-2xl flex flex-col pb-safe md:absolute md:inset-auto md:right-0 md:left-auto md:bottom-auto md:top-full md:mt-2 md:w-96 md:max-h-[28rem] md:rounded-xl md:border md:border-gray-200 md:pb-0">
+          <div className="fixed inset-x-0 bottom-0 z-[60] max-h-[75vh] rounded-t-2xl bg-white shadow-2xl flex flex-col pb-safe md:inset-auto md:bottom-auto md:top-16 md:left-[228px] md:w-96 md:max-h-[28rem] md:rounded-xl md:border md:border-gray-200 md:pb-0 md:shadow-xl">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900">Notificaciones</h3>
               <button
                 onClick={() => setAbierto(false)}
-                className="md:hidden text-xs text-gray-400 px-2 py-1"
+                className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1"
               >
                 Cerrar
               </button>
