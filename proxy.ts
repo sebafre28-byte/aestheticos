@@ -57,6 +57,7 @@ export async function proxy(request: NextRequest) {
     MARKETING_PATHS.includes(pathname) ||
     pathname === '/login' ||
     pathname === '/register' ||
+    pathname === '/superadmin/login' ||
     pathname === '/auth/set-session' ||
     pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/auth/') ||
@@ -73,6 +74,10 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse
   }
 
+  // Allow clinica-bloqueada and superadmin routes without clinic check
+  const isAdminRoute = pathname.startsWith('/superadmin') || pathname.startsWith('/api/superadmin')
+  const isBloqueada = pathname === '/clinica-bloqueada'
+
   // Unauthenticated: redirect pages to /login, return 401 for API routes
   if (!user) {
     if (pathname.startsWith('/api/')) {
@@ -82,6 +87,22 @@ export async function proxy(request: NextRequest) {
     loginUrl.pathname = '/login'
     loginUrl.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // Check if clinic is deactivated (skip for admin/blocked routes)
+  if (!isAdminRoute && !isBloqueada && !pathname.startsWith('/api/')) {
+    const { data: ucData } = await supabase
+      .from('usuarios_clinica')
+      .select('clinica_id, clinicas!inner(activo)')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const activo = (ucData as { clinicas: { activo: boolean } | null } | null)?.clinicas?.activo
+    if (activo === false) {
+      const bloqueadaUrl = request.nextUrl.clone()
+      bloqueadaUrl.pathname = '/clinica-bloqueada'
+      return NextResponse.redirect(bloqueadaUrl)
+    }
   }
 
   return supabaseResponse
