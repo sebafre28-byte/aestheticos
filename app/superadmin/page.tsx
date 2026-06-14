@@ -362,7 +362,7 @@ export default function SuperAdminPage() {
                         </div>
                         <span className="hidden md:block text-xs text-gray-500 shrink-0 w-20 text-right">{sub ? PLAN_LABELS[sub.plan] : '—'}</span>
                         <span className="hidden lg:block text-xs text-gray-400 shrink-0 w-20 text-right">{c.uso.citas_total} citas</span>
-                        <span className="hidden lg:block text-xs text-gray-400 shrink-0 w-24 text-right">{format(new Date(c.created_at), 'd MMM yy', { locale: es })}</span>
+                        <span className="hidden lg:block text-xs text-gray-400 shrink-0 w-24 text-right">{c.created_at ? format(new Date(c.created_at), 'd MMM yy', { locale: es }) : '—'}</span>
                         {isExpanded ? <ChevronUp className="size-4 text-gray-300 shrink-0" /> : <ChevronDown className="size-4 text-gray-300 shrink-0" />}
                       </div>
                     </button>
@@ -393,7 +393,7 @@ export default function SuperAdminPage() {
                                   <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Detalle</p>
                                   <InfoRow label="ID" value={<span className="font-mono text-[10px] break-all">{c.id}</span>} />
                                   <InfoRow label="Email" value={c.email ?? '—'} />
-                                  <InfoRow label="Registrada" value={format(new Date(c.created_at), "d 'de' MMMM yyyy", { locale: es })} />
+                                  <InfoRow label="Registrada" value={c.created_at ? format(new Date(c.created_at), "d 'de' MMMM yyyy", { locale: es }) : '—'} />
                                   <InfoRow label="Plan" value={sub ? PLAN_LABELS[sub.plan] : '—'} />
                                   <InfoRow label="Estado" value={<span className={cfg.text}>{cfg.label}</span>} />
                                   {sub?.trial_ends_at && (
@@ -611,7 +611,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function UsageBar({ label, used, max }: { label: string; used: number; max: number }) {
-  const pct = max <= 0 ? 0 : Math.min((used / max) * 100, 100)
+  const pct = !max || max <= 0 ? 0 : Math.min(((used ?? 0) / max) * 100, 100)
   const color = pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-400' : 'bg-blue-500'
   return (
     <div className="space-y-1">
