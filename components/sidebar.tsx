@@ -107,9 +107,9 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
             <button
               onClick={onClose}
               aria-label="Cerrar menú"
-              className="md:hidden absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors shrink-0 ml-auto"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           )}
           {logoClinica ? (
@@ -118,7 +118,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
           ) : (
             <LogoIcon />
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-[14px] font-bold text-white leading-tight tracking-tight truncate">
               {nombreClinica || 'SimpliClinic'}
             </p>
@@ -126,7 +126,10 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
               Tu clínica, más simple.
             </p>
           </div>
-          <NotificationBell dark />
+          {/* Bell only on desktop — mobile has it in MobileHeader to avoid transform issues */}
+          <div className="hidden md:block">
+            <NotificationBell dark />
+          </div>
         </div>
       </div>
 
