@@ -1,7 +1,6 @@
 // Queries de servicios: CRUD de servicios clínicos con estadísticas de uso.
 'use client'
 
-import { subDays } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 
 export type ServicioRow = {
@@ -39,7 +38,7 @@ export type HistorialServicio = {
 
 type ServiciosParams = {
   busqueda?: string
-  filtro?: 'todos' | 'activos' | 'nuevos'
+  filtro?: 'todos' | 'activos' | 'inactivos'
   page?: number
   pageSize?: number
 }
@@ -80,8 +79,8 @@ export async function getServicios({
     query = query.eq('activo', true)
   }
 
-  if (filtro === 'nuevos') {
-    query = query.gte('created_at', subDays(new Date(), 30).toISOString())
+  if (filtro === 'inactivos') {
+    query = query.eq('activo', false)
   }
 
   const { data, error, count } = await query

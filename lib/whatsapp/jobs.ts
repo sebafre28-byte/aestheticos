@@ -164,6 +164,7 @@ type CitaWhatsAppRow = {
   inicio: string
   fin: string
   estado: string
+  cancel_token: string | null
   pacientes: { nombre: string; telefono: string | null } | null
   profesionales: { nombre: string } | null
   servicios: { nombre: string } | null
@@ -231,12 +232,14 @@ export function verifyTwilioSignature(
 
 function ctxFromCita(row: CitaWhatsAppRow): templates.RecordatorioContext {
   const inicio = new Date(row.inicio)
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
   return {
     pacienteNombre: row.pacientes?.nombre ?? 'Paciente',
     clinicaNombre: row.clinicas?.nombre ?? 'la clínica',
     servicioNombre: row.servicios?.nombre ?? 'consulta',
     profesionalNombre: row.profesionales?.nombre ?? 'su profesional',
     inicioLegible: format(inicio, "EEEE d 'de' MMMM HH:mm", { locale: es }),
+    citaUrl: row.cancel_token ? `${base}/cita/${row.cancel_token}` : undefined,
   }
 }
 
@@ -318,7 +321,7 @@ async function fetchCitaForWhatsApp(
   const { data, error } = await supabase
     .from('citas')
     .select(
-      `id, clinica_id, inicio, fin, estado,
+      `id, clinica_id, inicio, fin, estado, cancel_token,
        pacientes ( nombre, telefono ),
        profesionales ( nombre ),
        servicios ( nombre ),
@@ -338,6 +341,7 @@ async function fetchCitaForWhatsApp(
     inicio: string
     fin: string
     estado: string
+    cancel_token: string | null
   }
   const one = <T>(x: T | T[] | null | undefined): T | null =>
     x == null ? null : Array.isArray(x) ? (x[0] ?? null) : x
@@ -347,6 +351,7 @@ async function fetchCitaForWhatsApp(
     inicio: d.inicio,
     fin: d.fin,
     estado: d.estado,
+    cancel_token: d.cancel_token,
     pacientes: one(d.pacientes),
     profesionales: one(d.profesionales),
     servicios: one(d.servicios),

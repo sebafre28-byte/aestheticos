@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       datos: {
         ...datosCita,
         paciente_email: paciente.email,
-        cancel_url: cancel_token ? `${base}/cancelar/${cancel_token}` : undefined,
+        cancel_url: cancel_token ? `${base}/cita/${cancel_token}` : undefined,
       },
     }).catch((err) => console.error('[book/notificar] confirmacion error:', err))
   }

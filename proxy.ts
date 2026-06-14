@@ -9,6 +9,7 @@ const PUBLIC_API_PREFIXES = [
   '/api/captcha',
   '/api/health',
   '/api/cancelar',
+  '/api/cita/',
   '/api/cron/',
   '/api/consentimiento/sign',
 ]
@@ -64,6 +65,7 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/book/') ||
     pathname === '/book' ||
     pathname.startsWith('/cancelar/') ||
+    pathname.startsWith('/cita/') ||
     pathname.startsWith('/consentimiento/')
   ) {
     return supabaseResponse

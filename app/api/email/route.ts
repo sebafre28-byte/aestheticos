@@ -422,7 +422,7 @@ function cancelBtn(url: string): string {
         <td align="center" style="background:#FFFFFF;border:1.5px solid #E2E8F0;border-radius:10px;">
           <a href="${url}" target="_blank"
              style="display:block;padding:13px 24px;font-size:13px;font-weight:700;color:#64748B;text-decoration:none;text-align:center;">
-            &#10005;&nbsp; Cancelar mi cita
+            &#128197;&nbsp; Gestionar mi cita
           </a>
         </td>
       </tr>
