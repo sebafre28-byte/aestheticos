@@ -62,7 +62,7 @@ export async function GET() {
         citas_mes: citasMes[c.id] ?? 0,
         citas_total: citasTotal[c.id] ?? 0,
       },
-      limites: PLAN_LIMITS[plan],
+      limites: PLAN_LIMITS[plan] ?? PLAN_LIMITS.free,
     }
   })
 
