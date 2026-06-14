@@ -53,8 +53,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Clínica",
     items: [
-      { id: "clinica",  label: "Datos generales",            icon: Building2 },
-      { id: "horarios", label: "Horarios y disponibilidad",  icon: Clock },
+      { id: "clinica",        label: "Datos generales",           icon: Building2 },
+      { id: "horarios",       label: "Horarios y disponibilidad", icon: Clock },
+      { id: "consentimiento", label: "Consentimiento inform.",    icon: FileText },
+      { id: "wizard",         label: "Wizard de atención",        icon: ClipboardList },
     ],
   },
   {
@@ -67,11 +69,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Comunicaciones",
     items: [
-      { id: "whatsapp",       label: "WhatsApp Business",    icon: MessageCircle },
-      { id: "recordatorios",  label: "Recordatorios",        icon: Bell },
-      { id: "google",         label: "Google Calendar",      icon: CalendarDays },
-      { id: "consentimiento", label: "Consentimiento inform.", icon: FileText },
-      { id: "wizard",         label: "Wizard de atención",   icon: ClipboardList },
+      { id: "whatsapp",      label: "WhatsApp Business", icon: MessageCircle },
+      { id: "recordatorios", label: "Recordatorios",     icon: Bell },
+      { id: "google",        label: "Google Calendar",   icon: CalendarDays },
     ],
   },
   {
