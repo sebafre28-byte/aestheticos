@@ -199,13 +199,21 @@ export default function ConsentimientoPage() {
   }
 
   const titulo = solicitud.plantilla?.titulo ?? 'Consentimiento Informado'
-  const contenido = solicitud.plantilla?.contenido ?? CONSENTIMIENTO_DEFAULT
   const pacienteNombre = solicitud.cita?.pacientes?.nombre ?? ''
   const servicioNombre = solicitud.cita?.servicios?.nombre ?? ''
   const clinicaNombre = solicitud.clinica?.nombre ?? ''
   const fechaCita = solicitud.cita?.inicio
     ? format(new Date(solicitud.cita.inicio), "EEEE d 'de' MMMM 'a las' HH:mm", { locale: es })
     : ''
+
+  const rawContenido = solicitud.plantilla?.contenido ?? CONSENTIMIENTO_DEFAULT
+  const contenido = rawContenido
+    .replace(/\{nombre_paciente\}/g, pacienteNombre)
+    .replace(/\{rut_paciente\}/g, '')
+    .replace(/\{fecha_cita\}/g, fechaCita)
+    .replace(/\{procedimiento\}/g, servicioNombre)
+    .replace(/\{profesional\}/g, '')
+    .replace(/\{clinica\}/g, clinicaNombre)
 
   return (
     <div className="min-h-screen bg-gray-50">

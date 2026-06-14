@@ -668,7 +668,7 @@ export function buildConsentimientoEmail(d: DatosConsentimiento): { subject: str
         <tr>
           <td style="padding:16px 36px 24px;border-top:1px solid #F1F5F9;background:#FAFAFA;">
             <p style="margin:0;font-size:11px;color:#9CA3AF;text-align:center;">
-              Powered by <strong>SimpliClinic</strong> &mdash; Gestión clínica inteligente
+              Powered by <strong>SimpliClinic</strong> &mdash; Tu clínica, más simple.
             </p>
           </td>
         </tr>

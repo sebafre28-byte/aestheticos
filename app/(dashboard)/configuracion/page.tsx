@@ -36,7 +36,7 @@ import {
   type ProfesionalRow, type DisponibilidadRow,
 } from "@/lib/agenda/queries"
 import {
-  getPlantillas, upsertPlantilla, eliminarPlantilla, CONSENTIMIENTO_DEFAULT,
+  getPlantillas, CONSENTIMIENTO_DEFAULT,
   type ConsentimientoPlantilla,
 } from "@/lib/consentimientos/queries"
 
@@ -2748,43 +2748,86 @@ function ConfiguracionInner() {
 
 // ─── Sección Consentimiento Informado ────────────────────────────────────────
 
+const VARIABLES_CONSENTIMIENTO = [
+  { variable: '{nombre_paciente}', label: 'Nombre paciente' },
+  { variable: '{rut_paciente}',    label: 'RUT paciente' },
+  { variable: '{fecha_cita}',      label: 'Fecha cita' },
+  { variable: '{procedimiento}',   label: 'Procedimiento' },
+  { variable: '{profesional}',     label: 'Profesional' },
+  { variable: '{clinica}',         label: 'Clínica' },
+]
+
 function SeccionConsentimientoConfig() {
   const supabase = createClient()
   const [clinicaId, setClinicaId] = useState<string | null>(null)
   const [plantillas, setPlantillas] = useState<ConsentimientoPlantilla[]>([])
+  const [activaId, setActivaId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Partial<ConsentimientoPlantilla> | null>(null)
   const [saving, setSaving] = useState(false)
+  const [settingActiva, setSettingActiva] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
-      const { data } = await supabase.from('usuarios_clinica').select('clinica_id').eq('user_id', user.id).maybeSingle()
+      const { data } = await supabase
+        .from('usuarios_clinica').select('clinica_id').eq('user_id', user.id).maybeSingle()
       if (data) {
         setClinicaId(data.clinica_id)
         const ps = await getPlantillas(data.clinica_id)
         setPlantillas(ps)
+        // Fetch active plantilla ID from clinica configuracion
+        const { data: cfg } = await supabase
+          .from('clinicas').select('configuracion').eq('id', data.clinica_id).maybeSingle()
+        setActivaId(cfg?.configuracion?.consentimiento_plantilla_activa_id ?? null)
       }
       setLoading(false)
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  function insertarVariable(variable: string) {
+    const textarea = textareaRef.current
+    if (!textarea) {
+      setEditing(prev => prev ? { ...prev, contenido: (prev.contenido ?? '') + variable } : prev)
+      return
+    }
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const contenido = editing?.contenido ?? ''
+    const nuevo = contenido.slice(0, start) + variable + contenido.slice(end)
+    setEditing(prev => prev ? { ...prev, contenido: nuevo } : prev)
+    setTimeout(() => {
+      textarea.focus()
+      textarea.selectionStart = textarea.selectionEnd = start + variable.length
+    }, 0)
+  }
+
   async function save() {
-    if (!clinicaId || !editing) return
+    if (!editing) return
     setSaving(true)
     try {
-      const updated = await upsertPlantilla(clinicaId, {
-        id: editing.id,
-        titulo: editing.titulo ?? 'Consentimiento Informado',
-        contenido: editing.contenido ?? '',
-        servicio_id: editing.servicio_id ?? null,
+      const res = await fetch('/api/consentimiento/plantilla', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editing.id,
+          titulo: editing.titulo ?? 'Consentimiento Informado',
+          contenido: editing.contenido ?? '',
+          servicio_id: editing.servicio_id ?? null,
+        }),
       })
-      if (updated) {
-        setPlantillas(prev => editing.id
-          ? prev.map(p => p.id === updated.id ? updated : p)
-          : [...prev, updated]
-        )
+      const json = await res.json()
+      if (!res.ok) {
+        alert(json.error ?? 'Error al guardar')
+        return
       }
+      const updated = json.plantilla as ConsentimientoPlantilla
+      setPlantillas(prev => editing.id
+        ? prev.map(p => p.id === updated.id ? updated : p)
+        : [...prev, updated]
+      )
       setEditing(null)
     } finally {
       setSaving(false)
@@ -2792,12 +2835,43 @@ function SeccionConsentimientoConfig() {
   }
 
   async function remove(id: string) {
-    if (!clinicaId || !confirm('¿Eliminar plantilla?')) return
-    await eliminarPlantilla(clinicaId, id)
-    setPlantillas(prev => prev.filter(p => p.id !== id))
+    if (!confirm('¿Eliminar plantilla?')) return
+    const res = await fetch('/api/consentimiento/plantilla', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (res.ok) {
+      setPlantillas(prev => prev.filter(p => p.id !== id))
+      if (activaId === id) {
+        setActivaId(null)
+        await setActivaEnConfig(null)
+      }
+    }
   }
 
-  if (loading) return <div className="flex items-center gap-2 py-10 justify-center"><Loader2 className="size-4 animate-spin text-gray-300" /></div>
+  async function setActivaEnConfig(plantillaId: string | null) {
+    if (!clinicaId) return
+    const { data: cfg } = await supabase.from('clinicas').select('configuracion').eq('id', clinicaId).maybeSingle()
+    const current = cfg?.configuracion ?? {}
+    await supabase.from('clinicas').update({
+      configuracion: { ...current, consentimiento_plantilla_activa_id: plantillaId },
+    }).eq('id', clinicaId)
+  }
+
+  async function toggleActiva(id: string) {
+    setSettingActiva(true)
+    const nuevo = activaId === id ? null : id
+    setActivaId(nuevo)
+    await setActivaEnConfig(nuevo)
+    setSettingActiva(false)
+  }
+
+  if (loading) return (
+    <div className="flex items-center gap-2 py-10 justify-center">
+      <Loader2 className="size-4 animate-spin text-gray-300" />
+    </div>
+  )
 
   return (
     <div className="space-y-5">
@@ -2813,7 +2887,9 @@ function SeccionConsentimientoConfig() {
         <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center">
           <FileText className="size-8 text-gray-300 mx-auto mb-3" />
           <p className="text-sm text-gray-500 font-medium">Sin plantillas personalizadas</p>
-          <p className="text-xs text-gray-400 mt-1 mb-4">Si no creas una, se usará el texto estándar de SimpliClinic.</p>
+          <p className="text-xs text-gray-400 mt-1 mb-4">
+            Si no creas una, se usará el texto estándar de SimpliClinic.
+          </p>
           <Button size="sm" onClick={() => setEditing({ titulo: 'Consentimiento Informado', contenido: CONSENTIMIENTO_DEFAULT })}>
             <Plus className="size-3.5 mr-1.5" /> Crear plantilla
           </Button>
@@ -2822,26 +2898,57 @@ function SeccionConsentimientoConfig() {
 
       {plantillas.length > 0 && (
         <div className="space-y-3">
-          {plantillas.map(p => (
-            <div key={p.id} className="border border-gray-100 rounded-xl p-4 bg-white flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-800 truncate">{p.titulo}</p>
-                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{p.contenido.slice(0, 120)}…</p>
+          {plantillas.map(p => {
+            const esActiva = activaId === p.id
+            return (
+              <div key={p.id} className={`border rounded-xl p-4 bg-white flex items-start justify-between gap-3 ${esActiva ? 'border-blue-200 ring-1 ring-blue-100' : 'border-gray-100'}`}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{p.titulo}</p>
+                    {esActiva && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600">ACTIVA</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{p.contenido.slice(0, 120)}…</p>
+                </div>
+                <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleActiva(p.id)}
+                    disabled={settingActiva}
+                    className={`text-xs h-7 px-2.5 ${esActiva ? 'border-blue-300 text-blue-600 bg-blue-50 hover:bg-blue-100' : ''}`}
+                  >
+                    {esActiva ? <Check className="size-3 mr-1" /> : null}
+                    {esActiva ? 'Activa' : 'Activar'}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setEditing(p)} className="text-xs h-7 px-2.5">
+                    <Pencil className="size-3 mr-1" /> Editar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => remove(p.id)}
+                    className="text-xs h-7 px-2.5 text-red-500 hover:text-red-600 hover:border-red-200"
+                  >
+                    <Trash2 className="size-3" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <Button variant="outline" size="sm" onClick={() => setEditing(p)} className="text-xs h-7 px-2.5">
-                  <Pencil className="size-3 mr-1" /> Editar
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => remove(p.id)} className="text-xs h-7 px-2.5 text-red-500 hover:text-red-600 hover:border-red-200">
-                  <Trash2 className="size-3" />
-                </Button>
-              </div>
-            </div>
-          ))}
-          {!editing && (
-            <Button variant="outline" size="sm" onClick={() => setEditing({ titulo: 'Consentimiento Informado', contenido: CONSENTIMIENTO_DEFAULT })} className="text-xs">
+            )
+          })}
+          {!editing && plantillas.length < 3 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditing({ titulo: 'Consentimiento Informado', contenido: CONSENTIMIENTO_DEFAULT })}
+              className="text-xs"
+            >
               <Plus className="size-3.5 mr-1.5" /> Agregar plantilla
             </Button>
+          )}
+          {plantillas.length >= 3 && !editing && (
+            <p className="text-xs text-gray-400">Límite de 3 plantillas alcanzado.</p>
           )}
         </div>
       )}
@@ -2859,9 +2966,26 @@ function SeccionConsentimientoConfig() {
               className="text-sm"
             />
           </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Variables disponibles</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {VARIABLES_CONSENTIMIENTO.map(v => (
+                <button
+                  key={v.variable}
+                  type="button"
+                  onClick={() => insertarVariable(v.variable)}
+                  className="text-[11px] font-mono px-2 py-1 rounded-md bg-white border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                >
+                  {v.variable}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400">Haz click en una variable para insertarla en el cursor del texto.</p>
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Contenido del documento</Label>
             <textarea
+              ref={textareaRef}
               value={editing.contenido ?? ''}
               onChange={e => setEditing(prev => prev ? { ...prev, contenido: e.target.value } : prev)}
               rows={16}
@@ -2881,8 +3005,9 @@ function SeccionConsentimientoConfig() {
 
       <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
         <p className="text-xs text-gray-500 leading-relaxed">
-          <strong>¿Sin plantilla personalizada?</strong> Se enviará el consentimiento estándar de SimpliClinic.
-          Si creas una plantilla, se usará automáticamente para todas las citas de tu clínica.
+          <strong>Plantilla activa:</strong> La marcada como activa se usa en todas las citas.
+          Si no hay ninguna activa o no creas plantillas, se envía el consentimiento estándar de SimpliClinic.
+          Máximo 3 plantillas.
         </p>
       </div>
     </div>
