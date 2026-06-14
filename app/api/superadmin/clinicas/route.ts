@@ -29,7 +29,8 @@ export async function GET() {
   ])
 
   // Keep the most recently updated subscription per clinic (ORDER BY updated_at DESC above)
-  const subMap: Record<string, typeof subscriptions[0]> = {}
+  type SubRow = NonNullable<typeof subscriptions>[number]
+  const subMap: Record<string, SubRow> = {}
   for (const s of subscriptions ?? []) {
     if (!subMap[s.clinica_id]) subMap[s.clinica_id] = s
   }
