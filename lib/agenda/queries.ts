@@ -825,11 +825,11 @@ export async function setDisponibilidadProfesional(
 export async function getBloqueosRango(
   fechaInicioIso: string,
   fechaFinIso: string
-): Promise<BloqueoAgendaRow[]> {
+): Promise<BloqueoProfesional[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('agenda_bloqueos')
-    .select('*')
+    .select('id, profesional_id, inicio, fin, titulo, tipo, motivo, profesionales(nombre, color)')
     .lt('inicio', fechaFinIso)
     .gt('fin', fechaInicioIso)
     .order('inicio', { ascending: true })
@@ -838,7 +838,7 @@ export async function getBloqueosRango(
     console.error('Error getBloqueosRango:', error)
     return []
   }
-  return (data ?? []) as BloqueoAgendaRow[]
+  return (data ?? []) as unknown as BloqueoProfesional[]
 }
 
 export async function crearRecordatorioCita(
