@@ -2,29 +2,44 @@ const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GOOGLE_CALENDAR_BASE = 'https://www.googleapis.com/calendar/v3'
 
 type TokenRow = {
+  id: string
   access_token: string
   refresh_token: string
   token_expiry: string
 }
 
+// In-flight refresh promises keyed by token id — prevents double-refresh race condition.
+const refreshInFlight = new Map<string, Promise<string | null>>()
+
 export async function getValidToken(token: TokenRow): Promise<string | null> {
   const expiry = new Date(token.token_expiry).getTime()
   if (Date.now() < expiry - 60_000) return token.access_token
 
-  // Refresh token
-  const res = await fetch(GOOGLE_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      refresh_token: token.refresh_token,
-      grant_type: 'refresh_token',
-    }),
-  })
-  const data = await res.json()
-  if (!data.access_token) return null
-  return data.access_token as string
+  // Coalesce concurrent refreshes for the same token
+  const existing = refreshInFlight.get(token.id)
+  if (existing) return existing
+
+  const promise = (async () => {
+    try {
+      const res = await fetch(GOOGLE_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: process.env.GOOGLE_CLIENT_ID!,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+          refresh_token: token.refresh_token,
+          grant_type: 'refresh_token',
+        }),
+      })
+      const data = await res.json()
+      return (data.access_token as string) ?? null
+    } finally {
+      refreshInFlight.delete(token.id)
+    }
+  })()
+
+  refreshInFlight.set(token.id, promise)
+  return promise
 }
 
 export async function createCalendarEvent(
