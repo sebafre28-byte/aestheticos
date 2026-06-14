@@ -22,13 +22,17 @@ export async function GET() {
 
   const [{ data: clinicas }, { data: subscriptions }, { data: citas }, { data: pacientes }, { data: profesionales }] = await Promise.all([
     db.from('clinicas').select('id, nombre, email, created_at, activo, owner_id, configuracion').order('created_at', { ascending: false }),
-    db.from('subscriptions').select('clinica_id, plan, estado, trial_ends_at, current_period_end, flow_subscription_id, card_last4, card_type, anual, updated_at'),
+    db.from('subscriptions').select('clinica_id, plan, estado, trial_ends_at, current_period_end, flow_subscription_id, card_last4, card_type, anual, updated_at').order('updated_at', { ascending: false }),
     db.from('citas').select('clinica_id, created_at'),
     db.from('pacientes').select('clinica_id'),
     db.from('profesionales').select('clinica_id, activo'),
   ])
 
-  const subMap = Object.fromEntries((subscriptions ?? []).map(s => [s.clinica_id, s]))
+  // Keep the most recently updated subscription per clinic (ORDER BY updated_at DESC above)
+  const subMap: Record<string, typeof subscriptions[0]> = {}
+  for (const s of subscriptions ?? []) {
+    if (!subMap[s.clinica_id]) subMap[s.clinica_id] = s
+  }
 
   const citasTotal: Record<string, number> = {}
   const citasMes: Record<string, number> = {}
