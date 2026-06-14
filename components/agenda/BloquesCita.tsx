@@ -222,14 +222,14 @@ export function BloqueCita({
             <p className={`text-[11px] font-bold leading-tight truncate ${esCancelada ? 'line-through' : ''}`}>{nombrePaciente}</p>
             <p className="text-[10px] leading-tight truncate mt-0.5 text-gray-600">{nombreServicio}</p>
             {esPendiente && <p className="text-[9px] text-amber-600 mt-0.5 leading-tight">· Sin confirmar</p>}
-            <p className="text-[10px] text-gray-400 mt-auto">{horaFin}</p>
+            <p className="text-[10px] text-gray-400 mt-auto">{horaInicio}</p>
           </>
         ) : alturaReal >= 40 ? (
           <>
             <p className={`text-[11px] font-bold leading-tight truncate ${esCancelada ? 'line-through' : ''}`}>{nombrePaciente}</p>
             <p className="text-[10px] leading-tight truncate mt-0.5 text-gray-600">{nombreServicio}</p>
             {alturaReal >= 50 && esPendiente && <p className="text-[9px] text-amber-600 mt-auto leading-tight">· Sin confirmar</p>}
-            {alturaReal >= 50 && !esPendiente && <p className="text-[10px] text-gray-400 mt-auto">{horaFin}</p>}
+            {alturaReal >= 50 && !esPendiente && <p className="text-[10px] text-gray-400 mt-auto">{horaInicio}</p>}
           </>
         ) : (
           <p className={`text-[11px] font-bold leading-tight truncate ${esCancelada ? 'line-through' : ''}`}>{nombrePaciente}</p>
