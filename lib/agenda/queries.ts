@@ -497,7 +497,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
         recurrence_instance_date: data.recurrence_instance_date ?? null,
         buffer_minutos: data.buffer_minutos ?? 0,
       })
-      .select(`*, pacientes(*), profesionales(*), servicios(*), clinicas(nombre, email, telefono, direccion, logo_url)`)
+      .select(`*, cancel_token, pacientes(*), profesionales(*), servicios(*), clinicas(nombre, email, telefono, direccion, logo_url)`)
       .single()
 
     if (error) {
@@ -558,6 +558,7 @@ function dispararNotificacionCita(cita: CitaConRelaciones) {
       clinica,
       inicio: cita.inicio,
       fin: cita.fin,
+      cancel_token: (cita as unknown as Record<string, unknown>).cancel_token ?? undefined,
     }),
   })
 }
