@@ -37,10 +37,10 @@ function Logo() {
 
 const FEATURES = [
   { icon: CalendarDays, titulo: 'Agenda inteligente', descripcion: 'Vista día, semana y mes. Detecta conflictos y confirma con un clic.', color: '#2563EB' },
-  { icon: Users, titulo: 'Fichas de pacientes', descripcion: 'Historial completo, alergias, condiciones médicas y estadísticas por paciente.', color: '#14B8A6' },
-  { icon: MessageCircle, titulo: 'Recordatorios WhatsApp', descripcion: 'Envío automático 24h y 2h antes de cada cita. Reduce los no-shows hasta un 40%.', color: '#8B5CF6' },
+  { icon: Users, titulo: 'Fichas y galería', descripcion: 'Historial completo, fotos antes/después, notas clínicas y consentimientos por paciente.', color: '#14B8A6' },
+  { icon: MessageCircle, titulo: 'Agente IA por WhatsApp', descripcion: 'Agenda, reagenda y confirma citas automáticamente por WhatsApp, 24/7. Disponible en Simpli+.', color: '#8B5CF6' },
   { icon: BarChart2, titulo: 'Reportes y métricas', descripcion: 'Ingresos por mes, ticket promedio, servicios top. Exporta a CSV con un clic.', color: '#F59E0B' },
-  { icon: Clock, titulo: 'Cobros integrados', descripcion: 'Registra pagos en efectivo, transferencia o tarjeta desde la cita.', color: '#EF4444' },
+  { icon: Clock, titulo: 'Booking público online', descripcion: 'Tu clínica con página propia para que los pacientes reserven sin llamar. Disponible en Simpli+.', color: '#EF4444' },
   { icon: Shield, titulo: 'Multi-usuario con roles', descripcion: 'Administrador, profesional y recepcionista. Cada uno ve solo lo que necesita.', color: '#0B132B' },
 ]
 
@@ -451,7 +451,7 @@ function AgenteIA() {
                 style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}>
                 Activar el agente <ArrowRight className="size-4" />
               </Link>
-              <p className="text-[12px] text-blue-400">Incluido en el plan Pro</p>
+              <p className="text-[12px] text-blue-400">Incluido en Simpli+</p>
             </div>
           </div>
 
@@ -578,12 +578,12 @@ function Precios() {
       precioAnual: 287000,
       destacado: false,
       features: [
-        '1 profesional',
+        '1 profesional · 2 usuarios',
         'Hasta 200 pacientes',
-        'Agenda completa',
-        'Fichas clínicas',
-        'Booking público',
+        'Agenda (vista día)',
+        'Fichas clínicas y galería de fotos',
         'Recordatorios por email',
+        '5 GB de almacenamiento',
         'Soporte por email',
       ],
       cta: 'Comenzar 7 días gratis',
@@ -597,13 +597,18 @@ function Precios() {
       precioAnual: 575000,
       destacado: true,
       features: [
-        'Hasta 5 profesionales',
+        'Hasta 5 profesionales · 10 usuarios',
         'Hasta 1.000 pacientes',
         'Todo lo de Simpli',
+        'Agenda semana y mes',
+        'Booking público online',
         'Agente IA WhatsApp (300 conv/mes)',
-        'Recordatorios automáticos',
+        'Recordatorios automáticos WhatsApp',
+        'Inbox WhatsApp centralizado',
+        'Consentimiento informado digital',
+        'Wizard de atención paso a paso',
         'Reportes avanzados',
-        'Roles de usuario',
+        '25 GB de almacenamiento',
         'Soporte prioritario',
       ],
       cta: 'Contratar Simpli+',
@@ -617,10 +622,11 @@ function Precios() {
       precioAnual: 959000,
       destacado: false,
       features: [
-        'Profesionales ilimitados',
+        'Profesionales ilimitados · Usuarios ilimitados',
         'Hasta 5.000 pacientes',
         'Todo lo de Simpli+',
         'Agente IA WhatsApp (1.000 conv/mes)',
+        '100 GB de almacenamiento',
         'Onboarding dedicado',
         'SLA prioritario',
       ],
