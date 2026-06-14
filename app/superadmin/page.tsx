@@ -362,7 +362,7 @@ export default function SuperAdminPage() {
                         </div>
                         <span className="hidden md:block text-xs text-gray-500 shrink-0 w-20 text-right">{sub ? PLAN_LABELS[sub.plan] : '—'}</span>
                         <span className="hidden lg:block text-xs text-gray-400 shrink-0 w-20 text-right">{c.uso.citas_total} citas</span>
-                        <span className="hidden lg:block text-xs text-gray-400 shrink-0 w-24 text-right">{c.created_at ? format(new Date(c.created_at), 'd MMM yy', { locale: es }) : '—'}</span>
+                        <span className="hidden lg:block text-xs text-gray-400 shrink-0 w-24 text-right">{safeFormat(c.created_at, 'd MMM yy')}</span>
                         {isExpanded ? <ChevronUp className="size-4 text-gray-300 shrink-0" /> : <ChevronDown className="size-4 text-gray-300 shrink-0" />}
                       </div>
                     </button>
@@ -393,13 +393,13 @@ export default function SuperAdminPage() {
                                   <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Detalle</p>
                                   <InfoRow label="ID" value={<span className="font-mono text-[10px] break-all">{c.id}</span>} />
                                   <InfoRow label="Email" value={c.email ?? '—'} />
-                                  <InfoRow label="Registrada" value={c.created_at ? format(new Date(c.created_at), "d 'de' MMMM yyyy", { locale: es }) : '—'} />
+                                  <InfoRow label="Registrada" value={safeFormat(c.created_at, "d 'de' MMMM yyyy")} />
                                   <InfoRow label="Plan" value={sub ? PLAN_LABELS[sub.plan] : '—'} />
                                   <InfoRow label="Estado" value={<span className={cfg.text}>{cfg.label}</span>} />
                                   {sub?.trial_ends_at && (
                                     <InfoRow label="Trial vence" value={
                                       <span className={trialVencido ? 'text-red-500' : ''}>
-                                        {trialVencido ? 'Vencido · ' : ''}{format(new Date(sub.trial_ends_at), "d MMM yyyy HH:mm", { locale: es })}
+                                        {trialVencido ? 'Vencido · ' : ''}{safeFormat(sub.trial_ends_at, 'd MMM yyyy HH:mm')}
                                       </span>
                                     } />
                                   )}
@@ -599,6 +599,15 @@ function MiniMetric({ label, value }: { label: string; value: string | number })
       <p className="text-xs text-gray-400 mt-0.5">{label}</p>
     </div>
   )
+}
+
+function safeFormat(dateStr: string | null | undefined, fmt: string): string {
+  if (!dateStr) return '—'
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return '—'
+    return format(d, fmt, { locale: es })
+  } catch { return '—' }
 }
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
