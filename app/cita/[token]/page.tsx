@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   CheckCircle2, XCircle, Loader2, Calendar, Clock, User,
@@ -279,6 +280,8 @@ function SlotPicker({
 
 export default function CitaPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
+  const searchParams = useSearchParams()
+  const accionAuto = searchParams.get('accion') as 'confirmar' | 'reagendar' | 'cancelar' | null
   const [vista, setVista] = useState<Vista>('loading')
   const [cita, setCita] = useState<CitaInfo | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
@@ -286,6 +289,32 @@ export default function CitaPage({ params }: { params: Promise<{ token: string }
   const [nuevaHora, setNuevaHora] = useState('')
   const [confirmando, setConfirmando] = useState(false)
   const [cancelando, setCancelando] = useState(false)
+
+  const handleConfirmar = useCallback(async () => {
+    setConfirmando(true)
+    const res = await fetch('/api/cita/confirmar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+    const json = await res.json()
+    setConfirmando(false)
+    if (json.ok) setVista('confirmada')
+    else setVista('error')
+  }, [token])
+
+  const handleCancelar = useCallback(async () => {
+    setCancelando(true)
+    const res = await fetch('/api/book/cancelar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+    const json = await res.json()
+    setCancelando(false)
+    if (json.ok) setVista('cancelada')
+    else { setErrorMsg(json.error ?? 'Error al cancelar.'); setVista('error') }
+  }, [token])
 
   useEffect(() => {
     const supabase = createClient()
@@ -338,43 +367,13 @@ export default function CitaPage({ params }: { params: Promise<{ token: string }
           profesional_nombre: r.profesional_nombre,
           fecha, hora, hora_fin: r.fin.slice(11, 16),
         })
+        // Auto-execute action from ?accion= param
+        if (accionAuto === 'confirmar') { handleConfirmar(); return }
+        if (accionAuto === 'cancelar')  { handleCancelar(); return }
+        if (accionAuto === 'reagendar') { setVista('reagendar'); return }
         setVista('acciones')
       })
-  }, [token])
-
-  async function handleConfirmar() {
-    setConfirmando(true)
-    const res = await fetch('/api/cita/confirmar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    })
-    const json = await res.json()
-    if (json.ok) {
-      setVista('confirmada')
-    } else {
-      setErrorMsg(json.error ?? 'No se pudo confirmar la cita.')
-      setVista('error')
-    }
-    setConfirmando(false)
-  }
-
-  async function handleCancelar() {
-    setCancelando(true)
-    const res = await fetch('/api/book/cancelar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    })
-    const json = await res.json()
-    if (json.ok) {
-      setVista('cancelada')
-    } else {
-      setErrorMsg(json.error ?? 'No se pudo cancelar la cita.')
-      setVista('error')
-    }
-    setCancelando(false)
-  }
+  }, [token, accionAuto, handleConfirmar, handleCancelar])
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (vista === 'loading') {
