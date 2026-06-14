@@ -21,6 +21,7 @@ type CitaRow = {
   id: string
   inicio: string
   fin: string | null
+  cancel_token: string | null
   pacientes: { nombre: string; email: string | null; telefono: string | null } | null
   profesionales: { nombre: string } | null
   servicios: { nombre: string } | null
@@ -103,11 +104,12 @@ async function sendEmail(
   }
 }
 
-function buildDatos(cita: CitaRow, tipo: string) {
+function buildDatos(cita: CitaRow, tipo: string, appBase: string) {
   const { hora, horaFin, fecha } = formatCita(cita)
   const p = cita.pacientes
   const c = cita.clinicas
   if (!p?.email) return null
+  const cancelUrl = cita.cancel_token ? `${appBase}/cita/${cita.cancel_token}` : undefined
   return {
     tipo,
     destinatario: p.email,
@@ -124,6 +126,7 @@ function buildDatos(cita: CitaRow, tipo: string) {
       clinica_telefono: c?.telefono ?? undefined,
       clinica_email: c?.email ?? undefined,
       clinica_direccion: c?.direccion ?? undefined,
+      cancel_url: cancelUrl,
     },
   }
 }
@@ -143,7 +146,7 @@ export async function GET(request: Request) {
   const stats = { recordatorio_manana: 0, recordatorio_hoy: 0, post_cita: 0, omitidos: 0, errores: 0 }
 
   const commonSelect = `
-    id, inicio, fin,
+    id, inicio, fin, cancel_token,
     pacientes(nombre, email, telefono),
     profesionales(nombre),
     servicios(nombre),
@@ -191,7 +194,7 @@ export async function GET(request: Request) {
       continue
     }
 
-    const built = buildDatos(cita, 'recordatorio_cita')
+    const built = buildDatos(cita, 'recordatorio_cita', base)
     if (!built) { stats.omitidos++; continue }
     const { tipo, destinatario, datos } = built
     const ok = await sendEmail(base, tipo, destinatario, datos)
@@ -240,7 +243,7 @@ export async function GET(request: Request) {
       continue
     }
 
-    const builtHoy = buildDatos(cita, 'recordatorio_cita')
+    const builtHoy = buildDatos(cita, 'recordatorio_cita', base)
     if (!builtHoy) { stats.omitidos++; continue }
     const { tipo, destinatario, datos } = builtHoy
     const ok = await sendEmail(base, tipo, destinatario, datos)
@@ -276,7 +279,7 @@ export async function GET(request: Request) {
       continue
     }
 
-    const builtPost = buildDatos(cita, 'post_cita')
+    const builtPost = buildDatos(cita, 'post_cita', base)
     if (!builtPost) { stats.omitidos++; continue }
     const { tipo, destinatario, datos } = builtPost
     const ok = await sendEmail(base, tipo, destinatario, datos)

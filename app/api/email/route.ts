@@ -497,6 +497,10 @@ function buildBody(tipo: TipoEmailCita, datos: DatosCita): string {
 
   if (tipo === 'recordatorio_cita') {
     const waMsg = `Hola ${clinica_nombre}, soy ${paciente_nombre}. Tengo una cita el ${datos.fecha} a las ${datos.hora} y quiero hacer una consulta.`
+    const baseUrl = datos.cancel_url ?? ''
+    const confirmarUrl = baseUrl ? `${baseUrl}?accion=confirmar` : ''
+    const reagendarUrl = baseUrl ? `${baseUrl}?accion=reagendar` : ''
+    const cancelarUrl  = baseUrl ? `${baseUrl}?accion=cancelar`  : ''
     return `
       <h1 style="margin:0 0 8px;font-size:27px;font-weight:800;color:#0B132B;letter-spacing:-0.8px;line-height:1.15;text-align:center;">
         Recuerda tu cita
@@ -510,13 +514,39 @@ function buildBody(tipo: TipoEmailCita, datos: DatosCita): string {
           <td style="background:${v.alertBg};border:1.5px solid ${v.alertBorder};border-radius:12px;padding:14px 18px;">
             <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${v.alertTitleColor};">&#9200; Tu cita es el ${datos.fecha} a las ${datos.hora}</p>
             <p style="margin:0;font-size:13px;color:${v.alertBodyColor};line-height:1.6;">
-              Te pedimos llegar <strong>10 minutos antes</strong>.<br/>
-              &#191;Necesitas cancelar o reagendar? Cont&aacute;ctanos con anticipaci&oacute;n.
+              Te pedimos llegar <strong>10 minutos antes</strong>.
             </p>
           </td>
         </tr>
       </table>
-      ${clinica_telefono ? whatsappBtn(clinica_telefono, waMsg) : ''}
+      ${confirmarUrl ? `
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:8px;">
+        <tr>
+          <td align="center" style="background:linear-gradient(135deg,#059669 0%,#10B981 100%);border-radius:10px;">
+            <a href="${confirmarUrl}" target="_blank"
+               style="display:block;padding:14px 24px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;text-align:center;">
+              &#10003;&nbsp; Confirmar asistencia
+            </a>
+          </td>
+        </tr>
+      </table>
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:8px;">
+        <tr>
+          <td align="center" style="background:#FFFFFF;border:1.5px solid #2563EB;border-radius:10px;">
+            <a href="${reagendarUrl}" target="_blank"
+               style="display:block;padding:13px 24px;font-size:13px;font-weight:700;color:#2563EB;text-decoration:none;text-align:center;">
+              &#128197;&nbsp; Reagendar cita
+            </a>
+          </td>
+        </tr>
+      </table>
+      <p style="text-align:center;margin:4px 0 16px;">
+        <a href="${cancelarUrl}" target="_blank"
+           style="font-size:12px;color:#94A3B8;text-decoration:underline;">
+          Cancelar cita
+        </a>
+      </p>
+      ` : `${clinica_telefono ? whatsappBtn(clinica_telefono, waMsg) : ''}`}
       <p style="margin:12px 0 24px;font-size:0;">&nbsp;</p>
     `
   }
