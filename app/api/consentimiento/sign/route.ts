@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: process.env.EMAIL_FROM ?? 'SimpliClinic <onboarding@resend.dev>',
+          from: process.env.EMAIL_FROM_NOREPLY ?? process.env.EMAIL_FROM ?? 'SimpliClinic <noreply@simpliclinic.cl>',
           to: [solicitud.email_destino],
           subject,
           html,
