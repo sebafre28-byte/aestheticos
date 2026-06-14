@@ -15,7 +15,7 @@ type SolicitudData = {
   expires_at: string
   firmado_at: string | null
   plantilla: { titulo: string; contenido: string } | null
-  clinica: { nombre: string } | null
+  clinica: { nombre: string; logo_url: string | null } | null
   cita: {
     inicio: string
     pacientes: { nombre: string } | null
@@ -220,9 +220,14 @@ export default function ConsentimientoPage() {
       {/* Header */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-            <span className="text-white text-xs font-bold">SC</span>
-          </div>
+          {solicitud.clinica?.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={solicitud.clinica.logo_url} alt={clinicaNombre} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+              <span className="text-white text-xs font-bold">SC</span>
+            </div>
+          )}
           <div className="min-w-0">
             <p className="text-sm font-semibold text-gray-900 truncate">{clinicaNombre}</p>
             <p className="text-xs text-gray-400">Firma digital de consentimiento</p>

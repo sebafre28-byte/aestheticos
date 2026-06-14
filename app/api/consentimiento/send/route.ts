@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     email_destino,
   })
 
-  const { data: clinica } = await db.from('clinicas').select('nombre').eq('id', cita.clinica_id).single()
+  const { data: clinica } = await db.from('clinicas').select('nombre, logo_url').eq('id', cita.clinica_id).single()
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin
   const link = `${appUrl}/consentimiento/${solicitud.token}`
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: process.env.EMAIL_FROM ?? 'SimpliClinic <onboarding@resend.dev>',
+          from: process.env.EMAIL_FROM_NOREPLY ?? process.env.EMAIL_FROM ?? 'SimpliClinic <noreply@simpliclinic.cl>',
           to: [email_destino],
           subject,
           html,

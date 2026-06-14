@@ -123,11 +123,11 @@ export async function getSolicitudesByCita(citaId: string): Promise<Consentimien
   return (data ?? []) as ConsentimientoSolicitud[]
 }
 
-export async function getSolicitudByTokenAdmin(token: string): Promise<(ConsentimientoSolicitud & { plantilla: ConsentimientoPlantilla | null; clinica: { nombre: string } | null; cita: { inicio: string; pacientes: { nombre: string } | null; servicios: { nombre: string } | null } | null }) | null> {
+export async function getSolicitudByTokenAdmin(token: string): Promise<(ConsentimientoSolicitud & { plantilla: ConsentimientoPlantilla | null; clinica: { nombre: string; logo_url: string | null } | null; cita: { inicio: string; pacientes: { nombre: string } | null; servicios: { nombre: string } | null } | null }) | null> {
   const db = createAdminClient()
   const { data } = await db
     .from('consentimiento_solicitudes')
-    .select('*, plantilla:plantilla_id(*), clinica:clinica_id(nombre), cita:cita_id(inicio, pacientes(nombre), servicios(nombre))')
+    .select('*, plantilla:plantilla_id(*), clinica:clinica_id(nombre, logo_url), cita:cita_id(inicio, pacientes(nombre), servicios(nombre))')
     .eq('token', token)
     .single()
   return data as never
