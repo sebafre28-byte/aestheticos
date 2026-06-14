@@ -7,16 +7,20 @@ export type RecordatorioContext = {
   profesionalNombre: string
   /** Fecha/hora local legible */
   inicioLegible: string
+  /** URL to /cita/{cancel_token} for patient self-service */
+  citaUrl?: string
 }
 
-const PIE_CONFIRMACION =
-  '\n\n¿Confirma su asistencia? Responda SI para confirmar o NO para cancelar.'
+function pieCita(url?: string): string {
+  if (url) return `\n\nConfirmar, reagendar o cancelar: ${url}`
+  return '\n\n¿Confirma su asistencia? Responda SI para confirmar o NO para cancelar.'
+}
 
 export function plantillaRecordatorio24h(ctx: RecordatorioContext): string {
   return (
     `Hola ${ctx.pacienteNombre}, le recordamos su cita en ${ctx.clinicaNombre} ` +
     `el ${ctx.inicioLegible} con ${ctx.profesionalNombre} (${ctx.servicioNombre}).` +
-    PIE_CONFIRMACION
+    pieCita(ctx.citaUrl)
   )
 }
 
@@ -24,7 +28,7 @@ export function plantillaRecordatorio2h(ctx: RecordatorioContext): string {
   return (
     `Hola ${ctx.pacienteNombre}, su cita en ${ctx.clinicaNombre} es en 2 horas ` +
     `(${ctx.inicioLegible}) con ${ctx.profesionalNombre} — ${ctx.servicioNombre}.` +
-    PIE_CONFIRMACION
+    pieCita(ctx.citaUrl)
   )
 }
 
@@ -32,7 +36,7 @@ export function plantillaConfirmacionManual(ctx: RecordatorioContext): string {
   return (
     `Hola ${ctx.pacienteNombre}, ${ctx.clinicaNombre} confirma su cita ` +
     `el ${ctx.inicioLegible} con ${ctx.profesionalNombre} (${ctx.servicioNombre}).` +
-    PIE_CONFIRMACION
+    pieCita(ctx.citaUrl)
   )
 }
 
