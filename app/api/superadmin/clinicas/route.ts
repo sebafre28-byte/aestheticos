@@ -140,9 +140,11 @@ export async function PATCH(request: NextRequest) {
     const { data: authUser } = await db.auth.admin.getUserById(uc.user_id)
     if (!authUser?.user?.email) return NextResponse.json({ error: 'No se pudo obtener email del admin' }, { status: 404 })
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
     const { data: link, error: linkErr } = await db.auth.admin.generateLink({
       type: 'magiclink',
       email: authUser.user.email,
+      options: { redirectTo: `${appUrl}/dashboard` },
     })
     if (linkErr || !link) return NextResponse.json({ error: 'Error generando link' }, { status: 500 })
 
