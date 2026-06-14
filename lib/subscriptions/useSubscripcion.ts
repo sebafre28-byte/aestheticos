@@ -6,7 +6,7 @@ import { PLAN_LABELS } from './queries'
 
 type Plan = 'free' | 'pro' | 'clinica'
 type Estado = 'activa' | 'pausada' | 'cancelada' | 'trial'
-type Recurso = 'profesionales' | 'pacientes' | 'conversaciones_ia'
+type Recurso = 'profesionales' | 'pacientes' | 'conversaciones_ia' | 'usuarios' | 'storage_gb'
 
 type SubscripcionState = {
   plan: Plan | null
@@ -29,14 +29,16 @@ const FEATURES: Record<string, Plan[]> = {
   agenda_semana:           ['pro', 'clinica'],
   agenda_mes:              ['pro', 'clinica'],
   multiples_profesionales: ['pro', 'clinica'],
+  consentimiento:          ['pro', 'clinica'],
+  wizard:                  ['pro', 'clinica'],
 }
 
 // null = ilimitado
 const LIMITES: Record<string, Record<Recurso, number | null>> = {
-  free:    { profesionales: 1,    pacientes: 200,  conversaciones_ia: 0    },
-  pro:     { profesionales: 5,    pacientes: 1000, conversaciones_ia: 300  },
-  clinica: { profesionales: null, pacientes: 5000, conversaciones_ia: 1000 },
-  trial:   { profesionales: null, pacientes: 5000, conversaciones_ia: 1000 },
+  free:    { profesionales: 1,    pacientes: 200,  conversaciones_ia: 0,    usuarios: 2,   storage_gb: 5    },
+  pro:     { profesionales: 5,    pacientes: 1000, conversaciones_ia: 300,  usuarios: 10,  storage_gb: 25   },
+  clinica: { profesionales: null, pacientes: 5000, conversaciones_ia: 1000, usuarios: null, storage_gb: 100 },
+  trial:   { profesionales: null, pacientes: 5000, conversaciones_ia: 1000, usuarios: null, storage_gb: 5   },
 }
 
 let cache: SubscripcionState | null = null

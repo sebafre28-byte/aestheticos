@@ -32,12 +32,14 @@ export type PlanLimits = {
   profesionales: number   // -1 = ilimitado
   pacientes: number       // -1 = ilimitado
   conversaciones_ia: number  // 0 = sin acceso, -1 = ilimitado
+  usuarios: number        // -1 = ilimitado
+  storage_gb: number      // -1 = ilimitado
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free:    { profesionales: 1,  pacientes: 200,  conversaciones_ia: 0    },
-  pro:     { profesionales: 5,  pacientes: 1000, conversaciones_ia: 300  },
-  clinica: { profesionales: -1, pacientes: 5000, conversaciones_ia: 1000 },
+  free:    { profesionales: 1,  pacientes: 200,  conversaciones_ia: 0,    usuarios: 2,  storage_gb: 5   },
+  pro:     { profesionales: 5,  pacientes: 1000, conversaciones_ia: 300,  usuarios: 10, storage_gb: 25  },
+  clinica: { profesionales: -1, pacientes: 5000, conversaciones_ia: 1000, usuarios: -1, storage_gb: 100 },
 }
 
 export const PLAN_LABELS: Record<Plan, string> = {
