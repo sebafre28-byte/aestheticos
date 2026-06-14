@@ -1,5 +1,5 @@
 # SimpliClinic — Plan de trabajo v1.0
-> Última actualización: 2026-06-12
+> Última actualización: 2026-06-14
 > Objetivo: Lanzamiento público ~1 jul 2026
 
 ## REGLAS DE TRABAJO
@@ -191,7 +191,10 @@ card_type         = tipo de tarjeta (Visa, Mastercard, etc.)
 - `049`: trigger `handle_new_user()` — crea subscription con `plan='free'`, `estado='trial'`, `trial_ends_at=now()+7d`
 - `050`: columna `cancelacion_motivo`
 - `051`: columnas `flow_customer_id`, `flow_subscription_id`
-- `052`: columnas `card_last4`, `card_type` ← **PENDIENTE aplicar en Supabase SQL Editor**
+- `052`: columnas `card_last4`, `card_type`
+- `053`: columna `billing_period` (mensual/anual)
+- `055`: RPCs para acciones de cita por token (confirmar, reagendar, cancelar, get)
+- `056`: `incrementar_conv_ia` — trial sin límite, plan clinica ilimitado
 
 ### Archivos clave
 - `lib/subscriptions/flow.ts` — cliente REST Flow (HMAC signing, customer, subscription, webhook handler)
@@ -212,16 +215,16 @@ card_type         = tipo de tarjeta (Visa, Mastercard, etc.)
 - [x] Toggle anual: envía anual=true al checkout, usa plan IDs anuales de Flow
 - [x] Webhook verificado con HMAC-SHA256
 - [x] Pill en menú Configuración dinámica (Trial/Simpli/Simpli+/Pro)
-- [ ] Migración 052 pendiente aplicar en Supabase SQL Editor
+- [x] Migraciones 052-056 aplicadas en Supabase
+- [x] Campo `anual` / `billing_period` guardado al crear suscripción
 - [ ] Probar cobro real con tarjeta real (end-to-end post-trial)
-- [ ] Guardar campo `anual` en tabla subscriptions para saber si un plan es mensual o anual
 
 ---
 
 ## ESTADO ACTUAL
 ```
 M0  Emails              ██████████ 100%  ✅ COMPLETO
-M1  Seguridad           █████████░  93%  ✅ (3 pendientes menores: Redis, secret separado, GCal token race)
+M1  Seguridad           ██████████ 100%  ✅ COMPLETO (Redis activo, secrets separados, GCal race fix)
 M2  Inbox WhatsApp      █████████░  90%  ✅ (falta prueba e2e con WhatsApp real)
 M3  Notas clínicas      ██████████ 100%  ✅ COMPLETO
 M4  Performance         ██████████ 100%  ✅ COMPLETO
@@ -230,12 +233,7 @@ M6  Monitoreo           ██████████ 100%  ✅ COMPLETO
 M7  Crons mejorados     ██████████ 100%  ✅ COMPLETO
 M8  QA y Beta           ████████░░  80%  (falta onboarding beta y feedback)
 M9  Bugs producción     ██████████ 100%  ✅ COMPLETO (auditoría jun 2026)
-M10 Launch              ░░░░░░░░░░   0%  ← SIGUIENTE
+M10 Launch              ░░░░░░░░░░   0%  ← SIGUIENTE (dominio + DNS + email verificado)
 M11 Wizard cita         ░░░░░░░░░░   0%  (backlog post-launch)
-M12 Plan y Facturación  █████████░  90%  ✅ (falta migración 052, prueba cobro real, campo anual en DB)
+M12 Plan y Facturación  █████████░  95%  ✅ (falta prueba cobro real con tarjeta)
 ```
-
-### Pendientes de seguridad antes del launch (M1 incompletos)
-1. **Rate limiter Redis** — el actual in-memory se resetea con cada deploy, inefectivo en producción
-2. **`INTERNAL_API_SECRET`** separado — actualmente `CRON_SECRET` sirve para crons Y llamadas internas, mezcla responsabilidades
-3. **`getValidToken` race condition** — si dos requests llegan simultáneos con token expirado, ambos intentan refrescar; el segundo sobreescribe el primero
