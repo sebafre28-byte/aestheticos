@@ -29,33 +29,36 @@ export async function POST(req: NextRequest) {
   }
 
   // Send confirmation email (non-blocking)
-  supabase.rpc('get_cita_por_token', { p_token: token }).then(({ data: citaData }) => {
-    const cita = citaData as {
-      ok: boolean; inicio?: string; fin?: string
-      paciente_nombre?: string; paciente_email?: string; paciente_telefono?: string
-      servicio_nombre?: string; profesional_nombre?: string
-      clinica_nombre?: string; clinica_email?: string; clinica_telefono?: string
-      clinica_direccion?: string; clinica_logo_url?: string
-    } | null
-    if (!cita?.ok) return
-    const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
-    const secret = process.env.INTERNAL_API_SECRET ?? ''
-    return fetch(`${base}/api/notificar-cita`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
-      body: JSON.stringify({
-        tipo: 'confirmacion',
-        paciente: { nombre: cita.paciente_nombre!, email: cita.paciente_email, telefono: cita.paciente_telefono },
-        profesional: { nombre: cita.profesional_nombre! },
-        servicio: { nombre: cita.servicio_nombre! },
-        clinica: { nombre: cita.clinica_nombre!, email: cita.clinica_email, telefono: cita.clinica_telefono, direccion: cita.clinica_direccion, logo_url: cita.clinica_logo_url },
-        inicio: cita.inicio!,
-        fin: cita.fin!,
-        cancel_token: token,
-        canal: 'book',
-      }),
-    })
-  }).catch((err) => console.error('[cita/confirmar] notificar error:', err))
+  void (async () => {
+    try {
+      const { data: citaData } = await supabase.rpc('get_cita_por_token', { p_token: token })
+      const cita = citaData as {
+        ok: boolean; inicio?: string; fin?: string
+        paciente_nombre?: string; paciente_email?: string; paciente_telefono?: string
+        servicio_nombre?: string; profesional_nombre?: string
+        clinica_nombre?: string; clinica_email?: string; clinica_telefono?: string
+        clinica_direccion?: string; clinica_logo_url?: string
+      } | null
+      if (!cita?.ok) return
+      const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
+      const secret = process.env.INTERNAL_API_SECRET ?? ''
+      await fetch(`${base}/api/notificar-cita`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
+        body: JSON.stringify({
+          tipo: 'confirmacion',
+          paciente: { nombre: cita.paciente_nombre!, email: cita.paciente_email, telefono: cita.paciente_telefono },
+          profesional: { nombre: cita.profesional_nombre! },
+          servicio: { nombre: cita.servicio_nombre! },
+          clinica: { nombre: cita.clinica_nombre!, email: cita.clinica_email, telefono: cita.clinica_telefono, direccion: cita.clinica_direccion, logo_url: cita.clinica_logo_url },
+          inicio: cita.inicio!,
+          fin: cita.fin!,
+          cancel_token: token,
+          canal: 'book',
+        }),
+      })
+    } catch (err) { console.error('[cita/confirmar] notificar error:', err) }
+  })()
 
   return NextResponse.json({ ok: true })
 }
