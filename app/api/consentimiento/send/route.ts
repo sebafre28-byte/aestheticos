@@ -39,10 +39,18 @@ export async function POST(request: NextRequest) {
 
   if (!member) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
 
+  // Use explicit plantilla_id, else fall back to the active one set in clinica config
+  let resolvedPlantillaId = plantilla_id ?? null
+  if (!resolvedPlantillaId) {
+    const { data: clinicaData } = await db
+      .from('clinicas').select('configuracion').eq('id', cita.clinica_id).maybeSingle()
+    resolvedPlantillaId = clinicaData?.configuracion?.consentimiento_plantilla_activa_id ?? null
+  }
+
   const solicitud = await crearSolicitud({
     clinica_id: cita.clinica_id,
     cita_id,
-    plantilla_id: plantilla_id ?? null,
+    plantilla_id: resolvedPlantillaId,
     email_destino,
   })
 
