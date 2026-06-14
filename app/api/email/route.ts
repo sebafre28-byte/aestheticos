@@ -890,6 +890,19 @@ function buildInviteEmail(d: DatosInvitacion): { subject: string; html: string }
 
 // ─── Direct sender (no HTTP loopback) ───────────────────────────────────────
 
+// Tipos de email del sistema (no-reply) vs pacientes (hola@)
+const TIPOS_NOREPLY = new Set([
+  'bienvenida', 'invitacion_equipo', 'pago_fallido', 'suscripcion_cancelada', 'limite_conv_ia',
+])
+
+function getFromAddress(tipo: string): string {
+  const isNoreply = TIPOS_NOREPLY.has(tipo)
+  const from = isNoreply
+    ? (process.env.EMAIL_FROM_NOREPLY ?? process.env.EMAIL_FROM ?? 'SimpliClinic <noreply@simpliclinic.cl>')
+    : (process.env.EMAIL_FROM ?? 'SimpliClinic <hola@simpliclinic.cl>')
+  return from
+}
+
 export async function dispatchEmail(opts: {
   tipo: string
   destinatario: string
@@ -925,7 +938,7 @@ export async function dispatchEmail(opts: {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM ?? 'SimpliClinic <onboarding@resend.dev>',
+        from: getFromAddress(opts.tipo),
         to: [opts.destinatario],
         subject,
         html,
@@ -1009,7 +1022,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM ?? 'SimpliClinic <onboarding@resend.dev>',
+        from: getFromAddress(tipo),
         to: [destinatario],
         subject,
         html,
