@@ -259,17 +259,17 @@ export default function SuperAdminPage() {
 
           {metricasLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="size-5 animate-spin text-gray-300" /></div>
-          ) : metricas ? (
+          ) : metricas?.nuevas_clinicas !== undefined ? (
             <div className="space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <MiniMetric label="Nuevas clínicas" value={metricas.nuevas_clinicas} />
-                <MiniMetric label="Citas en período" value={metricas.citas_periodo} />
-                <MiniMetric label="MRR" value={`$${Math.round(metricas.mrr_real / 1000)}K`} />
-                <MiniMetric label="Distrib. planes" value={`${metricas.por_plan.free}F / ${metricas.por_plan.pro}P / ${metricas.por_plan.clinica}C`} />
+                <MiniMetric label="Nuevas clínicas" value={metricas.nuevas_clinicas ?? 0} />
+                <MiniMetric label="Citas en período" value={metricas.citas_periodo ?? 0} />
+                <MiniMetric label="MRR" value={`$${Math.round((metricas.mrr_real ?? 0) / 1000)}K`} />
+                <MiniMetric label="Distrib. planes" value={metricas.por_plan ? `${metricas.por_plan.free ?? 0}F / ${metricas.por_plan.pro ?? 0}P / ${metricas.por_plan.clinica ?? 0}C` : '—'} />
               </div>
 
               {/* Weekly breakdown table */}
-              {metricas.crecimiento_semanal.length > 0 && (
+              {(metricas.crecimiento_semanal ?? []).length > 0 && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -280,7 +280,7 @@ export default function SuperAdminPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {metricas.crecimiento_semanal.map((s, i) => (
+                      {(metricas.crecimiento_semanal ?? []).map((s, i) => (
                         <tr key={i}>
                           <td className="py-2 text-gray-600">{s.semana}</td>
                           <td className="py-2 text-right text-gray-800 font-medium">{s.clinicas}</td>
@@ -418,15 +418,15 @@ export default function SuperAdminPage() {
                                 {/* Uso vs límites */}
                                 <div className="space-y-2">
                                   <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Uso vs límites</p>
-                                  <UsageBar label="Profesionales" used={c.uso.profesionales} max={c.limites.profesionales} />
-                                  <UsageBar label="Pacientes" used={c.uso.pacientes} max={c.limites.pacientes} />
+                                  <UsageBar label="Profesionales" used={c.uso?.profesionales ?? 0} max={c.limites?.profesionales ?? 1} />
+                                  <UsageBar label="Pacientes" used={c.uso?.pacientes ?? 0} max={c.limites?.pacientes ?? 200} />
                                   <div className="flex items-center justify-between text-xs">
                                     <span className="text-gray-500">Citas este mes</span>
-                                    <span className="font-medium text-gray-800">{c.uso.citas_mes}</span>
+                                    <span className="font-medium text-gray-800">{c.uso?.citas_mes ?? 0}</span>
                                   </div>
                                   <div className="flex items-center justify-between text-xs">
                                     <span className="text-gray-500">Citas total</span>
-                                    <span className="font-medium text-gray-800">{c.uso.citas_total}</span>
+                                    <span className="font-medium text-gray-800">{c.uso?.citas_total ?? 0}</span>
                                   </div>
                                 </div>
                               </div>
