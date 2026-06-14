@@ -15,7 +15,7 @@ import {
   type ServicioRow,
 } from '@/lib/servicios/queries'
 
-type FiltroServicios = 'todos' | 'activos' | 'nuevos'
+type FiltroServicios = 'todos' | 'activos' | 'inactivos'
 
 type ModalConfirm = {
   tipo: 'eliminar' | 'toggle'

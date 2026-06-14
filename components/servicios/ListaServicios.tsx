@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { format, isAfter, parseISO, subDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { MoreHorizontal, Pencil, Search, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { ServicioListaItem } from '@/lib/servicios/queries'
 
-type FiltroServicios = 'todos' | 'activos' | 'nuevos'
+type FiltroServicios = 'todos' | 'activos' | 'inactivos'
 
 type Props = {
   servicios: ServicioListaItem[]
@@ -29,10 +29,8 @@ type Props = {
   onEliminar: (servicio: ServicioListaItem) => void
 }
 
-function estadoServicio(s: ServicioListaItem): 'nuevo' | 'activo' | 'inactivo' {
-  if (!s.activo) return 'inactivo'
-  if (isAfter(parseISO(s.created_at), subDays(new Date(), 30))) return 'nuevo'
-  return 'activo'
+function estadoServicio(s: ServicioListaItem): 'activo' | 'inactivo' {
+  return s.activo ? 'activo' : 'inactivo'
 }
 
 function AccionesMenu({
@@ -136,7 +134,7 @@ export function ListaServicios({
           {([
             { key: 'todos', label: 'Todos' },
             { key: 'activos', label: 'Activos' },
-            { key: 'nuevos', label: 'Nuevos' },
+            { key: 'inactivos', label: 'Inactivos' },
           ] as const).map((item) => (
             <button
               key={item.key}
@@ -193,12 +191,10 @@ export function ListaServicios({
                   className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
                     estado === 'activo'
                       ? 'bg-emerald-50 text-emerald-600'
-                      : estado === 'nuevo'
-                      ? 'bg-cyan-50 text-cyan-700'
                       : 'bg-gray-100 text-gray-500'
                   }`}
                 >
-                  {estado === 'activo' ? 'Activo' : estado === 'nuevo' ? 'Nuevo' : 'Inactivo'}
+                  {estado === 'activo' ? 'Activo' : 'Inactivo'}
                 </span>
               </div>
             )
@@ -272,12 +268,10 @@ export function ListaServicios({
                       className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
                         estado === 'activo'
                           ? 'bg-emerald-50 text-emerald-600'
-                          : estado === 'nuevo'
-                          ? 'bg-cyan-50 text-cyan-700'
                           : 'bg-gray-100 text-gray-500'
                       }`}
                     >
-                      {estado === 'activo' ? 'Activo' : estado === 'nuevo' ? 'Nuevo' : 'Inactivo'}
+                      {estado === 'activo' ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
                   {!soloLectura && (
