@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getClinicaIdForUser } from '@/lib/supabase/getClinicaId'
+import { PLAN_LIMITS, type Plan } from '@/lib/subscriptions/queries'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -23,6 +25,23 @@ export async function POST(req: NextRequest) {
   const citaId = form.get('cita_id') as string | null
 
   if (!file || !pacienteId) return NextResponse.json({ error: 'Faltan file o paciente_id' }, { status: 400 })
+
+  // Check storage limit
+  const db = createAdminClient()
+  const { data: sub } = await db.from('subscriptions').select('plan, estado, trial_ends_at').eq('clinica_id', miembro.clinicaId).order('updated_at', { ascending: false }).limit(1).maybeSingle()
+  const esTrial = sub?.estado === 'trial' && sub?.trial_ends_at && new Date(sub.trial_ends_at) > new Date()
+  const plan = (sub?.plan ?? 'free') as Plan
+  const limites = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free
+  const storageLimit = esTrial ? PLAN_LIMITS.free.storage_gb : limites.storage_gb
+
+  if (storageLimit > 0) {
+    const { data: listData } = await supabase.storage.from('galeria-clinica').list(miembro.clinicaId, { limit: 10000 })
+    const usedBytes = (listData ?? []).reduce((sum, f) => sum + (f.metadata?.size ?? 0), 0)
+    const usedGB = usedBytes / (1024 ** 3)
+    if (usedGB >= storageLimit) {
+      return NextResponse.json({ error: `Límite de almacenamiento alcanzado (${storageLimit} GB). Actualiza tu plan para subir más fotos.` }, { status: 403 })
+    }
+  }
 
   const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
   const MIME_TO_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }

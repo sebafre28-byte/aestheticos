@@ -312,23 +312,26 @@ export default function SuperAdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                <PlanRow label="Precio" trial="Gratis 7 días" free="$29.900/mes" pro="$59.900/mes" clinica="$99.900/mes" icon={false} />
-                <PlanRow label="Profesionales" trial="Ilimitado" free="1" pro="5" clinica="Ilimitado" icon={false} />
-                <PlanRow label="Pacientes" trial="5.000" free="200" pro="1.000" clinica="5.000" icon={false} />
-                <PlanRow label="Agenda (día/semana/mes)" trial="✓" free="Solo día" pro="✓" clinica="✓" />
-                <PlanRow label="Booking público" trial="✓" free="✗" pro="✓" clinica="✓" />
-                <PlanRow label="Google Calendar" trial="✓" free="✓" pro="✓" clinica="✓" />
-                <PlanRow label="Recordatorios email" trial="✓" free="✓" pro="✓" clinica="✓" />
-                <PlanRow label="WhatsApp recordatorios" trial="✓" free="✗" pro="✓" clinica="✓" />
-                <PlanRow label="Agente IA WhatsApp" trial="✓" free="✗" pro="300/mes" clinica="1.000/mes" />
-                <PlanRow label="Inbox WhatsApp" trial="✓" free="✗" pro="✓" clinica="✓" />
+                <PlanRow label="Precio"                  trial="Gratis 7d"   free="$29.900/mes"  pro="$59.900/mes"   clinica="$99.900/mes" />
+                <PlanRow label="Profesionales"           trial="Ilimitado"   free="1"            pro="5"             clinica="Ilimitado"   />
+                <PlanRow label="Pacientes"               trial="5.000"       free="200"          pro="1.000"         clinica="5.000"       />
+                <PlanRow label="Usuarios (logins)"       trial="Ilimitado"   free="2"            pro="10"            clinica="Ilimitado"   />
+                <PlanRow label="Almacenamiento fotos"    trial="5 GB"        free="5 GB"         pro="25 GB"         clinica="100 GB"      />
+                <PlanRow label="Agenda día"              trial="✓" free="✓" pro="✓" clinica="✓" />
+                <PlanRow label="Agenda semana/mes"       trial="✓" free="✗" pro="✓" clinica="✓" />
+                <PlanRow label="Ficha de pacientes"      trial="✓" free="✓" pro="✓" clinica="✓" />
+                <PlanRow label="Notas clínicas"          trial="✓" free="✓" pro="✓" clinica="✓" />
+                <PlanRow label="Galería de fotos"        trial="✓" free="✓" pro="✓" clinica="✓" />
+                <PlanRow label="Recordatorios email"     trial="✓" free="✓" pro="✓" clinica="✓" />
+                <PlanRow label="Google Calendar"         trial="✓" free="✓" pro="✓" clinica="✓" />
+                <PlanRow label="Invitación de equipo"    trial="✓" free="✓" pro="✓" clinica="✓" />
+                <PlanRow label="Booking público online"  trial="✓" free="✗" pro="✓" clinica="✓" />
+                <PlanRow label="WhatsApp recordatorios"  trial="✓" free="✗" pro="✓" clinica="✓" />
+                <PlanRow label="Inbox WhatsApp"          trial="✓" free="✗" pro="✓" clinica="✓" />
+                <PlanRow label="Agente IA WhatsApp"      trial="✓" free="✗" pro="300/mes"        clinica="1.000/mes" />
                 <PlanRow label="Consentimiento informado" trial="✓" free="✗" pro="✓" clinica="✓" />
-                <PlanRow label="Wizard de atención" trial="✓" free="✗" pro="✓" clinica="✓" />
-                <PlanRow label="Notas clínicas" trial="✓" free="✓" pro="✓" clinica="✓" />
-                <PlanRow label="Ficha de pacientes" trial="✓" free="✓" pro="✓" clinica="✓" />
-                <PlanRow label="Reportes financieros" trial="✓" free="✗" pro="✓" clinica="✓" />
-                <PlanRow label="Invitación de equipo" trial="✓" free="✗" pro="✓" clinica="✓" />
-                <PlanRow label="Galería de fotos" trial="✓" free="✓" pro="✓" clinica="✓" />
+                <PlanRow label="Wizard de atención"      trial="✓" free="✗" pro="✓" clinica="✓" />
+                <PlanRow label="Reportes financieros"    trial="✓" free="✗" pro="✓" clinica="✓" />
               </tbody>
             </table>
           </div>
