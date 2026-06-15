@@ -103,14 +103,23 @@ export async function syncCitaToGoogle(citaId: string, action: SyncAction = 'upd
       continue
     }
 
-    // Strip UTC offset so Google Calendar interprets times as America/Santiago local time
-    const toLocalDT = (ts: string) => ts.replace(/([+-]\d{2}:\d{2}|Z)$/, '')
+    // DB stores appointment times as wall-clock local time disguised as UTC+00:00
+    // (e.g. 15:00 Santiago is stored as "2026-06-18T15:00:00+00:00", not "2026-06-18T18:00:00+00:00").
+    // Google Calendar API requires dateTime without offset when timeZone is specified,
+    // so we extract the wall-clock part (YYYY-MM-DDTHH:MM:SS) and let Google apply the timezone.
+    const toWallClock = (ts: string): string => {
+      // Slice to get "YYYY-MM-DDTHH:MM:SS" — works for any ISO 8601 format
+      const d = new Date(ts)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      // Use UTC getters because the wall-clock is stored as UTC
+      return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`
+    }
     const eventData = {
       summary,
       description,
       location: (clinica as { direccion?: string | null } | null)?.direccion ?? undefined,
-      start: { dateTime: toLocalDT(cita.inicio), timeZone: 'America/Santiago' },
-      end: { dateTime: toLocalDT(cita.fin ?? cita.inicio), timeZone: 'America/Santiago' },
+      start: { dateTime: toWallClock(cita.inicio), timeZone: 'America/Santiago' },
+      end: { dateTime: toWallClock(cita.fin ?? cita.inicio), timeZone: 'America/Santiago' },
       extendedProperties: { private: { simpliclinic_cita_id: citaId } },
     }
 
