@@ -187,7 +187,25 @@ export function SeccionMarketing() {
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-[13px] text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-2">La campaña se dispara manualmente desde la lista de pacientes → &quot;Reactivar pacientes&quot;.</p>
+            {/* Automático */}
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[12px] font-semibold text-gray-800">Envío automático semanal</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Cada lunes ~10:00 hrs (Chile) el sistema envía solo, sin que hagas nada.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfig(c => ({ ...c, reactivacion_auto: !c.reactivacion_auto }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ml-4 ${config.reactivacion_auto ? 'bg-blue-500' : 'bg-slate-200'}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${config.reactivacion_auto ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              {!config.reactivacion_auto && (
+                <p className="text-[11px] text-slate-400 mt-2">También puedes disparar la campaña manualmente desde Pacientes → &quot;Reactivar pacientes&quot;.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>

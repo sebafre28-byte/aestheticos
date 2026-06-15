@@ -2,20 +2,23 @@
   "crons": [
     {
       "path": "/api/cron/email-recordatorios",
-      "schedule": "0 8 * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/recordatorios",
-      "schedule": "0 8 * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/expirar-trials",
-      "schedule": "0 2 * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/marketing-cumpleanos",
-      "schedule": "0 10 * * *"
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/marketing-reactivacion",
+      "schedule": "0 14 * * 1"
     }
   ]
 }
-
