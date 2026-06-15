@@ -13,10 +13,8 @@ export type Subscription = {
   clinica_id: string
   plan: Plan
   estado: EstadoSuscripcion
-  stripe_customer_id: string | null
   flow_customer_id: string | null
   flow_subscription_id: string | null
-  stripe_subscription_id: string | null
   trial_ends_at: string | null
   current_period_start: string | null
   current_period_end: string | null
