@@ -8,3 +8,202 @@ import type { CitaConRelaciones } from '@/lib/agenda/queries'
 import { getCitasPendientes48h, actualizarEstadoCita } from '@/lib/agenda/queries'
 import { useRol } from '@/lib/auth/useRol'
 import { useRouter } from 'next/navigation'
+
+const RANGOS = [
+  { label: 'Hoy', dias: 1 },
+  { label: '48 horas', dias: 2 },
+  { label: '7 días', dias: 7 },
+  { label: '30 días', dias: 30 },
+]
+
+function tiempoRestante(inicio: string): { texto: string; urgente: boolean } {
+  const diff = differenceInMinutes(parseISO(inicio), new Date())
+  if (diff <= 0) return { texto: 'En curso', urgente: false }
+  if (diff < 60) return { texto: `En ${diff} min`, urgente: true }
+  if (diff < 120) return { texto: 'En 1 hora', urgente: diff < 90 }
+  if (diff < 1440) return { texto: `En ${Math.floor(diff / 60)} horas`, urgente: false }
+  return { texto: format(parseISO(inicio), "EEE d MMM", { locale: es }), urgente: false }
+}
+
+function CitaCard({ cita, onConfirmar, confirmando }: {
+  cita: CitaConRelaciones
+  onConfirmar: (id: string) => void
+  confirmando: string | null
+}) {
+  const { texto, urgente } = tiempoRestante(cita.inicio)
+  const hora = cita.inicio.slice(11, 16)
+  const horaFin = cita.fin?.slice(11, 16)
+
+  function abrirWhatsApp() {
+    const tel = cita.pacientes?.telefono?.replace(/\D/g, '')
+    if (!tel) return
+    const fecha = format(parseISO(cita.inicio), "EEEE d 'de' MMMM", { locale: es })
+    const msg = encodeURIComponent(`Hola ${cita.pacientes?.nombre}, te recordamos tu cita el ${fecha} a las ${hora} para ${cita.servicios?.nombre ?? 'tu servicio'}. ¿Puedes confirmar asistencia?`)
+    window.open(`https://wa.me/${tel}?text=${msg}`, '_blank')
+  }
+
+  return (
+    <div className={`bg-white rounded-xl border p-4 flex items-start gap-3 ${urgente ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'}`}>
+      <div className="shrink-0 text-center w-14">
+        <p className="text-[15px] font-bold text-gray-900 leading-tight">{hora}</p>
+        {horaFin && <p className="text-[11px] text-gray-400">{horaFin}</p>}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-semibold text-gray-900 truncate">{cita.pacientes?.nombre ?? '—'}</p>
+        <p className="text-[12px] text-gray-500 truncate">{cita.servicios?.nombre ?? '—'}</p>
+        {cita.profesionales?.nombre && (
+          <p className="text-[11px] text-gray-400 mt-0.5">con {cita.profesionales.nombre}</p>
+        )}
+        <span className={`inline-block mt-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${urgente ? 'bg-orange-100 text-orange-700' : 'bg-blue-50 text-blue-600'}`}>
+          {texto}
+        </span>
+      </div>
+      <div className="flex gap-1.5 shrink-0">
+        {cita.pacientes?.telefono && (
+          <button
+            onClick={abrirWhatsApp}
+            title="Enviar WhatsApp"
+            className="w-8 h-8 rounded-lg bg-green-50 border border-green-200 flex items-center justify-center hover:bg-green-100 transition-colors"
+          >
+            <MessageCircle className="size-3.5 text-green-600" />
+          </button>
+        )}
+        <button
+          onClick={() => onConfirmar(cita.id)}
+          disabled={confirmando === cita.id}
+          title="Confirmar cita"
+          className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center hover:bg-blue-100 transition-colors disabled:opacity-50"
+        >
+          <CheckCircle2 className="size-3.5 text-blue-600" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default function PendientesPage() {
+  const { rol } = useRol()
+  const router = useRouter()
+  const [rango, setRango] = useState(7)
+  const [citas, setCitas] = useState<CitaConRelaciones[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [confirmando, setConfirmando] = useState<string | null>(null)
+
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    try {
+      const datos = await getCitasPendientes48h(rango)
+      setCitas(datos)
+    } finally {
+      setCargando(false)
+    }
+  }, [rango])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  async function confirmar(citaId: string) {
+    setConfirmando(citaId)
+    setCitas(prev => prev.filter(c => c.id !== citaId))
+    try {
+      const ok = await actualizarEstadoCita(citaId, 'confirmada')
+      if (!ok) await cargar()
+    } catch { await cargar() }
+    finally { setConfirmando(null) }
+  }
+
+  const hoyStr = format(new Date(), 'yyyy-MM-dd')
+  const mananaStr = format(addDays(new Date(), 1), 'yyyy-MM-dd')
+  const grupos = [
+    { label: 'Hoy', citas: citas.filter(c => c.inicio.slice(0, 10) === hoyStr) },
+    { label: 'Mañana', citas: citas.filter(c => c.inicio.slice(0, 10) === mananaStr) },
+    { label: 'Próximos días', citas: citas.filter(c => c.inicio.slice(0, 10) > mananaStr) },
+  ].filter(g => g.citas.length > 0)
+
+  const rangoLabel = RANGOS.find(r => r.dias === rango)?.label ?? `${rango} días`
+
+  return (
+    <div className="p-4 sm:p-6 max-w-2xl">
+      {/* Header */}
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[18px] font-semibold text-gray-900 flex items-center gap-2">
+            <ClipboardCheck className="size-5 text-blue-500" />
+            Pendientes de confirmar
+          </h1>
+          <p className="text-[13px] text-gray-400 mt-0.5">
+            {cargando ? 'Cargando...' : citas.length === 0
+              ? 'Todo al día ✓'
+              : `${citas.length} cita${citas.length !== 1 ? 's' : ''} sin confirmar`}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={cargar}
+            disabled={cargando}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`size-3.5 ${cargando ? 'animate-spin' : ''}`} />
+            Actualizar
+          </button>
+          <button
+            onClick={() => router.push('/agenda')}
+            className="flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-2 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700 transition-colors"
+          >
+            <Calendar className="size-3.5" />
+            Ver agenda
+          </button>
+        </div>
+      </div>
+
+      {/* Selector de rango */}
+      <div className="flex gap-1.5 mb-5">
+        {RANGOS.map(r => (
+          <button
+            key={r.dias}
+            onClick={() => setRango(r.dias)}
+            className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
+              rango === r.dias
+                ? 'bg-[#2563EB] text-white'
+                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Contenido */}
+      {cargando ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-20 rounded-xl bg-gray-100 animate-pulse" />
+          ))}
+        </div>
+      ) : citas.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="text-5xl mb-4">🎉</div>
+          <p className="text-[16px] font-semibold text-gray-900">¡Todo confirmado!</p>
+          <p className="text-[13px] text-gray-400 mt-1">No hay citas pendientes en los próximos {rangoLabel.toLowerCase()}.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {grupos.map(grupo => (
+            <div key={grupo.label}>
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">{grupo.label}</p>
+              <div className="space-y-2">
+                {grupo.citas.map(cita => (
+                  <CitaCard
+                    key={cita.id}
+                    cita={cita}
+                    onConfirmar={confirmar}
+                    confirmando={confirmando}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
