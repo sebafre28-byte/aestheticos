@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { ScrollableTabs } from '@/components/ui/ScrollableTabs'
 import { useRol } from '@/lib/auth/useRol'
 import { getFichasPaciente, crearFicha, eliminarFicha, type FichaClinica } from '@/lib/fichas/queries'
 import { TEMPLATES, TIPOS_TRATAMIENTO, type TipoTratamiento } from '@/lib/fichas/templates'
@@ -90,7 +91,7 @@ export default function PanelFichas({ pacienteId, onCountChange }: Props) {
 
           <div>
             <label className="text-[11px] text-gray-500 font-medium uppercase tracking-wide">Tipo de tratamiento</label>
-            <div className="flex gap-1.5 mt-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <ScrollableTabs className="mt-1.5">
               {TIPOS_TRATAMIENTO.map((t) => (
                 <button
                   key={t}
@@ -100,7 +101,7 @@ export default function PanelFichas({ pacienteId, onCountChange }: Props) {
                   {TEMPLATES[t].label}
                 </button>
               ))}
-            </div>
+            </ScrollableTabs>
           </div>
 
           {template.campos.map((campo) => (

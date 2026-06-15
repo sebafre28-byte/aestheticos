@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { ScrollableTabs } from '@/components/ui/ScrollableTabs'
 import { useRol } from '@/lib/auth/useRol'
 import { getGaleriaFotosPaciente, subirFotoGaleria, eliminarFotoGaleria, type FotoGaleria } from '@/lib/galeria/queries'
 import { Camera, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, X, Upload } from 'lucide-react'
@@ -120,7 +121,7 @@ export default function PanelGaleria({ pacienteId, clinicaId }: { pacienteId: st
             {/* Tipo selector */}
             <div>
               <label className="text-[11px] text-gray-500 font-medium uppercase tracking-wide">Tipo de foto</label>
-              <div className="flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-none">
+              <ScrollableTabs className="mt-2">
                 {TIPOS_FOTO.map((t) => (
                   <button
                     key={t.value}
@@ -131,7 +132,7 @@ export default function PanelGaleria({ pacienteId, clinicaId }: { pacienteId: st
                     {t.label}
                   </button>
                 ))}
-              </div>
+              </ScrollableTabs>
             </div>
 
             {/* Photo picker */}
