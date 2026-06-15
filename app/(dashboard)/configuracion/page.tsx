@@ -1726,23 +1726,19 @@ function SeccionRecordatorios() {
             )}
           </div>
 
-          {/* Post-consulta */}
-          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+          {/* Post-consulta → se gestiona en Marketing */}
+          <div className="bg-violet-50 rounded-xl border border-violet-100 p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[13px] font-semibold text-gray-900">Email post-consulta</p>
-                <p className="text-[12px] text-gray-500 mt-0.5">Se envía 1–3 horas después de completar la cita</p>
+                <p className="text-[13px] font-semibold text-gray-900">Email post-consulta (feedback)</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">Encuesta de satisfacción con 4 preguntas. Se configura en Comunicaciones → Marketing.</p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setPreviewTipo('post_cita')}
-                  className="h-7 px-2.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center gap-1"
-                >
-                  <Eye className="size-3" /> Ver
-                </button>
-                <Toggle activo={emailCfg.post_cita} onChange={() => setEmailCfg(c => ({ ...c, post_cita: !c.post_cita }))} />
-              </div>
+              <a
+                href="?tab=marketing"
+                className="h-7 px-2.5 rounded-lg bg-violet-600 text-[11px] font-medium text-white hover:bg-violet-700 transition-colors shrink-0 flex items-center"
+              >
+                Ir a Marketing →
+              </a>
             </div>
           </div>
 
