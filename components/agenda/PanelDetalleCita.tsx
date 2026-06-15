@@ -783,8 +783,8 @@ export function PanelDetalleCita({
 
         {/* Footer con acciones principales */}
         <div className="px-5 py-4 border-t border-gray-100 shrink-0 space-y-2">
-          {/* Botón Iniciar / Completar cita — solo para pendiente/confirmada */}
-          {(estadoActual === 'pendiente' || estadoActual === 'confirmada') && (
+          {/* Botón Iniciar / Completar cita — disponible hasta que el paciente sea atendido */}
+          {(estadoActual === 'pendiente' || estadoActual === 'confirmada' || estadoActual === 'en_sala') && (
             wizardActivo ? (
               <Button
                 size="sm"
