@@ -1,7 +1,7 @@
 # SimpliClinic — Plan de Ejecución: 6.2 → 10/10
 > Última actualización: 2026-06-15 16:00
 > Basado en auditoría investment-grade de 12 dimensiones
-> Score inicial: **6.2 / 10** | Score actual: **~8.5** | Score objetivo: **10 / 10**
+> Score inicial: **6.2 / 10** | Score actual: **~8.7** | Score objetivo: **10 / 10**
 
 ---
 
@@ -90,9 +90,9 @@
 > Estado: ⬜ PENDIENTE
 > Score aporte: +0.2 → llevar a ~9.9
 
-- [ ] **GCal-1** — Fix timezone (reemplazar regex por ISO 8601 correcto)
+- [x] **GCal-1** — Fix timezone (reemplazar regex por ISO 8601 correcto)
 - [ ] **GCal-2** — Sync inversa Google → SimpliClinic (bloqueos de agenda del profesional)
-- [ ] **GCal-3** — Monitor de expiración de tokens GCal con alerta en UI
+- [x] **GCal-3** — Monitor de expiración de tokens GCal con alerta en UI
 
 ---
 
