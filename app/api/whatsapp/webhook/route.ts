@@ -130,11 +130,12 @@ async function handleMetaPost(request: NextRequest): Promise<NextResponse> {
       for (const msg of value.messages ?? []) {
         const from = `+${msg.from}`
 
-        // Look up existing conversation
+        // Look up existing conversation scoped to this clinic (prevents cross-tenant bleed)
         const { data: existingConv, error: convErr } = await supabase
           .from('conversaciones')
           .select('id, clinica_id, no_leidos')
           .eq('telefono', from)
+          .eq('clinica_id', clinicaIdForNew ?? '')
           .maybeSingle()
 
         let conv: { id: string; clinica_id: string; no_leidos: number } | null = existingConv ?? null

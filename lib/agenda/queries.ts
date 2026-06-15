@@ -547,9 +547,15 @@ function dispararNotificacionCita(cita: CitaConRelaciones) {
     direccion: clinicaRaw?.direccion ?? null,
     logo_url: clinicaRaw?.logo_url ?? null,
   }
+  // When called from the client, the user's session cookie is sent automatically.
+  // When called from the server (book/whatsapp flows), INTERNAL_API_SECRET is set.
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (typeof window === 'undefined' && process.env.INTERNAL_API_SECRET) {
+    headers['x-internal-secret'] = process.env.INTERNAL_API_SECRET
+  }
   return fetch(`${base}/api/notificar-cita`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
+    headers,
     body: JSON.stringify({
       tipo: 'nueva_cita',
       canal: 'agenda',
