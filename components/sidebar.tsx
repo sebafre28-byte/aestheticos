@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useId } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -71,6 +71,7 @@ const NAV_GROUPS: NavGroup[] = [
 // ─── Badge hook ───────────────────────────────────────────────────────────────
 
 function useBadgeCounts() {
+  const id = useId()
   const [whatsapp, setWhatsapp] = useState(0)
   const [pendientes, setPendientes] = useState(0)
 
@@ -78,33 +79,32 @@ function useBadgeCounts() {
     const supabase = createClient()
 
     async function cargar() {
-      const [{ data: convs }, { data: citas }] = await Promise.all([
+      const [{ data: convs }, { count: citasCount }] = await Promise.all([
         supabase
           .from('conversaciones')
           .select('no_leidos')
           .gt('no_leidos', 0),
         supabase
           .from('citas')
-          .select('id', { count: 'exact', head: true })
+          .select('*', { count: 'exact', head: true })
           .eq('estado', 'pendiente')
           .gte('inicio', new Date().toISOString()),
       ])
       const totalWa = (convs ?? []).reduce((acc, c) => acc + (c.no_leidos ?? 0), 0)
       setWhatsapp(totalWa)
-      setPendientes((citas as unknown as { count: number } | null)?.count ?? 0)
+      setPendientes(citasCount ?? 0)
     }
 
     cargar()
 
-    // Realtime: conversaciones no_leidos
     const channel = supabase
-      .channel('sidebar-badges')
+      .channel(`sidebar-badges-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversaciones' }, cargar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'citas' }, cargar)
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [])
+  }, [id])
 
   return { whatsapp, pendientes }
 }
