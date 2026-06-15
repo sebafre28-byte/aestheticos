@@ -100,7 +100,7 @@
 > Estado: ⬜ PENDIENTE
 > Score aporte: +0.1 → llevar a **10.0**
 
-- [ ] **UX-1** — Estado "paciente en sala" en agenda (quick win operacional)
+- [x] **UX-1** — Estado "paciente en sala" en agenda → migración 062 + botón "Llegó ✓" + punto pulsante verde
 - [ ] **UX-2** — PWA básico (instalar en tablet de recepcionista)
 - [ ] **UX-3** — Export de citas a CSV
 - [ ] **UX-4** — Widget estadísticas diarias en dashboard
@@ -150,3 +150,4 @@
 | 2026-06-15 | SEC-14 | Security headers HTTP en next.config.ts ✅ |
 | 2026-06-15 | ARQ-1 | Campos stripe_* eliminados de TypeScript ✅ |
 | 2026-06-15 | DB-1 | Migración 061 — 4 índices faltantes creados ✅ |
+| 2026-06-15 | UX-1 | Estado "en sala" — migración 062 + visual verde pulsante en agenda ✅ |
