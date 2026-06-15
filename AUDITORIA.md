@@ -1,7 +1,7 @@
 # SimpliClinic — Plan de Ejecución: 6.2 → 10/10
 > Última actualización: 2026-06-15 16:00
 > Basado en auditoría investment-grade de 12 dimensiones
-> Score inicial: **6.2 / 10** | Score actual: **~8.1** | Score objetivo: **10 / 10**
+> Score inicial: **6.2 / 10** | Score actual: **~8.5** | Score objetivo: **10 / 10**
 
 ---
 
@@ -79,8 +79,8 @@
 > Score aporte: +0.7 → llevar a ~9.7
 
 - [ ] **IA-1** — Agente WhatsApp async (200 OK a Meta inmediato, procesar en background)
-- [ ] **IA-2** — Historial conversacional persistente para el agente (últimos N mensajes)
-- [ ] **IA-3** — Switch dinámico Sonnet/Opus según complejidad (ahorro 60-70% en costo IA)
+- [x] **IA-2** — Historial conversacional persistente para el agente (últimos N mensajes)
+- [x] **IA-3** — Switch dinámico Sonnet/Opus según complejidad (ahorro 60-70% en costo IA)
 - [ ] **IA-4** — Monitor de expiración de token Meta WhatsApp
 - [ ] **IA-5** — Queue para envíos masivos de WhatsApp (evitar rate limit Meta)
 
