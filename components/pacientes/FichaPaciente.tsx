@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import { ScrollableTabs } from '@/components/ui/ScrollableTabs'
 import { useRol } from '@/lib/auth/useRol'
 import { differenceInYears, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -343,8 +344,8 @@ export function FichaPaciente({
             ))}
           </div>
 
-          {/* Tab buttons — scrollable on mobile */}
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none -mx-1 px-1">
+          {/* Tab buttons — scrollable */}
+          <ScrollableTabs className="-mx-1 px-1">
             {tabs.map(({ key, label, badge }) => (
               <button
                 key={key}
@@ -361,7 +362,7 @@ export function FichaPaciente({
                 )}
               </button>
             ))}
-          </div>
+          </ScrollableTabs>
         </div>
 
         {/* Tab content */}
