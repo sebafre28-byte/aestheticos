@@ -1,5 +1,5 @@
 # SimpliClinic — Plan de trabajo v1.0
-> Última actualización: 2026-06-14
+> Última actualización: 2026-06-15
 > Objetivo: Lanzamiento público ~1 jul 2026
 
 ## REGLAS DE TRABAJO
@@ -38,9 +38,9 @@
 - [x] 1.13 `proxy.ts` — middleware de auth: redirige a `/login` páginas no autenticadas, retorna 401 en APIs
 - [x] 1.14 Rutas `usuarios/invite`, `activate`, `resend`, `delete` — `createAdminClient()` movido dentro del handler (evitaba crash en build)
 - [x] 1.15 `/api/citas/sync-google` — acepta `x-internal-secret` para llamadas internas
-- [ ] 1.16 Rate limiter con Redis/Upstash (actualmente in-memory, se resetea entre deploys)
-- [ ] 1.17 `INTERNAL_API_SECRET` separado de `CRON_SECRET` (actualmente comparten la misma variable)
-- [ ] 1.18 Race condition en Google Calendar `getValidToken` — doble refresh simultáneo posible
+- [x] 1.16 Rate limiter Redis/Upstash activo en producción (vars configuradas en Vercel)
+- [x] 1.17 `INTERNAL_API_SECRET` separado de `CRON_SECRET` — cada secret tiene un único propósito
+- [x] 1.18 Race condition `getValidToken` — coalescing con Map de promesas en vuelo por token.id
 
 ---
 
@@ -116,12 +116,13 @@ _Módulo agregado para registrar fixes de producción fuera del plan original._
 
 ---
 
-## MÓDULO 10 — LAUNCH
-- [ ] 10.1 Dominio `simpliclinic.cl` + DNS (acción del usuario)
-- [ ] 10.2 Email `@simpliclinic.cl` verificado en Resend (acción del usuario)
+## MÓDULO 10 — LAUNCH ✅ (infraestructura lista)
+- [x] 10.1 Dominio `app.simpliclinic.cl` + DNS configurado en Vercel
+- [x] 10.2 Email `@simpliclinic.cl` verificado en Resend (Verified ✅)
 - [x] 10.3 Flow.cl en modo producción — reemplaza Stripe (no opera en Chile)
 - [x] 10.4 Variables de entorno producción actualizadas en Vercel
-- [ ] 10.5 Anuncio beta → launch público
+- [ ] 10.5 Test cobro real Flow.cl con tarjeta real (acción del usuario)
+- [ ] 10.6 Anuncio beta → launch público
 
 ---
 
@@ -221,10 +222,66 @@ card_type         = tipo de tarjeta (Visa, Mastercard, etc.)
 
 ---
 
+---
+
+## MÓDULO 13 — COBROS Y COMISIONES ← SIGUIENTE
+> _Principio: el admin ve los números sin aprender contabilidad. Un click cierra la caja._
+
+**Por qué primero:** Es la brecha más dolorosa vs AgendaPro y Reservo. Cualquier clínica con más de un profesional lo necesita el día 1.
+
+- [ ] 13.1 Comisión por profesional: % configurable en `/configuracion` → Equipo (por defecto 0%)
+- [ ] 13.2 Al registrar cobro de cita, calcular y guardar comisión automáticamente
+- [ ] 13.3 Reporte de comisiones: tabla por profesional con total del período, exportable
+- [ ] 13.4 Cierre de caja diario: resumen de ingresos por método de pago (efectivo/tarjeta/transferencia/online)
+- [ ] 13.5 Historial de cierres de caja (ver cierres anteriores)
+- [ ] 13.6 Migración DB: tabla `cobros_detalle` (método_pago) + `comisiones` (profesional_id, monto, cita_id)
+
+---
+
+## MÓDULO 14 — PAQUETES DE SESIONES
+> _Principio: la clínica vende el paquete en 2 clicks. El paciente ve cuántas sesiones le quedan._
+
+**Por qué:** Es el modelo de negocio más común en estética (10 sesiones de láser, 5 de masajes). Hoy no hay forma de hacerlo. Alta demanda en beta.
+
+- [ ] 14.1 CRUD paquetes en `/configuracion` → Servicios: nombre, servicio asociado, N sesiones, precio
+- [ ] 14.2 Vender paquete a paciente desde su ficha: aparece en historial con sesiones disponibles
+- [ ] 14.3 Al agendar cita, opción "Usar sesión de paquete" si el paciente tiene paquete activo
+- [ ] 14.4 Badge en ficha del paciente mostrando paquetes activos y sesiones restantes
+- [ ] 14.5 Alerta automática cuando el paciente usa su última sesión (email + aviso en agenda)
+- [ ] 14.6 Migración DB: tablas `paquetes` + `paquetes_vendidos` (paciente_id, sesiones_total, sesiones_usadas)
+
+---
+
+## MÓDULO 15 — MARKETING AUTOMÁTICO SIMPLE
+> _Principio: la clínica no configura nada. El sistema envía solo. Se activa con un toggle._
+
+**Por qué:** Ya tenemos toda la infraestructura de email/WhatsApp. Son triggers, no una plataforma de marketing. Diferenciador de retención vs competidores básicos.
+
+- [ ] 15.1 Email de cumpleaños: cron diario detecta pacientes con cumpleaños hoy → envía email con mensaje personalizable
+- [ ] 15.2 Campaña de reactivación: botón en `/pacientes` → "Enviar recordatorio" a pacientes sin cita en X días (configurable: 30/45/60/90)
+- [ ] 15.3 Toggle en Configuración → Marketing: activar/desactivar cada automatización
+- [ ] 15.4 Campo `fecha_nacimiento` en ficha de paciente (si no existe, agregar)
+- [ ] 15.5 Plantilla email cumpleaños + recordatorio reactivación (variantes de la plantilla existente)
+- [ ] 15.6 Log de envíos en `whatsapp_logs` con tipo `email_cumpleanos` / `email_reactivacion`
+
+---
+
+## MÓDULO 16 — REDUCIR NO-SHOWS
+> _Principio: el paciente confirma en 1 click desde el email. La clínica no hace nada._
+
+**Por qué:** Ya tenemos confirmación por email/link. Este módulo la potencia con señal de pago y lista de espera.
+
+- [ ] 16.1 Lista de espera: al cancelar una cita, ofrecer el horario a pacientes en lista de espera de ese servicio/profesional
+- [ ] 16.2 Agregar paciente a lista de espera desde ficha o al intentar reservar horario ocupado
+- [ ] 16.3 Señal al reservar online: % del precio cobrado al momento de la reserva (configurable por clínica, 0% = desactivado)
+- [ ] 16.4 Migración DB: tabla `lista_espera` (paciente_id, profesional_id, servicio_id, fecha_preferida)
+
+---
+
 ## ESTADO ACTUAL
 ```
 M0  Emails              ██████████ 100%  ✅ COMPLETO
-M1  Seguridad           ██████████ 100%  ✅ COMPLETO (Redis activo, secrets separados, GCal race fix)
+M1  Seguridad           ██████████ 100%  ✅ COMPLETO
 M2  Inbox WhatsApp      █████████░  90%  ✅ (falta prueba e2e con WhatsApp real)
 M3  Notas clínicas      ██████████ 100%  ✅ COMPLETO
 M4  Performance         ██████████ 100%  ✅ COMPLETO
@@ -232,8 +289,22 @@ M5  Invitación equipo   ██████████ 100%  ✅ COMPLETO
 M6  Monitoreo           ██████████ 100%  ✅ COMPLETO
 M7  Crons mejorados     ██████████ 100%  ✅ COMPLETO
 M8  QA y Beta           ████████░░  80%  (falta onboarding beta y feedback)
-M9  Bugs producción     ██████████ 100%  ✅ COMPLETO (auditoría jun 2026)
-M10 Launch              ░░░░░░░░░░   0%  ← SIGUIENTE (dominio + DNS + email verificado)
-M11 Wizard cita         ░░░░░░░░░░   0%  (backlog post-launch)
+M9  Bugs producción     ██████████ 100%  ✅ COMPLETO
+M10 Launch              █████████░  95%  ✅ (falta test cobro real Flow + anuncio)
+M11 Wizard cita         ░░░░░░░░░░   0%  (post-launch)
 M12 Plan y Facturación  █████████░  95%  ✅ (falta prueba cobro real con tarjeta)
+M13 Cobros y Comisiones ░░░░░░░░░░   0%  ← SIGUIENTE
+M14 Paquetes sesiones   ░░░░░░░░░░   0%
+M15 Marketing automático░░░░░░░░░░   0%
+M16 Reducir no-shows    ░░░░░░░░░░   0%
 ```
+
+### Decisión de roadmap (2026-06-15)
+Análisis competitivo vs AgendaPro, Reservo, Fresha, Booksy, Flowww reveló 4 brechas priorizadas por impacto y simplicidad:
+
+1. **M13 Cobros y Comisiones** — bloqueador para clínicas con >1 profesional
+2. **M14 Paquetes de sesiones** — modelo de negocio más común en estética
+3. **M15 Marketing automático** — retención sin esfuerzo, usa infraestructura existente
+4. **M16 Reducir no-shows** — lista de espera + señal, problema universal
+
+Features descartados por complejidad no justificada: inventario de productos, programa de puntos completo, app móvil para pacientes, integración SII (evaluar en 2027), marketplace.
