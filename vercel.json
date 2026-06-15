@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/expirar-trials",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/marketing-cumpleanos",
+      "schedule": "0 10 * * *"
     }
   ]
 }

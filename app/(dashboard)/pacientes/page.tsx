@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Download } from 'lucide-react'
+import { Download, RotateCcw, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRol } from '@/lib/auth/useRol'
 import { useProfesionalId } from '@/lib/auth/useProfesionalId'
@@ -48,6 +48,25 @@ export default function PacientesPage() {
   const [procesando, setProcesando] = useState(false)
   const [citasAEliminar, setCitasAEliminar] = useState(0)
   const [exportando, setExportando] = useState(false)
+  const [modalReactivacion, setModalReactivacion] = useState(false)
+  const [reactivando, setReactivando] = useState(false)
+  const [reactivacionResultado, setReactivacionResultado] = useState<{ enviados: number; total_inactivos: number } | null>(null)
+  const [diasReactivacion, setDiasReactivacion] = useState(60)
+
+  async function handleReactivacion() {
+    setReactivando(true)
+    try {
+      const res = await fetch('/api/marketing/reactivacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dias: diasReactivacion }),
+      })
+      const data = await res.json()
+      setReactivacionResultado(data)
+    } finally {
+      setReactivando(false)
+    }
+  }
 
   async function handleExportCSV() {
     if (exportando) return
@@ -153,15 +172,24 @@ export default function PacientesPage() {
           <p className="text-[13px] text-gray-400 mt-0.5">{total} pacientes registrados</p>
         </div>
         {rol === 'admin' && (
-          <button
-            onClick={handleExportCSV}
-            disabled={exportando}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-60"
-          >
-            <Download className="size-4 text-gray-500" />
-            <span className="hidden sm:inline">{exportando ? 'Exportando...' : 'Exportar CSV'}</span>
-            <span className="sm:hidden">CSV</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setModalReactivacion(true); setReactivacionResultado(null) }}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 shadow-sm hover:bg-gray-50 transition-colors"
+            >
+              <RotateCcw className="size-4 text-blue-500" />
+              <span className="hidden sm:inline">Reactivar pacientes</span>
+            </button>
+            <button
+              onClick={handleExportCSV}
+              disabled={exportando}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-60"
+            >
+              <Download className="size-4 text-gray-500" />
+              <span className="hidden sm:inline">{exportando ? 'Exportando...' : 'Exportar CSV'}</span>
+              <span className="sm:hidden">CSV</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -254,6 +282,58 @@ export default function PacientesPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </>
+      )}
+
+      {/* Modal reactivación */}
+      {modalReactivacion && (
+        <>
+          <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setModalReactivacion(false)} />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[400px] bg-white rounded-2xl shadow-2xl z-50 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[15px] font-semibold text-gray-900">Reactivar pacientes inactivos</h3>
+              <button onClick={() => setModalReactivacion(false)} className="p-1 rounded-lg hover:bg-slate-100">
+                <X className="size-4 text-slate-500" />
+              </button>
+            </div>
+
+            {reactivacionResultado ? (
+              <div className="text-center py-4">
+                <div className="text-3xl mb-3">✅</div>
+                <p className="text-[15px] font-semibold text-gray-900">{reactivacionResultado.enviados} emails enviados</p>
+                <p className="text-[13px] text-slate-500 mt-1">de {reactivacionResultado.total_inactivos} pacientes inactivos encontrados</p>
+                <button onClick={() => setModalReactivacion(false)} className="mt-4 w-full h-9 rounded-lg bg-[#2563EB] text-[13px] font-medium text-white hover:bg-blue-700 transition-colors">
+                  Cerrar
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-[13px] text-slate-600">Envía un email a todos los pacientes que no han tenido cita en los últimos:</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {[30, 45, 60, 90].map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setDiasReactivacion(d)}
+                      className={`h-9 rounded-lg border text-[12px] font-medium transition-colors ${diasReactivacion === d ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      {d} días
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-400">Se excluyen pacientes contactados en los últimos 30 días.</p>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setModalReactivacion(false)} className="flex-1 h-9 rounded-lg border border-slate-200 text-[13px] text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                  <button
+                    onClick={handleReactivacion}
+                    disabled={reactivando}
+                    className="flex-1 h-9 rounded-lg bg-[#2563EB] text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    {reactivando ? <><RotateCcw className="size-3.5 animate-spin" />Enviando...</> : 'Enviar emails'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
