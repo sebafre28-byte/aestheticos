@@ -29,6 +29,7 @@ type Props = {
 
 export function SeccionCobroCita({ cita, onPagoActualizado }: Props) {
   const precioServicio = cita.servicios?.precio ?? 0
+  const comisionPct = cita.profesionales?.comision_porcentaje ?? 0
   const [estado, setEstado] = useState<PagoEstado>((cita.pago_estado ?? 'pendiente') as PagoEstado)
   const [monto, setMonto] = useState(String(cita.pago_monto ?? precioServicio))
   const [metodo, setMetodo] = useState<PagoMetodo | ''>((cita.pago_metodo as PagoMetodo) ?? '')
@@ -38,6 +39,7 @@ export function SeccionCobroCita({ cita, onPagoActualizado }: Props) {
 
   const montoNum = Math.max(0, parseInt(monto.replace(/\D/g, ''), 10) || 0)
   const requiereCobro = estado === 'pagado' || estado === 'parcial'
+  const comisionMonto = requiereCobro && comisionPct > 0 ? Math.round(montoNum * comisionPct / 100) : 0
 
   function seleccionarEstado(nuevo: PagoEstado) {
     setEstado(nuevo)
@@ -66,6 +68,7 @@ export function SeccionCobroCita({ cita, onPagoActualizado }: Props) {
       pago_estado: estado,
       pago_monto: requiereCobro ? montoNum : precioServicio,
       pago_metodo: requiereCobro ? (metodo as PagoMetodo) : null,
+      comision_monto: comisionMonto,
     })
     setGuardando(false)
 
@@ -129,6 +132,12 @@ export function SeccionCobroCita({ cita, onPagoActualizado }: Props) {
               />
             </div>
           </div>
+
+          {comisionPct > 0 && montoNum > 0 && (
+            <p className="text-[11px] text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+              Comisión {comisionPct}%: <span className="font-semibold text-slate-700">{formatCLP(comisionMonto)}</span>
+            </p>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-[12px] text-gray-600">Método de pago</Label>

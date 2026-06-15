@@ -12,12 +12,14 @@ export type PagoCitaFields = {
   pago_estado: PagoEstado
   pago_metodo: PagoMetodo | null
   pago_registrado_at: string | null
+  comision_monto: number
 }
 
 export type ActualizarPagoInput = {
   pago_estado: PagoEstado
   pago_monto: number
   pago_metodo?: PagoMetodo | null
+  comision_monto?: number
 }
 
 export const PAGO_ESTADO_LABELS: Record<PagoEstado, string> = {
@@ -61,6 +63,7 @@ export async function actualizarPagoCita(
     pago_metodo: input.pago_estado === 'pendiente' ? null : (input.pago_metodo ?? null),
     pago_registrado_at:
       input.pago_estado === 'pendiente' ? null : new Date().toISOString(),
+    comision_monto: input.comision_monto ?? 0,
   }
 
   const { data, error } = await supabase
@@ -68,7 +71,7 @@ export async function actualizarPagoCita(
     .update(payload)
     .eq('id', citaId)
     .eq('clinica_id', clinicaId)
-    .select('pago_monto, pago_estado, pago_metodo, pago_registrado_at')
+    .select('pago_monto, pago_estado, pago_metodo, pago_registrado_at, comision_monto')
     .single()
 
   if (error) {

@@ -18,6 +18,7 @@ import {
   ChevronUp,
   Shield,
   CalendarDays,
+  Wallet,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -33,6 +34,7 @@ const navItems: { href: string; label: string; icon: React.ElementType; modulo: 
   { href: "/servicios",     label: "Servicios",     icon: Syringe,         modulo: "servicios" },
   { href: "/whatsapp",      label: "WhatsApp",      icon: MessageCircle,   modulo: "whatsapp" },
   { href: "/inbox",         label: "Inbox",         icon: MessageSquare,   modulo: "inbox" },
+  { href: "/caja",          label: "Caja",          icon: Wallet,          modulo: "caja" },
   { href: "/reportes",      label: "Reportes",      icon: BarChart2,       modulo: "reportes" },
   { href: "/configuracion", label: "Configuración", icon: Settings,        modulo: "configuracion" },
 ]
