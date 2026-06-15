@@ -678,6 +678,11 @@ function PasoDatos({
     if (!form.email.trim()) { setError('El email es requerido.'); return }
 
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    // In production, CAPTCHA is always required. If env var is missing, block booking.
+    if (process.env.NODE_ENV === 'production' && !siteKey) {
+      setError('Verificación de seguridad no configurada. Contacta al administrador.')
+      return
+    }
     if (siteKey && !captchaToken) {
       setError('Por favor completa la verificación de seguridad.')
       return
