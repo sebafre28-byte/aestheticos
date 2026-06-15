@@ -8,6 +8,7 @@ import {
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
   ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, FileText, ClipboardList,
+  Syringe,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
@@ -45,7 +46,7 @@ import { SeccionMarketing } from "@/components/marketing/SeccionMarketing"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "consentimiento" | "wizard" | "paquetes" | "marketing"
+type SeccionId = "clinica" | "horarios" | "servicios" | "paquetes" | "equipo" | "usuarios" | "wizard" | "consentimiento" | "recordatorios" | "marketing" | "whatsapp" | "google" | "plan" | "seguridad"
 
 type NavGroup = {
   label: string
@@ -54,29 +55,40 @@ type NavGroup = {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Clínica",
+    label: "Mi clínica",
     items: [
-      { id: "clinica",        label: "Datos generales",           icon: Building2 },
-      { id: "horarios",       label: "Horarios y disponibilidad", icon: Clock },
-      { id: "paquetes",       label: "Paquetes de sesiones",      icon: Package },
-      { id: "consentimiento", label: "Consentimiento inform.",    icon: FileText },
-      { id: "wizard",         label: "Wizard de atención",        icon: ClipboardList },
+      { id: "clinica",   label: "Datos generales",          icon: Building2 },
+      { id: "horarios",  label: "Horarios y disponibilidad", icon: Clock },
+      { id: "servicios", label: "Servicios y precios",       icon: Syringe },
+      { id: "paquetes",  label: "Paquetes de sesiones",      icon: Package },
     ],
   },
   {
     label: "Equipo",
     items: [
-      { id: "equipo",   label: "Profesionales",   icon: Users },
+      { id: "equipo",   label: "Profesionales",    icon: Users },
       { id: "usuarios", label: "Usuarios y roles", icon: UserCog },
+    ],
+  },
+  {
+    label: "Atención al paciente",
+    items: [
+      { id: "wizard",         label: "Wizard de atención",     icon: ClipboardList },
+      { id: "consentimiento", label: "Consentimiento inform.", icon: FileText },
     ],
   },
   {
     label: "Comunicaciones",
     items: [
-      { id: "whatsapp",      label: "WhatsApp Business", icon: MessageCircle },
-      { id: "recordatorios", label: "Recordatorios",     icon: Bell },
-      { id: "google",        label: "Google Calendar",   icon: CalendarDays },
-      { id: "marketing",     label: "Marketing",         icon: Megaphone },
+      { id: "recordatorios", label: "Recordatorios de cita", icon: Bell },
+      { id: "marketing",     label: "Marketing automático",  icon: Megaphone },
+    ],
+  },
+  {
+    label: "Integraciones",
+    items: [
+      { id: "whatsapp", label: "WhatsApp Business", icon: MessageCircle },
+      { id: "google",   label: "Google Calendar",   icon: CalendarDays },
     ],
   },
   {
@@ -1921,6 +1933,25 @@ function SeccionGoogleCalendar() {
   )
 }
 
+// ─── Sección Servicios (embed) ────────────────────────────────────────────────
+
+function SeccionServiciosEmbed() {
+  return (
+    <div className="-mx-1">
+      <div className="mb-4">
+        <h2 className="text-[14px] font-semibold text-gray-900">Servicios y precios</h2>
+        <p className="text-[12px] text-gray-500 mt-0.5">Gestiona los tratamientos y servicios que ofrece tu clínica.</p>
+      </div>
+      <iframe
+        src="/servicios"
+        className="w-full rounded-xl border border-gray-100"
+        style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}
+        title="Servicios"
+      />
+    </div>
+  )
+}
+
 // ─── Sección Plan ─────────────────────────────────────────────────────────────
 
 function SeccionPlan() {
@@ -2670,7 +2701,7 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","consentimiento","wizard","paquetes","marketing"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","horarios","servicios","paquetes","equipo","usuarios","wizard","consentimiento","recordatorios","marketing","whatsapp","google","plan","seguridad"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
   const { plan: planActual, estado: estadoActual, esTrial } = useSubscripcion()
@@ -2688,18 +2719,19 @@ function ConfiguracionInner() {
 
   const SECCIONES: Record<SeccionId, React.ReactNode> = {
     clinica:        <SeccionClinica />,
-    equipo:         <SeccionEquipo />,
     horarios:       <SeccionHorariosUnificada />,
+    servicios:      <SeccionServiciosEmbed />,
+    paquetes:       <SeccionPaquetes />,
+    equipo:         <SeccionEquipo />,
     usuarios:       <SeccionUsuarios />,
-    whatsapp:       <SeccionWhatsApp />,
+    wizard:         <SeccionWizardConfig />,
+    consentimiento: <SeccionConsentimientoConfig />,
     recordatorios:  <SeccionRecordatorios />,
+    marketing:      <SeccionMarketing />,
+    whatsapp:       <SeccionWhatsApp />,
     google:         <SeccionGoogleCalendar />,
     plan:           <SeccionPlan />,
     seguridad:      <SeccionSeguridad />,
-    consentimiento: <SeccionConsentimientoConfig />,
-    wizard:         <SeccionWizardConfig />,
-    paquetes:       <SeccionPaquetes />,
-    marketing:      <SeccionMarketing />,
   }
 
   return (
