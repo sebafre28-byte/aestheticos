@@ -40,11 +40,12 @@ import {
   type ConsentimientoPlantilla,
 } from "@/lib/consentimientos/queries"
 import { SeccionPaquetes } from "@/components/paquetes/SeccionPaquetes"
-import { Package } from "lucide-react"
+import { Package, Megaphone } from "lucide-react"
+import { SeccionMarketing } from "@/components/marketing/SeccionMarketing"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "consentimiento" | "wizard" | "paquetes"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "consentimiento" | "wizard" | "paquetes" | "marketing"
 
 type NavGroup = {
   label: string
@@ -75,6 +76,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "whatsapp",      label: "WhatsApp Business", icon: MessageCircle },
       { id: "recordatorios", label: "Recordatorios",     icon: Bell },
       { id: "google",        label: "Google Calendar",   icon: CalendarDays },
+      { id: "marketing",     label: "Marketing",         icon: Megaphone },
     ],
   },
   {
@@ -2672,7 +2674,7 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","consentimiento","wizard","paquetes"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","consentimiento","wizard","paquetes","marketing"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
   const { plan: planActual, estado: estadoActual, esTrial } = useSubscripcion()
@@ -2701,6 +2703,7 @@ function ConfiguracionInner() {
     consentimiento: <SeccionConsentimientoConfig />,
     wizard:         <SeccionWizardConfig />,
     paquetes:       <SeccionPaquetes />,
+    marketing:      <SeccionMarketing />,
   }
 
   return (

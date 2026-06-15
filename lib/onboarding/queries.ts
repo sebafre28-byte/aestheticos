@@ -100,6 +100,13 @@ export const WIZARD_PASOS_DEFAULT: WizardPasosConfig = {
   rol_cierre: 'recepcionista',
 }
 
+export type MarketingConfig = {
+  cumpleanos?: boolean
+  mensaje_cumpleanos?: string
+  reactivacion_dias?: 30 | 45 | 60 | 90
+  mensaje_reactivacion?: string
+}
+
 export type ClinicaConfiguracion = {
   plantillas?: PlantillaWsp[]
   recordatorios?: RecordatorioConfig[]
@@ -109,6 +116,7 @@ export type ClinicaConfiguracion = {
   agente_wsp?: AgenteWspConfig
   whatsapp_config?: WhatsappClinicaConfig
   wizard_pasos?: WizardPasosConfig
+  marketing?: MarketingConfig
 }
 
 const PLANTILLAS_DEFAULT: PlantillaWsp[] = [
