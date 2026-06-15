@@ -7,10 +7,24 @@ import 'server-only'
 import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-const MODEL = 'claude-opus-4-8'
+const MODEL_SIMPLE  = 'claude-sonnet-4-6'  // ~80% of conversations: greetings, availability, booking
+const MODEL_COMPLEX = 'claude-opus-4-8'   // ~20%: complaints, medical questions, escalation risk
 const MAX_TOOL_ITERATIONS = 8
 const HISTORY_LIMIT = 30
 const CLINIC_TZ = 'America/Santiago'
+
+// Complex message indicators — switch to Opus when detected
+const COMPLEX_KEYWORDS = [
+  'molest', 'enojad', 'enoja', 'mal ', 'problema', 'queja', 'reclamo', 'terrible', 'pésimo',
+  'urgente', 'emergencia', 'urgencia', 'dolor', 'sangr', 'alerg', 'reacción', 'reacci',
+  'convenio', 'fonasa', 'isapre', 'descuento', 'factura', 'boleta', 'cobr',
+  'no entiendo', 'confundid', 'explica', 'cómo funciona',
+]
+
+function selectModel(lastUserMessage: string): string {
+  const msg = lastUserMessage.toLowerCase()
+  return COMPLEX_KEYWORDS.some(k => msg.includes(k)) ? MODEL_COMPLEX : MODEL_SIMPLE
+}
 
 // ─── Tipos ────────────────────────────────────────────────────
 
@@ -512,10 +526,15 @@ export async function responderConAgente(params: {
   const ctx = { supabase, clinica, telefono, conversacionId }
   let escalado = false
 
+  // Select model based on last user message complexity
+  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
+  const lastUserText = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : ''
+  const model = selectModel(lastUserText)
+
   try {
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
       const response = await client.messages.create({
-        model: MODEL,
+        model,
         max_tokens: 1024,
         system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
         tools: TOOLS,
