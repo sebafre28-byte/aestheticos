@@ -12,6 +12,7 @@ const PUBLIC_API_PREFIXES = [
   '/api/cita/',
   '/api/cron/',
   '/api/consentimiento/sign',
+  '/api/feedback',
 ]
 
 // Routes that are part of the marketing site (no auth needed on any domain)
@@ -66,7 +67,8 @@ export async function proxy(request: NextRequest) {
     pathname === '/book' ||
     pathname.startsWith('/cancelar/') ||
     pathname.startsWith('/cita/') ||
-    pathname.startsWith('/consentimiento/')
+    pathname.startsWith('/consentimiento/') ||
+    pathname.startsWith('/feedback/')
   ) {
     return supabaseResponse
   }
@@ -111,5 +113,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }
