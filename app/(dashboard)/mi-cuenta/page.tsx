@@ -310,6 +310,7 @@ const GoogleIcon = ({ size = 18 }: { size?: number }) => (
 function SeccionGoogleCalendar() {
   const [conectado, setConectado] = useState(false)
   const [tokenEmail, setTokenEmail] = useState<string | null>(null)
+  const [tokenExpirado, setTokenExpirado] = useState(false)
   const [syncMode, setSyncMode] = useState<SyncMode>('push_only')
   const [cargando, setCargando] = useState(true)
   const [desconectando, setDesconectando] = useState(false)
@@ -333,11 +334,15 @@ function SeccionGoogleCalendar() {
 
     fetch('/api/auth/google/status')
       .then(r => r.json())
-      .then((data: { connected: boolean; token: { calendar_id?: string; sync_mode?: SyncMode } | null }) => {
+      .then((data: { connected: boolean; token: { calendar_id?: string; sync_mode?: SyncMode; token_expiry?: number } | null }) => {
         setConectado(data.connected)
         setTokenEmail(data.token?.calendar_id ?? null)
         if (data.token?.sync_mode) setSyncMode(data.token.sync_mode)
         if (data.token?.calendar_id) setCalendarId(data.token.calendar_id)
+        // Detect expired token (token_expiry is a Unix timestamp in ms)
+        if (data.connected && data.token?.token_expiry) {
+          setTokenExpirado(Date.now() > data.token.token_expiry)
+        }
         setCargando(false)
         if (data.connected) cargarCalendarios()
       })
@@ -421,6 +426,22 @@ function SeccionGoogleCalendar() {
           </span>
         </div>
       </div>
+
+      {conectado && tokenExpirado && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 flex items-start gap-3">
+          <span className="text-amber-500 mt-0.5 shrink-0">⚠️</span>
+          <div className="flex-1">
+            <p className="text-[13px] font-semibold text-amber-800">Tu conexión con Google Calendar expiró</p>
+            <p className="text-[12px] text-amber-700 mt-0.5">Las citas ya no se están sincronizando. Reconecta para restaurar la sincronización.</p>
+          </div>
+          <a
+            href="/api/auth/google"
+            className="shrink-0 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-semibold px-3 py-1.5 transition-colors"
+          >
+            Reconectar
+          </a>
+        </div>
+      )}
 
       {conectado ? (
         <>
