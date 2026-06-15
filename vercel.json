@@ -1,5 +1,4 @@
 {
-  "toolbar": { "enabled": false },
   "crons": [
     {
       "path": "/api/cron/email-recordatorios",
