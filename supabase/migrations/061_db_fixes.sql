@@ -65,5 +65,5 @@ CREATE INDEX IF NOT EXISTS idx_consentimiento_sol_clinica
   ON consentimiento_solicitudes(clinica_id);
 
 -- For active paquetes lookup per patient
-CREATE INDEX IF NOT EXISTS idx_paquetes_vendidos_paciente_servicio
-  ON paquetes_vendidos(paciente_id, servicio_id);
+CREATE INDEX IF NOT EXISTS idx_paquetes_vendidos_paciente_paquete
+  ON paquetes_vendidos(paciente_id, paquete_id);
