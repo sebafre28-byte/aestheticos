@@ -118,7 +118,7 @@ export type ServicioRow = {
   created_at: string
 }
 
-export type EstadoCita = 'pendiente' | 'confirmada' | 'completada' | 'cancelada' | 'no_asistio'
+export type EstadoCita = 'pendiente' | 'confirmada' | 'en_sala' | 'completada' | 'cancelada' | 'no_asistio'
 export type PagoEstado = 'pendiente' | 'pagado' | 'parcial'
 export type PagoMetodo = 'efectivo' | 'transferencia' | 'debito' | 'credito'
 

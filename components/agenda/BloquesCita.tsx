@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Clock, CheckCircle, CheckCircle2, XCircle, UserX, DollarSign } from 'lucide-react'
+import { Clock, CheckCircle, CheckCircle2, XCircle, UserX, DollarSign, DoorOpen } from 'lucide-react'
 import { citaWallClockTime } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
 import { TooltipCita } from './TooltipCita'
@@ -20,6 +20,7 @@ function hexToRgba(hex: string, alpha: number): string {
 const ESTADO_ICONO: Record<EstadoCita, React.ComponentType<{ className?: string }>> = {
   pendiente:  Clock,
   confirmada: CheckCircle,
+  en_sala:    DoorOpen,
   completada: CheckCircle2,
   cancelada:  XCircle,
   no_asistio: UserX,
@@ -28,6 +29,7 @@ const ESTADO_ICONO: Record<EstadoCita, React.ComponentType<{ className?: string 
 const ESTADO_ICONO_COLOR: Record<EstadoCita, string> = {
   pendiente:  '#D97706',
   confirmada: '#0D9488',
+  en_sala:    '#16A34A',
   completada: '#2563EB',
   cancelada:  '#DC2626',
   no_asistio: '#991B1B',
@@ -36,6 +38,7 @@ const ESTADO_ICONO_COLOR: Record<EstadoCita, string> = {
 const ESTADO_BORDE: Record<EstadoCita, { color: string; style: 'solid' | 'dashed' }> = {
   pendiente:  { color: '#F59E0B', style: 'dashed' },
   confirmada: { color: '#14B8A6', style: 'solid' },
+  en_sala:    { color: '#16A34A', style: 'solid' },
   completada: { color: '#3B82F6', style: 'solid' },
   cancelada:  { color: '#EF4444', style: 'solid' },
   no_asistio: { color: '#991B1B', style: 'solid' },
@@ -89,6 +92,7 @@ export function BloqueCita({
   const esCancelada = cita.estado === 'cancelada'
   const esNoAsistio = cita.estado === 'no_asistio'
   const esPendiente = cita.estado === 'pendiente'
+  const esEnSala   = cita.estado === 'en_sala'
 
   const alturaReal = Math.max(heightPx, 20)
   const borde = ESTADO_BORDE[cita.estado]
@@ -107,7 +111,9 @@ export function BloqueCita({
 
   const bgColor = isDragging && hasConflict
     ? 'rgba(239,68,68,0.15)'
-    : esNoAsistio ? 'rgba(254,226,226,0.85)' : hexToRgba(color, 0.12)
+    : esNoAsistio ? 'rgba(254,226,226,0.85)'
+    : esEnSala   ? 'rgba(220,252,231,0.9)'
+    : hexToRgba(color, 0.12)
 
   const estiloBloque: React.CSSProperties = {
     top: topPx,
@@ -215,6 +221,12 @@ export function BloqueCita({
       <div className="absolute top-0.5 right-0.5 z-10 pointer-events-none" style={{ color: iconColor }}>
         <IconoEstado className="size-2.5" />
       </div>
+      {esEnSala && (
+        <span className="absolute top-1 left-1 z-10 pointer-events-none flex size-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+          <span className="relative inline-flex rounded-full size-2 bg-green-500" />
+        </span>
+      )}
 
       <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden pr-4" style={{ color }}>
         {alturaReal >= 60 ? (

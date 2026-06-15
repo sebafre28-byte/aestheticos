@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale'
 import {
   X, Edit2, MessageCircle, CheckCircle, CheckCircle2, Clock,
   User, Scissors, Calendar, FileText, History, Phone, ClipboardEdit, Loader2,
-  XCircle, UserX, CalendarClock, Mail, Repeat2, Banknote, Star, CalendarCheck, Trash2, Plus,
+  XCircle, UserX, CalendarClock, Mail, Repeat2, Banknote, Star, CalendarCheck, Trash2, Plus, DoorOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
@@ -44,6 +44,13 @@ const estadoConfig: Record<EstadoCita, {
     borderColor: 'border-teal-200',
     icon: CheckCircle,
   },
+  en_sala: {
+    descripcion: 'En sala',
+    textColor: 'text-green-700',
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-300',
+    icon: DoorOpen,
+  },
   completada: {
     descripcion: 'Completada',
     textColor: 'text-blue-700',
@@ -71,6 +78,7 @@ const estadoConfig: Record<EstadoCita, {
 const historialBadge: Record<EstadoCita, { label: string; className: string }> = {
   pendiente:  { label: 'Pendiente',  className: 'bg-amber-50 text-amber-600' },
   confirmada: { label: 'Confirmada', className: 'bg-teal-50 text-teal-600' },
+  en_sala:    { label: 'En sala',    className: 'bg-green-50 text-green-700' },
   completada: { label: 'Completada', className: 'bg-blue-50 text-blue-600' },
   cancelada:  { label: 'Cancelada',  className: 'bg-red-50 text-red-500' },
   no_asistio: { label: 'No asistió', className: 'bg-red-100 text-red-700' },
@@ -98,6 +106,25 @@ function getAcciones(estado: EstadoCita): AccionEstado[] {
         },
       ]
     case 'confirmada':
+      return [
+        {
+          label: 'Llegó ✓', estado: 'en_sala', icon: DoorOpen,
+          className: 'bg-green-500 hover:bg-green-600 text-white border-0',
+        },
+        {
+          label: 'Completar', estado: 'completada', icon: CheckCircle2,
+          className: 'bg-blue-500 hover:bg-blue-600 text-white border-0',
+        },
+        {
+          label: 'No asistió', estado: 'no_asistio', icon: UserX,
+          className: 'border border-red-200 text-red-500 hover:bg-red-50 bg-white',
+        },
+        {
+          label: 'Cancelar', estado: 'cancelada', icon: XCircle,
+          className: 'border border-gray-200 text-gray-500 hover:bg-gray-50 bg-white',
+        },
+      ]
+    case 'en_sala':
       return [
         {
           label: 'Completar', estado: 'completada', icon: CheckCircle2,

@@ -12,6 +12,7 @@ type Props = {
 const ESTADO_BADGE: Record<EstadoCita, { label: string; className: string }> = {
   pendiente:  { label: 'Pendiente',   className: 'bg-amber-100 text-amber-700' },
   confirmada: { label: 'Confirmada',  className: 'bg-teal-100 text-teal-700' },
+  en_sala:    { label: 'En sala',     className: 'bg-green-100 text-green-700' },
   completada: { label: 'Completada',  className: 'bg-blue-100 text-blue-700' },
   cancelada:  { label: 'Cancelada',   className: 'bg-red-100 text-red-700' },
   no_asistio: { label: 'No asistió',  className: 'bg-red-100 text-red-700' },
