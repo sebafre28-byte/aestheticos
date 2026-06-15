@@ -104,6 +104,7 @@ export type MarketingConfig = {
   cumpleanos?: boolean
   mensaje_cumpleanos?: string
   reactivacion_dias?: 30 | 45 | 60 | 90
+  reactivacion_auto?: boolean
   mensaje_reactivacion?: string
 }
 
