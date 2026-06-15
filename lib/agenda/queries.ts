@@ -89,6 +89,7 @@ export type ProfesionalRow = {
   foto_url?: string | null
   bio?: string | null
   servicios?: string[]
+  comision_porcentaje?: number
 }
 
 export type PacienteRow = {

@@ -357,6 +357,7 @@ function ModalProfesional({
     color: profesionalExistente?.color ?? "#2563EB",
     bio: profesionalExistente?.bio ?? "",
     foto_url: profesionalExistente?.foto_url ?? "",
+    comision_porcentaje: String(profesionalExistente?.comision_porcentaje ?? "0"),
   })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -443,6 +444,8 @@ function ModalProfesional({
 
     let profId = profesionalExistente?.id ?? null
 
+    const comisionPct = Math.min(100, Math.max(0, parseFloat(form.comision_porcentaje.replace(',', '.')) || 0))
+
     if (esEdicion && profId) {
       const { error: updateError } = await supabase.from("profesionales").update({
         nombre: form.nombre.trim(),
@@ -452,6 +455,7 @@ function ModalProfesional({
         color: form.color,
         bio: form.bio.trim() || null,
         foto_url: form.foto_url || null,
+        comision_porcentaje: comisionPct,
       }).eq("id", profId)
       if (updateError) {
         setGuardando(false)
@@ -473,10 +477,11 @@ function ModalProfesional({
       }
       profId = result.id
       // Si se subió foto con temp id, actualizar la url
-      if (form.foto_url || form.bio) {
+      if (form.foto_url || form.bio || comisionPct > 0) {
         await supabase.from("profesionales").update({
           bio: form.bio.trim() || null,
           foto_url: form.foto_url || null,
+          comision_porcentaje: comisionPct,
         }).eq("id", profId)
       }
     }
@@ -650,6 +655,20 @@ function ModalProfesional({
                     placeholder="Cuéntanos sobre la experiencia y enfoque de este profesional…"
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
                   />
+                </div>
+                <div>
+                  <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Comisión (%)</Label>
+                  <div className="relative w-36">
+                    <Input
+                      value={form.comision_porcentaje}
+                      onChange={(e) => setForm(p => ({ ...p, comision_porcentaje: e.target.value.replace(/[^\d.,]/g, '') }))}
+                      placeholder="0"
+                      className="h-9 text-[13px] pr-7"
+                      inputMode="decimal"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">%</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-400">Porcentaje que recibe por cada cobro registrado</p>
                 </div>
                 <div>
                   <Label className="mb-2 block text-[12px] font-medium text-gray-700">Color identificador</Label>
