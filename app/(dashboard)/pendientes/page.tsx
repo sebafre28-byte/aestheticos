@@ -1,0 +1,10 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { format, parseISO, differenceInMinutes, addDays } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { CheckCircle2, MessageCircle, ClipboardCheck, RefreshCw, Calendar } from 'lucide-react'
+import type { CitaConRelaciones } from '@/lib/agenda/queries'
+import { getCitasPendientes48h, actualizarEstadoCita } from '@/lib/agenda/queries'
+import { useRol } from '@/lib/auth/useRol'
+import { useRouter } from 'next/navigation'
