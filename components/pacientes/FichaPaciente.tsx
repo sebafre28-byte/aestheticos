@@ -35,12 +35,14 @@ import {
   type NotaClinica,
   type PacienteRow,
 } from '@/lib/pacientes/queries'
+import { getPaquetesActivosPaciente } from '@/lib/paquetes/queries'
 
 const PanelFichas = lazy(() => import('@/components/fichas/PanelFichas'))
 const PanelGaleria = lazy(() => import('@/components/galeria/PanelGaleria'))
 const PanelConsentimientos = lazy(() => import('@/components/pacientes/PanelConsentimientos'))
+const PaquetesTab = lazy(() => import('@/components/paquetes/PaquetesTab').then(m => ({ default: m.PaquetesTab })))
 
-type Tab = 'informacion' | 'historial' | 'salud' | 'notas' | 'fichas' | 'galeria' | 'consentimientos'
+type Tab = 'informacion' | 'historial' | 'salud' | 'notas' | 'fichas' | 'galeria' | 'consentimientos' | 'paquetes'
 
 type Props = {
   pacienteId: string
@@ -162,6 +164,7 @@ export function FichaPaciente({
 }: Props) {
   const [tab, setTab] = useState<Tab>('informacion')
   const [fichasCount, setFichasCount] = useState(0)
+  const [paquetesActivosCount, setPaquetesActivosCount] = useState(0)
   const [paciente, setPaciente] = useState<PacienteRow | null>(null)
   const [historial, setHistorial] = useState<HistorialCitaPaciente[]>([])
   const [loading, setLoading] = useState(true)
@@ -182,7 +185,8 @@ export function FichaPaciente({
     Promise.all([
       getPacienteDetalle(pacienteId),
       getNotasClinicas(pacienteId),
-    ]).then(([data, notas]) => {
+      getPaquetesActivosPaciente(pacienteId),
+    ]).then(([data, notas, paquetesActivos]) => {
       if (!active) return
       setPaciente(data.paciente)
       setHistorial(data.historial)
@@ -190,6 +194,7 @@ export function FichaPaciente({
       setAlergias(data.paciente?.alergias ?? '')
       setCondiciones(data.paciente?.condiciones ?? '')
       setNotasClinicas(notas)
+      setPaquetesActivosCount(paquetesActivos.length)
       setLoading(false)
     })
     return () => { active = false }
@@ -283,6 +288,7 @@ export function FichaPaciente({
     { key: 'historial', label: 'Historial' },
     { key: 'salud', label: 'Salud' },
     { key: 'notas', label: 'Notas' },
+    { key: 'paquetes', label: 'Paquetes', badge: paquetesActivosCount > 0 ? paquetesActivosCount : undefined },
     { key: 'fichas', label: 'Fichas', badge: fichasCount > 0 ? fichasCount : undefined },
     { key: 'galeria', label: 'Galería' },
     { key: 'consentimientos', label: 'Consentimientos' },
@@ -518,6 +524,13 @@ export function FichaPaciente({
                 Esta información es confidencial y solo visible para el equipo médico.
               </p>
             </div>
+          )}
+
+          {/* ---- PAQUETES DE SESIONES ---- */}
+          {tab === 'paquetes' && (
+            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
+              <PaquetesTab pacienteId={pacienteId} />
+            </Suspense>
           )}
 
           {/* ---- FICHAS CLÍNICAS ---- */}

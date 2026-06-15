@@ -39,10 +39,12 @@ import {
   getPlantillas, CONSENTIMIENTO_DEFAULT,
   type ConsentimientoPlantilla,
 } from "@/lib/consentimientos/queries"
+import { SeccionPaquetes } from "@/components/paquetes/SeccionPaquetes"
+import { Package } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "consentimiento" | "wizard"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "consentimiento" | "wizard" | "paquetes"
 
 type NavGroup = {
   label: string
@@ -55,6 +57,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "clinica",        label: "Datos generales",           icon: Building2 },
       { id: "horarios",       label: "Horarios y disponibilidad", icon: Clock },
+      { id: "paquetes",       label: "Paquetes de sesiones",      icon: Package },
       { id: "consentimiento", label: "Consentimiento inform.",    icon: FileText },
       { id: "wizard",         label: "Wizard de atención",        icon: ClipboardList },
     ],
@@ -2669,7 +2672,7 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","consentimiento","wizard"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","consentimiento","wizard","paquetes"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
   const { plan: planActual, estado: estadoActual, esTrial } = useSubscripcion()
@@ -2697,6 +2700,7 @@ function ConfiguracionInner() {
     seguridad:      <SeccionSeguridad />,
     consentimiento: <SeccionConsentimientoConfig />,
     wizard:         <SeccionWizardConfig />,
+    paquetes:       <SeccionPaquetes />,
   }
 
   return (
