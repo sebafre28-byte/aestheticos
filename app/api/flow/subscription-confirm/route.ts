@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { createFlowSubscription, getCardRegisterStatus } from '@/lib/subscriptions/flow'
 import type { Plan } from '@/lib/subscriptions/queries'
 
@@ -14,6 +15,22 @@ export async function GET(request: NextRequest) {
 
   if (!clinica_id || !plan) {
     return NextResponse.redirect(new URL('/configuracion?tab=plan&error=parametros', origin))
+  }
+
+  // Verify the authenticated user owns this clinica_id
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.redirect(new URL('/login', origin))
+  }
+  const { data: miembro } = await supabase
+    .from('usuarios_clinica')
+    .select('clinica_id')
+    .eq('user_id', user.id)
+    .eq('clinica_id', clinica_id)
+    .single()
+  if (!miembro) {
+    return NextResponse.redirect(new URL('/configuracion?tab=plan&error=no_autorizado', origin))
   }
 
   try {

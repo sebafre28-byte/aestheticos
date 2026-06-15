@@ -32,6 +32,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
   }
 
+  // Verify the conversation belongs to the authenticated user's clinic
+  const { data: miembro } = await supabase
+    .from('usuarios_clinica')
+    .select('clinica_id')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!miembro || miembro.clinica_id !== conv.clinica_id) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+  }
+
   // Send via WhatsApp provider
   const provider = getWhatsappProvider()
   const to = toWhatsAppE164(conv.telefono)
