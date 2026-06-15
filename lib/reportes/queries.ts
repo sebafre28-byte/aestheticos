@@ -1,8 +1,6 @@
-// Queries de reportes: resumen mensual de citas, ingresos y top servicios (server-side).
-
 import { createClient } from '@/lib/supabase/server'
 import { montoIngresoCobrado } from '@/lib/cobros/utils'
-import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
+import { startOfMonth, endOfMonth, subMonths, format, getDaysInMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 type PagoEstado = 'pendiente' | 'pagado' | 'parcial'
@@ -37,6 +35,10 @@ export type ReporteData = {
     pacientesAtendidos: number
   }
   topServicios: { nombre: string; total: number; ingresos: number }[]
+  ingresosPorDia: { dia: number; ingresos: number; citas: number }[]
+  mesAnteriorResumen: { ingresosTotales: number; completadas: number }
+  profesionales: string[]
+  servicios: string[]
 }
 
 function fromMaybeArray<T>(value: T[] | T | null | undefined): T | null {
@@ -65,21 +67,34 @@ export async function getReporteData(year: number, month: number): Promise<Repor
   const rangeEnd = endOfMonth(date)
   const mesLabel = format(date, 'MMMM yyyy', { locale: es })
 
+  const prevDate = subMonths(date, 1)
+  const prevStart = startOfMonth(prevDate)
+  const prevEnd = endOfMonth(prevDate)
+
+  const selectFields = `
+    id, inicio, estado, pago_monto, pago_estado, paciente_id,
+    pacientes(nombre), servicios(nombre, precio), profesionales(nombre)
+  `
+
   let query = supabase
     .from('citas')
-    .select(`
-      id, inicio, estado, pago_monto, pago_estado, paciente_id,
-      pacientes(nombre), servicios(nombre, precio), profesionales(nombre)
-    `)
+    .select(selectFields)
     .gte('inicio', rangeStart.toISOString())
     .lte('inicio', rangeEnd.toISOString())
     .order('inicio', { ascending: true })
 
+  let prevQuery = supabase
+    .from('citas')
+    .select('estado, pago_monto, pago_estado')
+    .gte('inicio', prevStart.toISOString())
+    .lte('inicio', prevEnd.toISOString())
+
   if (clinicaId) {
     query = query.eq('clinica_id', clinicaId)
+    prevQuery = prevQuery.eq('clinica_id', clinicaId)
   }
 
-  const { data } = await query
+  const [{ data }, { data: prevData }] = await Promise.all([query, prevQuery])
 
   const rawCitas = (data ?? []) as unknown as CitaRaw[]
 
@@ -104,12 +119,10 @@ export async function getReporteData(year: number, month: number): Promise<Repor
   const canceladas = citas.filter((c) => c.estado === 'cancelada' || c.estado === 'no_asistio').length
   const pendientes = citas.filter((c) => c.estado === 'pendiente').length
   const noShows = citas.filter((c) => c.estado === 'no_asistio').length
-  const tasaNoShow =
-    completadas + noShows > 0 ? (noShows / (completadas + noShows)) * 100 : 0
+  const tasaNoShow = completadas + noShows > 0 ? (noShows / (completadas + noShows)) * 100 : 0
 
   const ingresosTotales = citas.reduce(
-    (acc, c) => acc + montoIngresoCobrado(c.pago_estado as PagoEstado, c.pago_monto),
-    0,
+    (acc, c) => acc + montoIngresoCobrado(c.pago_estado as PagoEstado, c.pago_monto), 0,
   )
   const ticketPromedio = completadas > 0 ? ingresosTotales / completadas : 0
 
@@ -119,7 +132,6 @@ export async function getReporteData(year: number, month: number): Promise<Repor
       .map((c) => c.paciente_id)
       .filter((id): id is string => id !== null),
   )
-  const pacientesAtendidos = pacientesAtendidosSet.size
 
   // Top servicios
   const serviciosMap = new Map<string, { total: number; ingresos: number }>()
@@ -132,25 +144,41 @@ export async function getReporteData(year: number, month: number): Promise<Repor
   const topServicios = Array.from(serviciosMap.entries())
     .map(([nombre, val]) => ({ nombre, ...val }))
     .sort((a, b) => b.ingresos - a.ingresos)
-    .slice(0, 5)
+    .slice(0, 8)
+
+  // Ingresos por día
+  const daysInMonth = getDaysInMonth(date)
+  const dayMap = new Map<number, { ingresos: number; citas: number }>()
+  for (let d = 1; d <= daysInMonth; d++) dayMap.set(d, { ingresos: 0, citas: 0 })
+  for (const c of citas) {
+    const day = new Date(c.inicio).getDate()
+    const entry = dayMap.get(day)!
+    entry.citas += 1
+    entry.ingresos += montoIngresoCobrado(c.pago_estado as PagoEstado, c.pago_monto)
+  }
+  const ingresosPorDia = Array.from(dayMap.entries()).map(([dia, v]) => ({ dia, ...v }))
+
+  // Mes anterior
+  const prevCitas = (prevData ?? []) as { estado: string; pago_monto: number; pago_estado: string }[]
+  const prevCompletadas = prevCitas.filter(c => c.estado === 'completada').length
+  const prevIngresos = prevCitas.reduce(
+    (acc, c) => acc + montoIngresoCobrado(c.pago_estado as PagoEstado, c.pago_monto), 0,
+  )
+
+  // Unique lists for filters
+  const profesionales = [...new Set(citas.map(c => c.profesional))].sort()
+  const servicios = [...new Set(citas.map(c => c.servicio))].sort()
 
   return {
-    year,
-    month,
-    mesLabel,
-    citas,
+    year, month, mesLabel, citas,
     resumen: {
-      totalCitas: citas.length,
-      completadas,
-      canceladas,
-      pendientes,
-      noShows,
-      tasaNoShow,
-      ingresosTotales,
-      ticketPromedio,
-      pacientesAtendidos,
+      totalCitas: citas.length, completadas, canceladas, pendientes,
+      noShows, tasaNoShow, ingresosTotales, ticketPromedio,
+      pacientesAtendidos: pacientesAtendidosSet.size,
     },
-    topServicios,
+    topServicios, ingresosPorDia,
+    mesAnteriorResumen: { ingresosTotales: prevIngresos, completadas: prevCompletadas },
+    profesionales, servicios,
   }
 }
 
