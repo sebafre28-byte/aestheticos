@@ -41,28 +41,28 @@ Cada ítem tiene: descripción, impacto (🔴 crítico / 🟠 alto / 🟡 medio 
   - Fix: PR #211 — require sesión + ownership del `clinica_id`
   - **ACCIÓN REQUERIDA**: Mergear PR #211
 
-- [ ] **SEC-5** — `INTERNAL_API_SECRET` en código potencialmente cliente (`lib/agenda/queries.ts`)
+- [x] **SEC-5** — `INTERNAL_API_SECRET` en código potencialmente cliente (`lib/agenda/queries.ts`)
   - Risk: si ese código llega a un componente cliente en un refactor, el secret queda en el bundle
   - Fix: mover la llamada a `/api/notificar-cita` a una Server Action o API route interna
   - _Tiempo: 2 horas_
 
-- [ ] **SEC-6** — Cross-tenant en webhook WhatsApp — mensajes pueden asignarse a clínica incorrecta
+- [x] **SEC-6** — Cross-tenant en webhook WhatsApp — mensajes pueden asignarse a clínica incorrecta
   - Risk: dos clínicas con el mismo número de paciente → mensajes mezclados
   - Fix: validar `clinica_id` en el upsert de conversaciones en `/api/whatsapp/webhook/route.ts`
   - _Tiempo: 2 horas_
 
-- [ ] **SEC-7** — Double-booking en `reagendar_cita_por_token` — conflict check sin `profesional_id`
+- [x] **SEC-7** — Double-booking en `reagendar_cita_por_token` — conflict check sin `profesional_id`
   - Fix: migración SQL que corrija el conflict check en función RPC
   - _Tiempo: 1 hora_
 
 ### 🟠 ALTOS
 
-- [ ] **SEC-8** — No existe `middleware.ts` — protección de rutas sólo client-side
+- [x] **SEC-8** — No existe `middleware.ts` — protección de rutas sólo client-side
   - Risk: RSC del dashboard se ejecutan sin verificar sesión
   - Fix: crear `middleware.ts` con verificación server-side (equivale a mover proxy.ts)
   - _Tiempo: 3 horas_
 
-- [ ] **SEC-9** — `/api/stripe/` routes activas sin uso — superficie de ataque y código muerto
+- [x] **SEC-9** — `/api/stripe/` routes activas sin uso — superficie de ataque y código muerto
   - Fix: eliminar directorio `/app/api/stripe/` completo
   - _Tiempo: 30 min_
 
@@ -84,7 +84,7 @@ Cada ítem tiene: descripción, impacto (🔴 crítico / 🟠 alto / 🟡 medio 
   - Fix: tabla `audit_log` con trigger en tablas críticas
   - _Tiempo: 1 día_
 
-- [ ] **SEC-14** — Headers HTTP de seguridad (CSP, X-Frame-Options, HSTS)
+- [x] **SEC-14** — Headers HTTP de seguridad (CSP, X-Frame-Options, HSTS)
   - Fix: agregar en `next.config.js` → `headers()`
   - _Tiempo: 2 horas_
 
@@ -94,10 +94,10 @@ Cada ítem tiene: descripción, impacto (🔴 crítico / 🟠 alto / 🟡 medio 
 > Estado: ⬜ PENDIENTE
 > Score aporte: +0.8 puntos → llevar a ~8.5
 
-- [ ] **ARQ-1** — Eliminar `/app/api/stripe/` y campos `stripe_*` del schema TypeScript
+- [x] **ARQ-1** — Eliminar `/app/api/stripe/` y campos `stripe_*` del schema TypeScript
   - _Tiempo: 1 hora_
 
-- [ ] **ARQ-2** — Crear `middleware.ts` con verificación server-side de sesión
+- [x] **ARQ-2** — Crear `middleware.ts` con verificación server-side de sesión
   - Mover lógica de `proxy.ts` a `middleware.ts` (convención Next.js)
   - _Tiempo: 3 horas_
 
@@ -123,14 +123,14 @@ Cada ítem tiene: descripción, impacto (🔴 crítico / 🟠 alto / 🟡 medio 
 > Estado: ⬜ PENDIENTE
 > Score aporte: +0.5 puntos → llevar a ~9.0
 
-- [ ] **DB-1** — Índices faltantes (migración SQL)
+- [x] **DB-1** — Índices faltantes (migración SQL)
   - `consentimiento_solicitudes(clinica_id)`
   - `whatsapp_logs(clinica_id, created_at)` — crítico para crons
   - `mensajes_inbox(conversacion_id, created_at)`
   - `paquetes_vendidos(paciente_id, servicio_id)`
   - _Tiempo: 1 hora_
 
-- [ ] **DB-2** — Fix conflict check en `reagendar_cita_por_token` (agregar `profesional_id`)
+- [x] **DB-2** — Fix conflict check en `reagendar_cita_por_token` (agregar `profesional_id`)
   - Incluir en migración 061
   - _Tiempo: 1 hora_
 
@@ -266,5 +266,15 @@ Estas acciones las debe hacer el usuario — no se pueden automatizar:
 |-------|------|-------------|
 | 2026-06-15 | SEC-3 | Fix inbox/send ownership check — PR #211 |
 | 2026-06-15 | SEC-4 | Fix subscription-confirm auth guard — PR #211 |
+| 2026-06-15 | SEC-5 | INTERNAL_API_SECRET no se envía desde contextos cliente |
+| 2026-06-15 | SEC-6 | WhatsApp webhook lookup scoped por clinica_id |
+| 2026-06-15 | SEC-7 | reagendar_cita_por_token con profesional_id en conflict check — migración 061 |
+| 2026-06-15 | SEC-8 | middleware.ts creado — proxy.ts ahora activo server-side |
+| 2026-06-15 | SEC-9 | Eliminados /api/stripe/ y lib/subscriptions/stripe.ts |
+| 2026-06-15 | SEC-14 | Security headers en next.config.ts |
+| 2026-06-15 | ARQ-1 | Campos stripe_* eliminados de TypeScript types |
+| 2026-06-15 | ARQ-2 | middleware.ts creado |
+| 2026-06-15 | DB-1 | Índices creados en migración 061 |
+| 2026-06-15 | DB-2 | Fix conflict check — migración 061 |
 | 2026-06-15 | SEC-1 | Migración 060: RLS consentimiento_solicitudes |
 | 2026-06-15 | SEC-2 | Migración 060: feedback_citas policy fix |
