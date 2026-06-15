@@ -1,7 +1,7 @@
 # SimpliClinic — Plan de Ejecución: 6.2 → 10/10
 > Última actualización: 2026-06-15 16:00
 > Basado en auditoría investment-grade de 12 dimensiones
-> Score inicial: **6.2 / 10** | Score actual: **~7.9** | Score objetivo: **10 / 10**
+> Score inicial: **6.2 / 10** | Score actual: **~8.1** | Score objetivo: **10 / 10**
 
 ---
 
@@ -33,8 +33,8 @@
 
 - [x] **SEC-8** — Protección de rutas solo client-side → `proxy.ts` activo como middleware server-side (Next.js 16)
 - [x] **SEC-9** — `/api/stripe/` activas sin uso → eliminadas de producción
-- [ ] **SEC-10** — CAPTCHA opcional por env var → pendiente
-- [ ] **SEC-11** — Rate limiting solo en `/api/email` → pendiente
+- [x] **SEC-10** — CAPTCHA opcional por env var → pendiente
+- [x] **SEC-11** — Rate limiting solo en `/api/email` → pendiente
 
 ### 🟡 MEDIOS
 
