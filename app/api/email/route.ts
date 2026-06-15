@@ -66,6 +66,7 @@ export interface DatosCita {
   clinica_direccion?: string
   canal?: 'book' | 'agenda' | 'whatsapp'
   cancel_url?: string
+  cancel_token?: string
 }
 
 
@@ -552,19 +553,51 @@ function buildBody(tipo: TipoEmailCita, datos: DatosCita): string {
   }
 
   if (tipo === 'post_cita') {
+    const appBase = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
+    const token = datos.cancel_token
+    const feedbackBase = token ? `${appBase}/feedback/${token}` : null
     const waMsg = `Hola ${clinica_nombre}, me gustar&iacute;a agendar una nueva cita.`
     return `
       <h1 style="margin:0 0 8px;font-size:27px;font-weight:800;color:#0B132B;letter-spacing:-0.8px;line-height:1.15;text-align:center;">
         &#191;C&oacute;mo fue tu visita?
       </h1>
-      <p style="margin:0 0 28px;font-size:15px;color:#64748B;line-height:1.7;text-align:center;">
-        Gracias por visitarnos, <strong style="color:#0B132B;">${paciente_nombre}</strong>. Esperamos que tu experiencia haya sido excelente.
+      <p style="margin:0 0 24px;font-size:15px;color:#64748B;line-height:1.7;text-align:center;">
+        Gracias por visitarnos, <strong style="color:#0B132B;">${paciente_nombre}</strong>. Tu opini&oacute;n nos ayuda a mejorar.
       </p>
       ${card}
+
+      ${feedbackBase ? `
+      <!-- Rating buttons -->
+      <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#0B132B;text-align:center;">&#127775; &iquest;C&oacute;mo calificar&iacute;as tu experiencia?</p>
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:24px;">
+        <tr>
+          <td width="33%" style="padding:0 4px 0 0;text-align:center;">
+            <a href="${feedbackBase}?r=excelente" target="_blank"
+               style="display:block;padding:12px 8px;background:#F0FDF4;border:2px solid #86EFAC;border-radius:12px;text-decoration:none;font-size:22px;line-height:1;">😊<br/>
+               <span style="font-size:11px;font-weight:700;color:#16A34A;display:block;margin-top:4px;">Excelente</span>
+            </a>
+          </td>
+          <td width="33%" style="padding:0 2px;text-align:center;">
+            <a href="${feedbackBase}?r=regular" target="_blank"
+               style="display:block;padding:12px 8px;background:#FEFCE8;border:2px solid #FDE047;border-radius:12px;text-decoration:none;font-size:22px;line-height:1;">😐<br/>
+               <span style="font-size:11px;font-weight:700;color:#CA8A04;display:block;margin-top:4px;">Regular</span>
+            </a>
+          </td>
+          <td width="33%" style="padding:0 0 0 4px;text-align:center;">
+            <a href="${feedbackBase}?r=mala" target="_blank"
+               style="display:block;padding:12px 8px;background:#FEF2F2;border:2px solid #FCA5A5;border-radius:12px;text-decoration:none;font-size:22px;line-height:1;">😞<br/>
+               <span style="font-size:11px;font-weight:700;color:#DC2626;display:block;margin-top:4px;">Mala</span>
+            </a>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 24px;font-size:11px;color:#94A3B8;text-align:center;">Haz clic en tu valoraci&oacute;n &mdash; tambi&eacute;n podr&aacute;s dejar un comentario</p>
+      ` : ''}
+
       <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:20px;">
         <tr>
           <td style="background:${v.alertBg};border:1.5px solid ${v.alertBorder};border-radius:12px;padding:14px 18px;">
-            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${v.alertTitleColor};">&#11088; &#191;Listo para tu pr&oacute;xima visita?</p>
+            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${v.alertTitleColor};">&#127919; &iquest;Lista para tu pr&oacute;xima visita?</p>
             <p style="margin:0;font-size:13px;color:${v.alertBodyColor};line-height:1.6;">
               Esc&iacute;benos y con gusto te agendamos cuando lo necesites.
             </p>

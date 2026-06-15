@@ -127,6 +127,7 @@ function buildDatos(cita: CitaRow, tipo: string, appBase: string) {
       clinica_email: c?.email ?? undefined,
       clinica_direccion: c?.direccion ?? undefined,
       cancel_url: cancelUrl,
+      cancel_token: cita.cancel_token ?? undefined,
     },
   }
 }

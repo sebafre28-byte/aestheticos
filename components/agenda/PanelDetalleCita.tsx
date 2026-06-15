@@ -16,6 +16,7 @@ import { SeccionCobroCita } from './SeccionCobroCita'
 import { useDialogA11y } from './useDialogA11y'
 import { useRol } from '@/lib/auth/useRol'
 import { getNotasClinicas, crearNotaClinica, eliminarNotaClinica, type NotaClinica } from '@/lib/pacientes/queries'
+import { createClient } from '@/lib/supabase/client'
 import { getClinicaBasica, getClinicaConfig } from '@/lib/onboarding/queries'
 import MiniPanelFichas from '@/components/fichas/MiniPanelFichas'
 import WizardIniciarCita from '@/components/agenda/WizardIniciarCita'
@@ -183,6 +184,7 @@ export function PanelDetalleCita({
   const [confirmarCambio, setConfirmarCambio] = useState<AccionEstado | null>(null)
   const [wizardAbierto, setWizardAbierto] = useState(false)
   const [wizardActivo, setWizardActivo] = useState(true)
+  const [feedback, setFeedback] = useState<{ rating: string; respuestas?: Record<string, string>; comentario?: string | null } | null | undefined>(undefined)
   const { rol } = useRol()
 
   useEffect(() => {
@@ -190,6 +192,16 @@ export function PanelDetalleCita({
       setWizardActivo(cfg.wizard_pasos?.activo !== false)
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('feedback_citas')
+      .select('rating, respuestas, comentario')
+      .eq('cita_id', cita.id)
+      .maybeSingle()
+      .then(({ data }) => setFeedback(data ?? null))
+  }, [cita.id])
   const puedeEscribirNotas = rol === 'admin' || rol === 'profesional'
 
   const paciente = cita.pacientes
@@ -528,6 +540,32 @@ export function PanelDetalleCita({
 
           {!isVistaProfe && onPagoActualizado && (
             <SeccionCobroCita cita={cita} onPagoActualizado={onPagoActualizado} />
+          )}
+
+          {/* ── Feedback del paciente ── */}
+          {feedback && (
+            <div className="px-5 py-4 border-b border-gray-50">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Feedback paciente</span>
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                  feedback.rating === 'excelente' ? 'bg-green-100 text-green-700' :
+                  feedback.rating === 'regular' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-red-100 text-red-700'
+                }`}>
+                  {feedback.rating === 'excelente' ? '😊 Excelente' : feedback.rating === 'regular' ? '😐 Regular' : '😞 Mala'}
+                </span>
+              </div>
+              {feedback.respuestas && Object.keys(feedback.respuestas).length > 0 && (
+                <div className="space-y-1 mb-2">
+                  {Object.entries(feedback.respuestas).map(([k, v]) => (
+                    <p key={k} className="text-[12px] text-gray-500"><span className="text-gray-400">{k}:</span> {v}</p>
+                  ))}
+                </div>
+              )}
+              {feedback.comentario && (
+                <p className="text-[12px] text-gray-600 italic bg-gray-50 rounded-lg px-3 py-2">"{feedback.comentario}"</p>
+              )}
+            </div>
           )}
 
           {/* ── Notas clínicas ── */}

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildEmailHtml, type TipoEmailCita, type DatosCita } from '@/app/api/email/route'
+import { buildCumpleanosEmail, buildReactivacionEmail } from '@/lib/marketing/emails'
 
-const TIPOS_PERMITIDOS: TipoEmailCita[] = [
+const TIPOS_CITA: TipoEmailCita[] = [
   'confirmacion_cita',
   'recordatorio_cita',
   'post_cita',
@@ -10,6 +11,9 @@ const TIPOS_PERMITIDOS: TipoEmailCita[] = [
   'cancelacion_admin',
   'nueva_reserva_admin',
 ]
+
+const TIPOS_MARKETING = ['email_cumpleanos', 'email_reactivacion'] as const
+type TipoMarketing = typeof TIPOS_MARKETING[number]
 
 const DATOS_EJEMPLO: DatosCita = {
   paciente_nombre:    'María González',
@@ -25,7 +29,8 @@ const DATOS_EJEMPLO: DatosCita = {
   clinica_email:      'hola@tuclinica.cl',
   clinica_direccion:  'Av. Providencia 1234, Santiago',
   canal:              'book',
-  cancel_url:         '#', // example link
+  cancel_url:         '#',
+  cancel_token:       'ejemplo-token-preview',
 }
 
 export async function GET(req: NextRequest) {
@@ -36,27 +41,59 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 401 })
   }
 
-  const tipo = req.nextUrl.searchParams.get('tipo') as TipoEmailCita | null
-  if (!tipo || !TIPOS_PERMITIDOS.includes(tipo)) {
-    return NextResponse.json({ ok: false, error: 'tipo inválido' }, { status: 400 })
-  }
+  const tipo = req.nextUrl.searchParams.get('tipo') ?? ''
 
   // Use clinic's real name/logo if available
   const { data: clinica } = await supabase
     .from('clinicas')
-    .select('nombre, logo_url, telefono, email, direccion')
+    .select('nombre, logo_url, telefono, email, direccion, configuracion')
     .maybeSingle()
+
+  const clinicaNombre = clinica?.nombre ?? 'Tu Clínica'
+  const clinicaLogo = clinica?.logo_url ?? undefined
+  const config = (clinica?.configuracion as Record<string, unknown> | null) ?? {}
+  const marketing = (config.marketing as Record<string, unknown> | null) ?? {}
+
+  // Marketing email previews
+  if (TIPOS_MARKETING.includes(tipo as TipoMarketing)) {
+    let html = ''
+    if (tipo === 'email_cumpleanos') {
+      const r = buildCumpleanosEmail({
+        paciente_nombre: 'María González',
+        clinica_nombre: clinicaNombre,
+        clinica_logo_url: clinicaLogo,
+        mensaje_personalizado: (marketing.mensaje_cumpleanos as string | undefined) || undefined,
+      })
+      html = r.html
+    } else if (tipo === 'email_reactivacion') {
+      const r = buildReactivacionEmail({
+        paciente_nombre: 'María González',
+        clinica_nombre: clinicaNombre,
+        clinica_logo_url: clinicaLogo,
+        dias_sin_cita: 60,
+        book_url: clinica ? `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'}/book/ejemplo` : undefined,
+        mensaje_personalizado: (marketing.mensaje_reactivacion as string | undefined) || undefined,
+      })
+      html = r.html
+    }
+    return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  }
+
+  // Cita email previews
+  if (!TIPOS_CITA.includes(tipo as TipoEmailCita)) {
+    return NextResponse.json({ ok: false, error: 'tipo inválido' }, { status: 400 })
+  }
 
   const datos: DatosCita = {
     ...DATOS_EJEMPLO,
-    clinica_nombre:    clinica?.nombre    ?? DATOS_EJEMPLO.clinica_nombre,
-    clinica_logo_url:  clinica?.logo_url  ?? undefined,
+    clinica_nombre:    clinicaNombre,
+    clinica_logo_url:  clinicaLogo,
     clinica_telefono:  clinica?.telefono  ?? DATOS_EJEMPLO.clinica_telefono,
     clinica_email:     clinica?.email     ?? DATOS_EJEMPLO.clinica_email,
     clinica_direccion: clinica?.direccion ?? DATOS_EJEMPLO.clinica_direccion,
   }
 
-  const html = buildEmailHtml(tipo, datos)
+  const html = buildEmailHtml(tipo as TipoEmailCita, datos)
   return new NextResponse(html, {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   })
