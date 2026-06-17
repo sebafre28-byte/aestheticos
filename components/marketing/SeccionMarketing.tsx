@@ -192,7 +192,7 @@ export function SeccionMarketing() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[12px] font-semibold text-gray-800">Envío automático semanal</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Cada lunes ~10:00 hrs (Chile) el sistema envía solo, sin que hagas nada.</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">El sistema corre automáticamente 2 veces al día. Un paciente no recibirá más de un email cada 30 días.</p>
                 </div>
                 <button
                   type="button"

@@ -50,3 +50,21 @@ jobs:
           curl -f -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             https://app.simpliclinic.cl/api/cron/winback-emails
+
+  marketing-cumpleanos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Emails de cumpleaños a pacientes
+        run: |
+          curl -f -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://app.simpliclinic.cl/api/cron/marketing-cumpleanos
+
+  marketing-reactivacion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Campaña de reactivación automática (dedup 30 días protege de dobles envíos)
+        run: |
+          curl -f -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://app.simpliclinic.cl/api/cron/marketing-reactivacion
