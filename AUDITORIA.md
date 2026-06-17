@@ -106,8 +106,8 @@
 |--------|--------|
 | M13 Cobros y Comisiones | ✅ YA IMPLEMENTADO (migración 057, /caja, CajaClient, comisiones por profesional) |
 | M14 Paquetes de Sesiones | ✅ YA IMPLEMENTADO (tablas paquetes + paquetes_vendidos, UI en agenda y fichas) |
-| M15 Marketing Automático | ⬜ Pendiente |
-| M16 Reducir No-Shows | ⬜ Pendiente |
+| M15 Marketing Automático | ✅ ACTIVADO (crons cumpleaños + reactivación en GitHub Actions) |
+| M16 Lista de espera | ❌ DESCARTADO — no va con la filosofía "tu clínica más simple" |
 
 ---
 
