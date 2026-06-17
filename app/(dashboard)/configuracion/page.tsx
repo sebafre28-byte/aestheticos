@@ -7,8 +7,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, FileText, ClipboardList,
-  Syringe,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
@@ -25,7 +24,6 @@ import {
   getWhatsappClinicaConfig, guardarWhatsappConfig,
   type ClinicaBasica, type PlantillaWsp, type RecordatorioConfig, type RecordatoriosWspConfig,
   type RecordatoriosEmailConfig, type HorarioDia, type HorariosConfig, type WhatsappClinicaConfig,
-  type WizardPasosConfig, type WizardRolPaso, WIZARD_PASOS_DEFAULT,
 } from "@/lib/onboarding/queries"
 import {
   getUsuariosClinica, invitarUsuario, actualizarRolUsuario, toggleActivoUsuario, eliminarUsuario,
@@ -36,17 +34,10 @@ import {
   getProfesionales, getDisponibilidadProfesional, setDisponibilidadProfesional,
   type ProfesionalRow, type DisponibilidadRow,
 } from "@/lib/agenda/queries"
-import {
-  getPlantillas, CONSENTIMIENTO_DEFAULT,
-  type ConsentimientoPlantilla,
-} from "@/lib/consentimientos/queries"
-import { SeccionPaquetes } from "@/components/paquetes/SeccionPaquetes"
-import { Package, Megaphone } from "lucide-react"
-import { SeccionMarketing } from "@/components/marketing/SeccionMarketing"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "servicios" | "paquetes" | "equipo" | "usuarios" | "wizard" | "consentimiento" | "recordatorios" | "marketing" | "whatsapp" | "google" | "plan" | "seguridad"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
 
 type NavGroup = {
   label: string
@@ -55,46 +46,31 @@ type NavGroup = {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Mi clínica",
+    label: "Clínica",
     items: [
-      { id: "clinica",   label: "Datos generales",          icon: Building2 },
-      { id: "horarios",  label: "Horarios y disponibilidad", icon: Clock },
-      { id: "servicios", label: "Servicios y precios",       icon: Syringe },
-      { id: "paquetes",  label: "Paquetes de sesiones",      icon: Package },
+      { id: "clinica",  label: "Datos generales",            icon: Building2 },
+      { id: "horarios", label: "Horarios y disponibilidad",  icon: Clock },
     ],
   },
   {
     label: "Equipo",
     items: [
-      { id: "equipo",   label: "Profesionales",    icon: Users },
+      { id: "equipo",   label: "Profesionales",   icon: Users },
       { id: "usuarios", label: "Usuarios y roles", icon: UserCog },
-    ],
-  },
-  {
-    label: "Atención al paciente",
-    items: [
-      { id: "wizard",         label: "Wizard de atención",     icon: ClipboardList },
-      { id: "consentimiento", label: "Consentimiento inform.", icon: FileText },
     ],
   },
   {
     label: "Comunicaciones",
     items: [
-      { id: "recordatorios", label: "Recordatorios de cita", icon: Bell },
-      { id: "marketing",     label: "Marketing automático",  icon: Megaphone },
-    ],
-  },
-  {
-    label: "Integraciones",
-    items: [
-      { id: "whatsapp", label: "WhatsApp Business", icon: MessageCircle },
-      { id: "google",   label: "Google Calendar",   icon: CalendarDays },
+      { id: "whatsapp",      label: "WhatsApp Business", icon: MessageCircle },
+      { id: "recordatorios", label: "Recordatorios",     icon: Bell },
+      { id: "google",        label: "Google Calendar",   icon: CalendarDays },
     ],
   },
   {
     label: "Cuenta",
     items: [
-      { id: "plan",      label: "Plan y facturación", icon: CreditCard },
+      { id: "plan",      label: "Plan y facturación", icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
       { id: "seguridad", label: "Seguridad",          icon: Shield },
     ],
   },
@@ -374,7 +350,6 @@ function ModalProfesional({
     color: profesionalExistente?.color ?? "#2563EB",
     bio: profesionalExistente?.bio ?? "",
     foto_url: profesionalExistente?.foto_url ?? "",
-    comision_porcentaje: String(profesionalExistente?.comision_porcentaje ?? "0"),
   })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -461,8 +436,6 @@ function ModalProfesional({
 
     let profId = profesionalExistente?.id ?? null
 
-    const comisionPct = Math.min(100, Math.max(0, parseFloat(form.comision_porcentaje.replace(',', '.')) || 0))
-
     if (esEdicion && profId) {
       const { error: updateError } = await supabase.from("profesionales").update({
         nombre: form.nombre.trim(),
@@ -472,7 +445,6 @@ function ModalProfesional({
         color: form.color,
         bio: form.bio.trim() || null,
         foto_url: form.foto_url || null,
-        comision_porcentaje: comisionPct,
       }).eq("id", profId)
       if (updateError) {
         setGuardando(false)
@@ -494,11 +466,10 @@ function ModalProfesional({
       }
       profId = result.id
       // Si se subió foto con temp id, actualizar la url
-      if (form.foto_url || form.bio || comisionPct > 0) {
+      if (form.foto_url || form.bio) {
         await supabase.from("profesionales").update({
           bio: form.bio.trim() || null,
           foto_url: form.foto_url || null,
-          comision_porcentaje: comisionPct,
         }).eq("id", profId)
       }
     }
@@ -672,20 +643,6 @@ function ModalProfesional({
                     placeholder="Cuéntanos sobre la experiencia y enfoque de este profesional…"
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
                   />
-                </div>
-                <div>
-                  <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Comisión (%)</Label>
-                  <div className="relative w-36">
-                    <Input
-                      value={form.comision_porcentaje}
-                      onChange={(e) => setForm(p => ({ ...p, comision_porcentaje: e.target.value.replace(/[^\d.,]/g, '') }))}
-                      placeholder="0"
-                      className="h-9 text-[13px] pr-7"
-                      inputMode="decimal"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">%</span>
-                  </div>
-                  <p className="mt-1 text-[11px] text-gray-400">Porcentaje que recibe por cada cobro registrado</p>
                 </div>
                 <div>
                   <Label className="mb-2 block text-[12px] font-medium text-gray-700">Color identificador</Label>
@@ -1738,19 +1695,23 @@ function SeccionRecordatorios() {
             )}
           </div>
 
-          {/* Post-consulta → se gestiona en Marketing */}
-          <div className="bg-violet-50 rounded-xl border border-violet-100 p-4">
+          {/* Post-consulta */}
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[13px] font-semibold text-gray-900">Email post-consulta (feedback)</p>
-                <p className="text-[12px] text-gray-500 mt-0.5">Encuesta de satisfacción con 4 preguntas. Se configura en Comunicaciones → Marketing.</p>
+                <p className="text-[13px] font-semibold text-gray-900">Email post-consulta</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">Se envía 1–3 horas después de completar la cita</p>
               </div>
-              <a
-                href="?tab=marketing"
-                className="h-7 px-2.5 rounded-lg bg-violet-600 text-[11px] font-medium text-white hover:bg-violet-700 transition-colors shrink-0 flex items-center"
-              >
-                Ir a Marketing →
-              </a>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTipo('post_cita')}
+                  className="h-7 px-2.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center gap-1"
+                >
+                  <Eye className="size-3" /> Ver
+                </button>
+                <Toggle activo={emailCfg.post_cita} onChange={() => setEmailCfg(c => ({ ...c, post_cita: !c.post_cita }))} />
+              </div>
             </div>
           </div>
 
@@ -1774,70 +1735,21 @@ function SeccionRecordatorios() {
 
 // ─── Sección Google Calendar ──────────────────────────────────────────────────
 
-type SyncMode = 'push_only' | 'pull_only' | 'bidirectional'
-
-const SYNC_MODE_OPTIONS: { value: SyncMode; label: string; description: string }[] = [
-  { value: 'push_only', label: 'Solo exportar', description: 'Tus citas de SimpliClinic aparecen en Google Calendar' },
-  { value: 'pull_only', label: 'Solo importar', description: 'Tus eventos de Google bloquean horarios en la agenda' },
-  { value: 'bidirectional', label: 'Bidireccional', description: 'Ambas opciones activas' },
-]
-
 function SeccionGoogleCalendar() {
-  const searchParams = useSearchParams()
   const [conectado, setConectado] = useState(false)
-  const [tokenEmail, setTokenEmail] = useState<string | null>(null)
-  const [syncMode, setSyncMode] = useState<SyncMode>('push_only')
+  const [calendarId, setCalendarId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
-  const [desconectando, setDesconectando] = useState(false)
-  const [guardandoMode, setGuardandoMode] = useState(false)
-  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
-
-  const googleParam = searchParams.get("google")
-
-  useEffect(() => {
-    if (googleParam === "success") setFeedback({ tipo: "ok", msg: "Google Calendar conectado correctamente." })
-    else if (googleParam === "error") setFeedback({ tipo: "error", msg: "No se pudo conectar con Google Calendar. Intenta nuevamente." })
-    else if (googleParam === "no_refresh_token") setFeedback({ tipo: "error", msg: "No se recibió el token de actualización. Intenta desconectar y volver a conectar." })
-  }, [googleParam])
 
   useEffect(() => {
     fetch('/api/auth/google/status')
       .then(r => r.json())
-      .then((data: { connected: boolean; token: { token_expiry?: string; calendar_id?: string; sync_mode?: SyncMode } | null }) => {
+      .then((data: { connected: boolean; token: { calendar_id?: string } | null }) => {
         setConectado(data.connected)
-        setTokenEmail(data.token?.calendar_id ?? null)
-        if (data.token?.sync_mode) setSyncMode(data.token.sync_mode)
+        setCalendarId(data.token?.calendar_id ?? null)
         setCargando(false)
       })
       .catch(() => setCargando(false))
-  }, [googleParam])
-
-  async function desconectar() {
-    setDesconectando(true)
-    const res = await fetch('/api/auth/google/disconnect', { method: 'DELETE' })
-    setDesconectando(false)
-    if (res.ok) {
-      setConectado(false)
-      setTokenEmail(null)
-      setFeedback({ tipo: "ok", msg: "Google Calendar desconectado." })
-    } else {
-      setFeedback({ tipo: "error", msg: "No se pudo desconectar." })
-    }
-  }
-
-  async function cambiarSyncMode(mode: SyncMode) {
-    setSyncMode(mode)
-    setGuardandoMode(true)
-    const res = await fetch('/api/auth/google/sync-mode', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sync_mode: mode }),
-    })
-    setGuardandoMode(false)
-    if (!res.ok) {
-      setFeedback({ tipo: "error", msg: "No se pudo actualizar el modo de sincronización." })
-    }
-  }
+  }, [])
 
   if (cargando) return (
     <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
@@ -1852,11 +1764,8 @@ function SeccionGoogleCalendar() {
         subtitle="Sincroniza tus citas con Google Calendar automáticamente"
       />
 
-      <Feedback f={feedback} />
-
-      <div className="bg-gray-50 rounded-xl border border-gray-100 p-5 mb-6">
+      <div className="bg-gray-50 rounded-xl border border-gray-100 p-5 mb-4">
         <div className="flex items-center gap-4">
-          {/* Google icon */}
           <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
             <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
@@ -1871,7 +1780,7 @@ function SeccionGoogleCalendar() {
             </p>
             <p className="text-[12px] text-gray-500 mt-0.5">
               {conectado
-                ? tokenEmail ?? "Cuenta conectada"
+                ? `Calendario: ${calendarId === 'primary' ? 'principal' : (calendarId ?? 'principal')}`
                 : "Conecta tu cuenta para sincronizar citas automáticamente"}
             </p>
           </div>
@@ -1881,73 +1790,12 @@ function SeccionGoogleCalendar() {
         </div>
       </div>
 
-      {conectado ? (
-        <>
-          <p className="text-[13px] font-semibold text-gray-700 mb-3">Modo de sincronización</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-            {SYNC_MODE_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => cambiarSyncMode(opt.value)}
-                disabled={guardandoMode}
-                className={`text-left p-3.5 rounded-xl border transition-all disabled:opacity-60 ${
-                  syncMode === opt.value
-                    ? "border-[#2563EB] bg-blue-50/60 ring-1 ring-[#2563EB]"
-                    : "border-gray-200 bg-white hover:bg-gray-50"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[13px] font-semibold text-gray-900">{opt.label}</span>
-                  {syncMode === opt.value && (
-                    <CheckCircle2 className="size-4 text-[#2563EB] shrink-0" />
-                  )}
-                </div>
-                <p className="text-[11px] text-gray-500 leading-snug">{opt.description}</p>
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={desconectar}
-            disabled={desconectando}
-            className="h-9 px-4 rounded-lg border border-red-200 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2"
-          >
-            {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
-            Desconectar
-          </button>
-        </>
-      ) : (
-        <a
-          href="/api/auth/google"
-          className="inline-flex items-center gap-2.5 h-10 px-5 rounded-xl border border-gray-200 bg-white text-[13px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-        >
-          <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
-            <path d="M6.3 14.7l7.4 5.4C15.5 16 19.4 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z" fill="#FF3D00"/>
-            <path d="M24 46c5.5 0 10.5-1.9 14.3-5.1l-6.6-5.6C29.6 36.7 26.9 37.5 24 37.5c-5.8 0-10.6-3.9-12.4-9.2l-7.3 5.7C7.9 41.3 15.4 46 24 46z" fill="#4CAF50"/>
-            <path d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.3l6.6 5.6C41.1 37.3 44.5 31.1 44.5 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
-          </svg>
-          Conectar con Google Calendar
-        </a>
-      )}
-    </div>
-  )
-}
-
-// ─── Sección Servicios (embed) ────────────────────────────────────────────────
-
-function SeccionServiciosEmbed() {
-  return (
-    <div className="-mx-1">
-      <div className="mb-4">
-        <h2 className="text-[14px] font-semibold text-gray-900">Servicios y precios</h2>
-        <p className="text-[12px] text-gray-500 mt-0.5">Gestiona los tratamientos y servicios que ofrece tu clínica.</p>
-      </div>
-      <iframe
-        src="/servicios"
-        className="w-full rounded-xl border border-gray-100"
-        style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}
-        title="Servicios"
-      />
+      <a
+        href="/mi-cuenta?tab=google"
+        className="inline-flex items-center gap-1.5 text-[13px] text-[#2563EB] hover:underline"
+      >
+        Configurar sincronización →
+      </a>
     </div>
   )
 }
@@ -1959,17 +1807,6 @@ function SeccionPlan() {
     <div>
       <SectionHeader title="Plan y facturación" subtitle="Gestiona tu suscripción de SimpliClinic" />
       <Suspense><PlanesCard /></Suspense>
-      <div className="mt-8 pt-6 border-t border-gray-100">
-        <p className="text-[13px] font-semibold text-gray-700 mb-1">Exportar datos</p>
-        <p className="text-[12px] text-gray-400 mb-3">Descarga un CSV con todos los pacientes de tu clínica.</p>
-        <a
-          href="/api/export/pacientes"
-          download
-          className="inline-flex items-center gap-2 px-4 h-9 rounded-xl border border-gray-200 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          Descargar pacientes (.csv)
-        </a>
-      </div>
     </div>
   )
 }
@@ -2701,10 +2538,9 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","horarios","servicios","paquetes","equipo","usuarios","wizard","consentimiento","recordatorios","marketing","whatsapp","google","plan","seguridad"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
-  const { plan: planActual, estado: estadoActual, esTrial } = useSubscripcion()
 
   useEffect(() => {
     if (tabParam && VALID_TABS.has(tabParam)) setActiva(tabParam)
@@ -2719,16 +2555,11 @@ function ConfiguracionInner() {
 
   const SECCIONES: Record<SeccionId, React.ReactNode> = {
     clinica:        <SeccionClinica />,
-    horarios:       <SeccionHorariosUnificada />,
-    servicios:      <SeccionServiciosEmbed />,
-    paquetes:       <SeccionPaquetes />,
     equipo:         <SeccionEquipo />,
+    horarios:       <SeccionHorariosUnificada />,
     usuarios:       <SeccionUsuarios />,
-    wizard:         <SeccionWizardConfig />,
-    consentimiento: <SeccionConsentimientoConfig />,
-    recordatorios:  <SeccionRecordatorios />,
-    marketing:      <SeccionMarketing />,
     whatsapp:       <SeccionWhatsApp />,
+    recordatorios:  <SeccionRecordatorios />,
     google:         <SeccionGoogleCalendar />,
     plan:           <SeccionPlan />,
     seguridad:      <SeccionSeguridad />,
@@ -2742,21 +2573,6 @@ function ConfiguracionInner() {
       </div>
 
       <ClinicaHeaderCard />
-
-      {/* Mobile: chips horizontales scrollables */}
-      <div className="sm:hidden flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
-        {NAV.map((item) => {
-          const Icon = item.icon
-          const isActive = activa === item.id
-          return (
-            <button key={item.id} onClick={() => setActiva(item.id)}
-              className={`shrink-0 flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium whitespace-nowrap border transition-colors ${isActive ? "bg-blue-600 text-white border-blue-600" : "text-gray-500 border-gray-200 bg-white"}`}>
-              <Icon className="size-3.5 shrink-0" />
-              {item.label}
-            </button>
-          )
-        })}
-      </div>
 
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 flex-1 min-h-0">
         <nav className="sm:w-[210px] w-full shrink-0 hidden sm:block">
@@ -2772,14 +2588,8 @@ function ConfiguracionInner() {
                       className={`w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left ${isActive ? "bg-blue-50 text-[#2563EB]" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}>
                       <Icon className={`size-[15px] shrink-0 ${isActive ? "text-[#2563EB]" : "text-gray-400"}`} />
                       <span className="flex-1 truncate">{item.label}</span>
-                      {item.id === 'plan' && planActual && (
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${
-                          esTrial ? 'bg-amber-50 text-amber-600' :
-                          estadoActual === 'activa' ? 'bg-blue-50 text-[#2563EB]' :
-                          'bg-gray-100 text-gray-500'
-                        }`}>
-                          {esTrial ? 'Trial' : PLAN_LABELS[planActual]}
-                        </span>
+                      {item.badge && (
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${item.badgeColor}`}>{item.badge}</span>
                       )}
                     </button>
                   )
@@ -2787,6 +2597,18 @@ function ConfiguracionInner() {
               </div>
             </div>
           ))}
+          {/* Mobile: chips horizontales */}
+          <div className="sm:hidden flex gap-1 overflow-x-auto pb-2 -mx-4 px-4">
+            {NAV.map((item) => {
+              const isActive = activa === item.id
+              return (
+                <button key={item.id} onClick={() => setActiva(item.id)}
+                  className={`shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-lg text-[12px] font-medium whitespace-nowrap border transition-colors ${isActive ? "bg-blue-50 text-[#2563EB] border-blue-100" : "text-gray-500 border-gray-100 bg-white hover:bg-gray-50"}`}>
+                  {item.label}
+                </button>
+              )
+            })}
+          </div>
           <div className="pt-3 mt-4 border-t border-gray-100">
             <BtnCerrarSesion />
           </div>
@@ -2796,406 +2618,6 @@ function ConfiguracionInner() {
           {SECCIONES[activa]}
         </div>
       </div>
-    </div>
-  )
-}
-
-// ─── Sección Consentimiento Informado ────────────────────────────────────────
-
-const VARIABLES_CONSENTIMIENTO = [
-  { variable: '{nombre_paciente}', label: 'Nombre paciente' },
-  { variable: '{rut_paciente}',    label: 'RUT paciente' },
-  { variable: '{fecha_cita}',      label: 'Fecha cita' },
-  { variable: '{procedimiento}',   label: 'Procedimiento' },
-  { variable: '{profesional}',     label: 'Profesional' },
-  { variable: '{clinica}',         label: 'Clínica' },
-]
-
-function SeccionConsentimientoConfig() {
-  const supabase = createClient()
-  const [clinicaId, setClinicaId] = useState<string | null>(null)
-  const [plantillas, setPlantillas] = useState<ConsentimientoPlantilla[]>([])
-  const [activaId, setActivaId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState<Partial<ConsentimientoPlantilla> | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [settingActiva, setSettingActiva] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return
-      const { data } = await supabase
-        .from('usuarios_clinica').select('clinica_id').eq('user_id', user.id).maybeSingle()
-      if (data) {
-        setClinicaId(data.clinica_id)
-        const ps = await getPlantillas(data.clinica_id)
-        setPlantillas(ps)
-        // Fetch active plantilla ID from clinica configuracion
-        const { data: cfg } = await supabase
-          .from('clinicas').select('configuracion').eq('id', data.clinica_id).maybeSingle()
-        setActivaId(cfg?.configuracion?.consentimiento_plantilla_activa_id ?? null)
-      }
-      setLoading(false)
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  function insertarVariable(variable: string) {
-    const textarea = textareaRef.current
-    if (!textarea) {
-      setEditing(prev => prev ? { ...prev, contenido: (prev.contenido ?? '') + variable } : prev)
-      return
-    }
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const contenido = editing?.contenido ?? ''
-    const nuevo = contenido.slice(0, start) + variable + contenido.slice(end)
-    setEditing(prev => prev ? { ...prev, contenido: nuevo } : prev)
-    setTimeout(() => {
-      textarea.focus()
-      textarea.selectionStart = textarea.selectionEnd = start + variable.length
-    }, 0)
-  }
-
-  async function save() {
-    if (!editing) return
-    setSaving(true)
-    try {
-      const res = await fetch('/api/consentimiento/plantilla', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editing.id,
-          titulo: editing.titulo ?? 'Consentimiento Informado',
-          contenido: editing.contenido ?? '',
-          servicio_id: editing.servicio_id ?? null,
-        }),
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        alert(json.error ?? 'Error al guardar')
-        return
-      }
-      const updated = json.plantilla as ConsentimientoPlantilla
-      setPlantillas(prev => editing.id
-        ? prev.map(p => p.id === updated.id ? updated : p)
-        : [...prev, updated]
-      )
-      setEditing(null)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function remove(id: string) {
-    if (!confirm('¿Eliminar plantilla?')) return
-    const res = await fetch('/api/consentimiento/plantilla', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    if (res.ok) {
-      setPlantillas(prev => prev.filter(p => p.id !== id))
-      if (activaId === id) {
-        setActivaId(null)
-        await setActivaEnConfig(null)
-      }
-    }
-  }
-
-  async function setActivaEnConfig(plantillaId: string | null) {
-    if (!clinicaId) return
-    const { data: cfg } = await supabase.from('clinicas').select('configuracion').eq('id', clinicaId).maybeSingle()
-    const current = cfg?.configuracion ?? {}
-    await supabase.from('clinicas').update({
-      configuracion: { ...current, consentimiento_plantilla_activa_id: plantillaId },
-    }).eq('id', clinicaId)
-  }
-
-  async function toggleActiva(id: string) {
-    setSettingActiva(true)
-    const nuevo = activaId === id ? null : id
-    setActivaId(nuevo)
-    await setActivaEnConfig(nuevo)
-    setSettingActiva(false)
-  }
-
-  if (loading) return (
-    <div className="flex items-center gap-2 py-10 justify-center">
-      <Loader2 className="size-4 animate-spin text-gray-300" />
-    </div>
-  )
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-[15px] font-semibold text-gray-900">Consentimiento Informado</h2>
-        <p className="text-[13px] text-gray-400 mt-0.5">
-          Personaliza el documento que firman tus pacientes antes de cada procedimiento.
-        </p>
-      </div>
-
-      {/* Lista de plantillas */}
-      {plantillas.length === 0 && !editing && (
-        <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center">
-          <FileText className="size-8 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500 font-medium">Sin plantillas personalizadas</p>
-          <p className="text-xs text-gray-400 mt-1 mb-4">
-            Si no creas una, se usará el texto estándar de SimpliClinic.
-          </p>
-          <Button size="sm" onClick={() => setEditing({ titulo: 'Consentimiento Informado', contenido: CONSENTIMIENTO_DEFAULT })}>
-            <Plus className="size-3.5 mr-1.5" /> Crear plantilla
-          </Button>
-        </div>
-      )}
-
-      {plantillas.length > 0 && (
-        <div className="space-y-3">
-          {plantillas.map(p => {
-            const esActiva = activaId === p.id
-            return (
-              <div key={p.id} className={`border rounded-xl p-4 bg-white flex items-start justify-between gap-3 ${esActiva ? 'border-blue-200 ring-1 ring-blue-100' : 'border-gray-100'}`}>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{p.titulo}</p>
-                    {esActiva && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600">ACTIVA</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{p.contenido.slice(0, 120)}…</p>
-                </div>
-                <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleActiva(p.id)}
-                    disabled={settingActiva}
-                    className={`text-xs h-7 px-2.5 ${esActiva ? 'border-blue-300 text-blue-600 bg-blue-50 hover:bg-blue-100' : ''}`}
-                  >
-                    {esActiva ? <Check className="size-3 mr-1" /> : null}
-                    {esActiva ? 'Activa' : 'Activar'}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setEditing(p)} className="text-xs h-7 px-2.5">
-                    <Pencil className="size-3 mr-1" /> Editar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => remove(p.id)}
-                    className="text-xs h-7 px-2.5 text-red-500 hover:text-red-600 hover:border-red-200"
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                </div>
-              </div>
-            )
-          })}
-          {!editing && plantillas.length < 3 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditing({ titulo: 'Consentimiento Informado', contenido: CONSENTIMIENTO_DEFAULT })}
-              className="text-xs"
-            >
-              <Plus className="size-3.5 mr-1.5" /> Agregar plantilla
-            </Button>
-          )}
-          {plantillas.length >= 3 && !editing && (
-            <p className="text-xs text-gray-400">Límite de 3 plantillas alcanzado.</p>
-          )}
-        </div>
-      )}
-
-      {/* Editor */}
-      {editing && (
-        <div className="border border-blue-100 rounded-xl p-5 bg-blue-50/30 space-y-4">
-          <p className="text-sm font-semibold text-gray-800">{editing.id ? 'Editar plantilla' : 'Nueva plantilla'}</p>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Título del documento</Label>
-            <Input
-              value={editing.titulo ?? ''}
-              onChange={e => setEditing(prev => prev ? { ...prev, titulo: e.target.value } : prev)}
-              placeholder="Consentimiento Informado"
-              className="text-sm"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Variables disponibles</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {VARIABLES_CONSENTIMIENTO.map(v => (
-                <button
-                  key={v.variable}
-                  type="button"
-                  onClick={() => insertarVariable(v.variable)}
-                  className="text-[11px] font-mono px-2 py-1 rounded-md bg-white border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                >
-                  {v.variable}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-gray-400">Haz click en una variable para insertarla en el cursor del texto.</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Contenido del documento</Label>
-            <textarea
-              ref={textareaRef}
-              value={editing.contenido ?? ''}
-              onChange={e => setEditing(prev => prev ? { ...prev, contenido: e.target.value } : prev)}
-              rows={16}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-y font-mono"
-              placeholder="Escribe aquí el texto del consentimiento..."
-            />
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" size="sm" onClick={() => setEditing(null)}>Cancelar</Button>
-            <Button size="sm" onClick={save} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
-              {saving ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
-              Guardar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
-        <p className="text-xs text-gray-500 leading-relaxed">
-          <strong>Plantilla activa:</strong> La marcada como activa se usa en todas las citas.
-          Si no hay ninguna activa o no creas plantillas, se envía el consentimiento estándar de SimpliClinic.
-          Máximo 3 plantillas.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// ─── Sección Wizard de Atención ──────────────────────────────────────────────
-
-const ROL_OPCIONES: { value: WizardRolPaso; label: string }[] = [
-  { value: 'cualquiera',    label: 'Cualquier rol' },
-  { value: 'profesional',   label: 'Profesional' },
-  { value: 'recepcionista', label: 'Recepcionista' },
-]
-
-function MiniToggle({ activo, onChange }: { activo: boolean; onChange: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}
-    >
-      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${activo ? 'translate-x-4' : ''}`} />
-    </button>
-  )
-}
-
-function SeccionWizardConfig() {
-  const [cfg, setCfg] = useState<WizardPasosConfig>(WIZARD_PASOS_DEFAULT)
-  const [cargando, setCargando] = useState(true)
-  const [guardando, setGuardando] = useState(false)
-  const [ok, setOk] = useState(false)
-
-  useEffect(() => {
-    getClinicaConfig().then(c => {
-      const saved = c.wizard_pasos ?? {}
-      setCfg({ ...WIZARD_PASOS_DEFAULT, ...saved })
-      setCargando(false)
-    })
-  }, [])
-
-  async function guardar() {
-    setGuardando(true)
-    setOk(false)
-    const config = await getClinicaConfig()
-    await actualizarClinicaConfig({ ...config, wizard_pasos: cfg })
-    setGuardando(false)
-    setOk(true)
-  }
-
-  if (cargando) return <div className="flex justify-center py-12"><Loader2 className="size-5 animate-spin text-gray-300" /></div>
-
-  const pasos = [
-    { label: 'Datos del paciente',     desc: 'Verificar RUT y email',              rolKey: 'rol_paciente'       as const, toggleKey: null },
-    { label: 'Consentimiento',         desc: 'Envío y verificación de firma',       rolKey: 'rol_consentimiento' as const, toggleKey: 'consentimiento' as const },
-    { label: 'Ficha clínica',          desc: 'Formulario del tratamiento',          rolKey: 'rol_ficha'          as const, toggleKey: 'ficha'          as const },
-    { label: 'Fotos',                  desc: 'Fotos antes y después',               rolKey: 'rol_fotos'          as const, toggleKey: 'fotos'          as const },
-    { label: 'Notas clínicas',         desc: 'Observaciones de la sesión',          rolKey: 'rol_notas'          as const, toggleKey: 'notas'          as const },
-    { label: 'Cierre y cobro',         desc: 'Registrar pago y completar',          rolKey: 'rol_cierre'         as const, toggleKey: null },
-  ]
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-[15px] font-semibold text-gray-900">Wizard de atención</h2>
-        <p className="text-[13px] text-gray-500 mt-1">
-          Guía paso a paso al iniciar una cita. Configura qué pasos mostrar y qué rol es responsable de cada uno.
-        </p>
-      </div>
-
-      {/* Toggle principal */}
-      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
-        <div>
-          <p className="text-[13px] font-semibold text-gray-900">Activar wizard</p>
-          <p className="text-[12px] text-gray-500 mt-0.5">Al iniciar una cita, se abre el flujo guiado paso a paso</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setCfg(p => ({ ...p, activo: !p.activo }))}
-          className={`relative w-11 h-6 rounded-full transition-colors ${cfg.activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}
-        >
-          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${cfg.activo ? 'translate-x-5' : ''}`} />
-        </button>
-      </div>
-
-      {cfg.activo && (
-        <div className="space-y-3">
-          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Pasos y responsables</p>
-          <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
-            {pasos.map((paso) => {
-              const activo = paso.toggleKey ? cfg[paso.toggleKey] : true
-              return (
-                <div key={paso.label} className={`px-4 py-3 bg-white transition-opacity ${activo ? '' : 'opacity-50'}`}>
-                  <div className="flex items-center gap-3">
-                    {paso.toggleKey ? (
-                      <MiniToggle
-                        activo={cfg[paso.toggleKey]}
-                        onChange={() => setCfg(p => ({ ...p, [paso.toggleKey!]: !p[paso.toggleKey!] }))}
-                      />
-                    ) : (
-                      <span className="w-9 h-5 flex items-center justify-center text-[10px] font-bold text-gray-400 bg-gray-100 rounded-full shrink-0">
-                        ON
-                      </span>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-gray-800">{paso.label}</p>
-                      <p className="text-[11px] text-gray-400">{paso.desc}</p>
-                    </div>
-                    <select
-                      value={cfg[paso.rolKey]}
-                      onChange={e => setCfg(p => ({ ...p, [paso.rolKey]: e.target.value as WizardRolPaso }))}
-                      className="h-8 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 shrink-0"
-                    >
-                      {ROL_OPCIONES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          <p className="text-[11px] text-gray-400">
-            Los roles son de referencia — cualquier usuario puede completar cualquier paso, pero verá un aviso si no le corresponde.
-          </p>
-        </div>
-      )}
-
-      <Button
-        onClick={guardar}
-        disabled={guardando}
-        className="h-9 text-[13px] border-0 text-white"
-        style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
-      >
-        {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : 'Guardar configuración'}
-      </Button>
-      {ok && <p className="text-[12px] text-emerald-600 flex items-center gap-1"><CheckCircle2 className="size-3.5" />Guardado</p>}
     </div>
   )
 }

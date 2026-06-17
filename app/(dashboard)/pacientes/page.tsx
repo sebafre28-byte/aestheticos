@@ -1,21 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Download, RotateCcw, X } from 'lucide-react'
+import { ChevronDown, Download, FileSpreadsheet, RotateCcw, Upload, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRol } from '@/lib/auth/useRol'
 import { useProfesionalId } from '@/lib/auth/useProfesionalId'
 import { FichaPaciente } from '@/components/pacientes/FichaPaciente'
 import { FormPaciente } from '@/components/pacientes/FormPaciente'
 import { ListaPacientes } from '@/components/pacientes/ListaPacientes'
+import { ModalImportPacientes } from '@/components/pacientes/ModalImportPacientes'
 import {
   actualizarPaciente,
   contarCitasPaciente,
   crearPaciente,
   eliminarPaciente,
   getPacientes,
-  getTodosPacientesParaExport,
   toggleActivoPaciente,
   type PacienteListaItem,
   type PacienteRow,
@@ -48,6 +48,9 @@ export default function PacientesPage() {
   const [procesando, setProcesando] = useState(false)
   const [citasAEliminar, setCitasAEliminar] = useState(0)
   const [exportando, setExportando] = useState(false)
+  const [exportDropdown, setExportDropdown] = useState(false)
+  const exportDropdownRef = useRef<HTMLDivElement>(null)
+  const [modalImport, setModalImport] = useState(false)
   const [modalReactivacion, setModalReactivacion] = useState(false)
   const [reactivando, setReactivando] = useState(false)
   const [reactivacionResultado, setReactivacionResultado] = useState<{ enviados: number; total_inactivos: number } | null>(null)
@@ -68,30 +71,18 @@ export default function PacientesPage() {
     }
   }
 
-  async function handleExportCSV() {
+  async function handleExportar(tipo: 'csv' | 'xlsx') {
     if (exportando) return
     setExportando(true)
+    setExportDropdown(false)
     try {
-      const rows = await getTodosPacientesParaExport()
-      const esc = (v: string | null) => `"${(v ?? '').replace(/"/g, '""')}"`
-      const headers = ['Nombre', 'RUT', 'Teléfono', 'Email', 'Fecha de nacimiento', 'Fecha de registro']
-      const lines = rows.map((p) =>
-        [
-          esc(p.nombre),
-          esc(p.rut),
-          esc(p.telefono),
-          esc(p.email),
-          p.fecha_nacimiento ? format(new Date(`${p.fecha_nacimiento}T00:00:00`), 'dd/MM/yyyy') : '',
-          format(new Date(p.created_at), 'dd/MM/yyyy'),
-        ].join(','),
-      )
-      const BOM = '﻿'
-      const csv = BOM + [headers.join(','), ...lines].join('\n')
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const res = await fetch(`/api/export/pacientes?format=${tipo}`)
+      if (!res.ok) return
+      const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `pacientes-${format(new Date(), 'yyyy-MM-dd')}.csv`
+      a.download = `pacientes-${format(new Date(), 'yyyy-MM-dd')}.${tipo}`
       a.click()
       URL.revokeObjectURL(url)
     } finally {
@@ -103,6 +94,16 @@ export default function PacientesPage() {
     const timeout = setTimeout(() => setBusqueda(busquedaInput), 250)
     return () => clearTimeout(timeout)
   }, [busquedaInput])
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
+        setExportDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -178,17 +179,44 @@ export default function PacientesPage() {
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 shadow-sm hover:bg-gray-50 transition-colors"
             >
               <RotateCcw className="size-4 text-blue-500" />
-              <span className="hidden sm:inline">Reactivar pacientes</span>
+              <span className="hidden sm:inline">Reactivar</span>
             </button>
             <button
-              onClick={handleExportCSV}
-              disabled={exportando}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-60"
+              onClick={() => setModalImport(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 shadow-sm hover:bg-gray-50 transition-colors"
             >
-              <Download className="size-4 text-gray-500" />
-              <span className="hidden sm:inline">{exportando ? 'Exportando...' : 'Exportar CSV'}</span>
-              <span className="sm:hidden">CSV</span>
+              <Upload className="size-4 text-gray-500" />
+              <span className="hidden sm:inline">Importar</span>
             </button>
+            <div ref={exportDropdownRef} className="relative">
+              <button
+                onClick={() => setExportDropdown(v => !v)}
+                disabled={exportando}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-900 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-60"
+              >
+                <Download className="size-4 text-gray-500" />
+                <span className="hidden sm:inline">{exportando ? 'Exportando...' : 'Exportar'}</span>
+                <ChevronDown className="size-3.5 text-gray-400" />
+              </button>
+              {exportDropdown && (
+                <div className="absolute right-0 top-10 z-20 w-44 bg-white rounded-xl border border-gray-100 shadow-lg py-1 text-[13px]">
+                  <button
+                    onClick={() => handleExportar('csv')}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-50"
+                  >
+                    <Download className="size-3.5 text-gray-400" />
+                    Descargar CSV
+                  </button>
+                  <button
+                    onClick={() => handleExportar('xlsx')}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-50"
+                  >
+                    <FileSpreadsheet className="size-3.5 text-green-500" />
+                    Descargar Excel (.xlsx)
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -214,6 +242,13 @@ export default function PacientesPage() {
           setModalConfirm({ tipo: 'eliminar', paciente: p })
         }}
       />
+
+      {modalImport && (
+        <ModalImportPacientes
+          onClose={() => setModalImport(false)}
+          onImportado={recargar}
+        />
+      )}
 
       {openForm && (
         <FormPaciente
