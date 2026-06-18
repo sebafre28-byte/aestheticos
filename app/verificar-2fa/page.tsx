@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-export default function Verificar2FAPage() {
+function Verificar2FAContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') ?? '/agenda'
@@ -171,5 +171,13 @@ export default function Verificar2FAPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function Verificar2FAPage() {
+  return (
+    <Suspense>
+      <Verificar2FAContent />
+    </Suspense>
   )
 }
