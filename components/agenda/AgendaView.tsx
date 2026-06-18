@@ -701,9 +701,9 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
         })}
       </div>
 
-      {/* ── Chips de filtro de profesionales (vista día y semana) ── */}
+      {/* ── Chips de filtro de profesionales (vista día y semana) — oculto en mobile ── */}
       {(vista === 'dia' || vista === 'semana') && profsParaChips.length > 0 && (
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <div className="hidden md:flex items-center gap-2 shrink-0 flex-wrap">
           <span className="text-[11px] text-gray-400 font-medium">Mostrar:</span>
 
           {/* "Todos" solo visible si no es vista profesional — oculto en mobile */}
@@ -744,7 +744,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
         </div>
       )}
 
-      {/* ── Stats strip (día/lista/semana) ── */}
+      {/* ── Stats strip (día/lista/semana) — oculto en mobile ── */}
       {(vista === 'dia' || vista === 'lista' || vista === 'semana') && citas.length > 0 && (() => {
         const validas = citas.filter(c => c.estado !== 'cancelada' && c.estado !== 'no_asistio')
         const confirmadas = citas.filter(c => c.estado === 'confirmada').length
@@ -755,7 +755,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
           return acc
         }, 0)
         return (
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <div className="hidden md:flex items-center gap-2 shrink-0 flex-wrap">
             <div className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-white border border-gray-100 text-[11px] font-medium text-gray-700">
               <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
               {validas.length} citas
@@ -790,8 +790,9 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
       {/* ── Cuerpo principal ── */}
       <div className="flex-1 min-h-0 overflow-hidden flex gap-5">
-        {/* Mini calendario lateral — solo desktop, solo vistas día/semana */}
+        {/* Mini calendario lateral — solo desktop */}
         {(vista === 'dia' || vista === 'semana') && (
+          <div className="hidden md:block">
           <MiniCalendario
             fechaSeleccionada={fechaActual}
             citas={citas}
@@ -800,6 +801,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
               setVista('dia')
             }}
           />
+          </div>
         )}
         <div className="flex-1 min-w-0 h-full relative">
         {errorCarga && (
