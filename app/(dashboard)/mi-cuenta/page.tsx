@@ -544,6 +544,16 @@ function SeccionSeguridad() {
   const [guardando, setGuardando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null)
   const [pw, setPw] = useState({ nueva: '', confirmar: '' })
+  const [mfaEnabled, setMfaEnabled] = useState<boolean | null>(null)
+  const [toggling2fa, setToggling2fa] = useState(false)
+  const [mfaFeedback, setMfaFeedback] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setMfaEnabled(user?.user_metadata?.mfa_enabled === true)
+    })
+  }, [])
 
   async function cambiar(e: React.FormEvent) {
     e.preventDefault()
@@ -558,30 +568,95 @@ function SeccionSeguridad() {
     else { setFeedback({ tipo: 'ok', msg: 'Contraseña actualizada correctamente.' }); setPw({ nueva: '', confirmar: '' }); setTimeout(() => setFeedback(null), 3000) }
   }
 
+  async function toggle2FA() {
+    setToggling2fa(true)
+    setMfaFeedback(null)
+    const supabase = createClient()
+    const nuevoEstado = !mfaEnabled
+    const { error } = await supabase.auth.updateUser({ data: { mfa_enabled: nuevoEstado } })
+    setToggling2fa(false)
+    if (error) {
+      setMfaFeedback({ tipo: 'error', msg: error.message })
+    } else {
+      setMfaEnabled(nuevoEstado)
+      setMfaFeedback({
+        tipo: 'ok',
+        msg: nuevoEstado ? '2FA activado. Se pedirá un código al iniciar sesión.' : '2FA desactivado.',
+      })
+      setTimeout(() => setMfaFeedback(null), 3000)
+    }
+  }
+
   return (
-    <div>
-      <p className="text-[12px] text-gray-400 mb-4">Actualiza tu contraseña de acceso al sistema.</p>
-      <Feedback f={feedback} />
-      <form onSubmit={cambiar} className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-3">
-        <div>
-          <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Nueva contraseña</Label>
-          <Input type="password" value={pw.nueva} onChange={e => setPw(p => ({ ...p, nueva: e.target.value }))} placeholder="Mínimo 8 caracteres" className="h-9 text-[13px]" />
-        </div>
-        <div>
-          <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Confirmar contraseña</Label>
-          <div className="relative">
-            <Input type={mostrar ? 'text' : 'password'} value={pw.confirmar} onChange={e => setPw(p => ({ ...p, confirmar: e.target.value }))} placeholder="Repetir contraseña" className="h-9 text-[13px] pr-9" />
-            <button type="button" onClick={() => setMostrar(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-              {mostrar ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+    <div className="space-y-6">
+      {/* Cambiar contraseña */}
+      <div>
+        <p className="text-[13px] font-semibold text-gray-900 mb-1">Cambiar contraseña</p>
+        <p className="text-[12px] text-gray-400 mb-3">Actualiza tu contraseña de acceso al sistema.</p>
+        <Feedback f={feedback} />
+        <form onSubmit={cambiar} className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-3">
+          <div>
+            <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Nueva contraseña</Label>
+            <Input type="password" value={pw.nueva} onChange={e => setPw(p => ({ ...p, nueva: e.target.value }))} placeholder="Mínimo 8 caracteres" className="h-9 text-[13px]" />
+          </div>
+          <div>
+            <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Confirmar contraseña</Label>
+            <div className="relative">
+              <Input type={mostrar ? 'text' : 'password'} value={pw.confirmar} onChange={e => setPw(p => ({ ...p, confirmar: e.target.value }))} placeholder="Repetir contraseña" className="h-9 text-[13px] pr-9" />
+              <button type="button" onClick={() => setMostrar(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {mostrar ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button type="submit" disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}>
+              {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : 'Actualizar contraseña'}
+            </Button>
+          </div>
+        </form>
+      </div>
+
+      {/* 2FA */}
+      <div>
+        <p className="text-[13px] font-semibold text-gray-900 mb-1">Autenticación en dos pasos (2FA)</p>
+        <p className="text-[12px] text-gray-400 mb-3">Código de 6 dígitos al correo cada vez que inicias sesión.</p>
+        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-medium text-gray-800">
+                {mfaEnabled ? 'Activado' : 'Desactivado'}
+              </p>
+              <p className="text-[12px] text-gray-500 mt-0.5">
+                {mfaEnabled
+                  ? 'Se pedirá un código por correo al iniciar sesión. Sesión válida 7 días.'
+                  : 'Solo se requiere contraseña para entrar.'}
+              </p>
+            </div>
+            <button
+              onClick={toggle2FA}
+              disabled={toggling2fa || mfaEnabled === null}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                mfaEnabled ? 'bg-[#2563EB]' : 'bg-gray-200'
+              } ${toggling2fa ? 'opacity-50' : ''}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${mfaEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
             </button>
           </div>
+          {mfaFeedback && (
+            <div className={`mt-3 text-[12px] font-medium rounded-lg px-3 py-2 ${
+              mfaFeedback.tipo === 'ok' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+            }`}>
+              {mfaFeedback.msg}
+            </div>
+          )}
+          {mfaEnabled && (
+            <div className="mt-3 flex items-start gap-2 text-[12px] text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
+              <span className="text-base leading-none mt-0.5">🔒</span>
+              <span>La sesión 2FA dura <strong>7 días</strong>. En otro dispositivo se pedirá el código nuevamente.</span>
+            </div>
+          )}
         </div>
-        <div className="flex justify-end pt-1">
-          <Button type="submit" disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}>
-            {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : 'Actualizar contraseña'}
-          </Button>
-        </div>
-      </form>
+      </div>
     </div>
   )
 }
