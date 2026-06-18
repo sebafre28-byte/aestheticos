@@ -134,6 +134,49 @@ Requiere header `x-internal-secret` (= `CRON_SECRET`) para llamadas internas sin
 - Inbox en `/inbox` muestra conversaciones en tiempo real (Supabase realtime)
 - Recordatorios automáticos via GitHub Actions cron
 
+### Estado actual: configuración manual por clínica
+Cada clínica que quiere WhatsApp requiere configuración manual asistida:
+el admin de SimpliClinic les ayuda a crear la app en Meta Developers,
+obtener el token y phone_id, y registrarlo en la DB.
+Esto es viable en beta (<10 clínicas) pero no escala.
+
+### Roadmap: WhatsApp auto-gestionable por clínica
+
+**Objetivo:** la clínica conecta su propio número de WhatsApp en 3 clics desde
+Configuración → WhatsApp, sin intervención del equipo de SimpliClinic.
+
+**Solución correcta: Meta Embedded Signup**
+Meta ofrece un flujo OAuth para plataformas SaaS que permite al usuario
+autorizar su número directamente desde la app. SimpliClinic recibe el token
+automáticamente y lo guarda por clínica.
+
+Flujo:
+1. Clínica: Configuración → WhatsApp → "Conectar mi número"
+2. Popup de Facebook → acepta permisos → elige número de WhatsApp Business
+3. SimpliClinic recibe `access_token` + `phone_number_id` vía callback
+4. Se guardan en tabla `whatsapp_config` por `clinica_id`
+5. Recordatorios y agente IA funcionan automáticamente con ese número
+
+Requisito bloqueante: SimpliClinic debe ser aprobada como
+**WhatsApp Business Solution Provider (BSP)** por Meta.
+Proceso: 2-4 semanas, requiere volumen mínimo de mensajes demostrable.
+Referencia: https://developers.facebook.com/docs/whatsapp/embedded-signup
+
+**Alternativa para escala intermedia: BSP externo**
+Usar un BSP ya aprobado (360dialog, Twilio, Bird) que ofrecen
+multi-tenant out-of-the-box. SimpliClinic actúa como ISV sobre su API.
+Más rápido de implementar, añade costo por clínica (~€50-100/mes por número).
+
+**Decisión de implementación:**
+- Beta (0-10 clínicas): configuración manual asistida ← estado actual
+- Lanzamiento (10-50 clínicas): evaluar BSP externo (360dialog recomendado)
+- Escala (50+ clínicas): solicitar BSP status a Meta + Embedded Signup propio
+
+**Nota sobre Crisp WhatsApp plugin:**
+Crisp tiene integración con Meta Cloud API pero conecta UN solo número al
+inbox de Crisp — es para soporte de SimpliClinic, no para las clínicas.
+No es solución multi-tenant.
+
 ---
 
 ## Google Calendar
