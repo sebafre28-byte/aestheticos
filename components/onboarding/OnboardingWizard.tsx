@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { CheckCircle, CheckCircle2, Check, Copy, Loader2, ChevronRight, ChevronLeft, Sparkles, Users, Scissors, Clock } from 'lucide-react'
+import { DireccionAutocomplete } from '@/components/ui/DireccionAutocomplete'
 import { createClient } from '@/lib/supabase/client'
 import {
   actualizarClinicaBasica,
@@ -417,11 +418,9 @@ export function OnboardingWizard() {
                 </Field>
               </div>
               <Field label="Dirección" required>
-                <Input
+                <DireccionAutocomplete
                   value={direccionClinica}
-                  onChange={e => setDireccionClinica(e.target.value)}
-                  placeholder="Av. Providencia 1234, Santiago"
-                  required
+                  onChange={setDireccionClinica}
                 />
               </Field>
               <Field label="Sitio web" hint="opcional">
