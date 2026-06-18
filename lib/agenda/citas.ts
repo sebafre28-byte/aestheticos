@@ -324,3 +324,14 @@ export async function getCitasFuturasPaciente(pacienteId: string): Promise<CitaC
   if (error) return []
   return (data ?? []) as CitaConRelaciones[]
 }
+
+export async function getCitaById(citaId: string): Promise<CitaConRelaciones | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('citas')
+    .select(`*, pacientes(*), profesionales(*), servicios(*)`)
+    .eq('id', citaId)
+    .single()
+  if (error) return null
+  return data as CitaConRelaciones
+}

@@ -21,6 +21,8 @@ import {
   getCitasDelDia, getCitasDeSemana, getCitasDelMes, getProfesionales, getServiciosAgenda, getClinicaId, editarCita,
   getBloqueos, getBloqueosRango, eliminarBloqueo,
 } from '@/lib/agenda/queries'
+import { getCitaById } from '@/lib/agenda/citas'
+import { getPacienteBasico, type PacienteRow } from '@/lib/pacientes/queries'
 import type { BloqueoProfesional, BloqueoAgendaRow } from '@/lib/agenda/queries'
 import { getClinicaConfig } from '@/lib/onboarding/queries'
 import type { HorariosConfig } from '@/lib/onboarding/queries'
@@ -57,6 +59,22 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
     }
   }, [])
 
+  // Read URL params on mount: ?citaId=xxx or ?nuevaCita=true&pacienteId=xxx
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const citaId = params.get('citaId')
+    const pacienteId = params.get('pacienteId')
+    const nuevaCita = params.get('nuevaCita')
+    if (citaId) {
+      getCitaById(citaId).then((cita) => { if (cita) setCitaDetalle(cita) })
+    }
+    if (nuevaCita && pacienteId) {
+      getPacienteBasico(pacienteId).then((p) => {
+        if (p) { setPacienteModalInicial(p); setModalAbierto(true) }
+      })
+    }
+  }, [])
+
   const [fechaActual, setFechaActual] = useState(new Date())
   const [citas, setCitas] = useState<CitaConRelaciones[]>([])
   const [bloqueos, setBloqueos] = useState<BloqueoProfesional[]>([])
@@ -84,6 +102,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   const [citaParaEditar, setCitaParaEditar] = useState<CitaConRelaciones | null>(null)
   const [profesionalModalId, setProfesionalModalId] = useState<string | undefined>()
   const [fechaHoraModal, setFechaHoraModal] = useState<Date | undefined>()
+  const [pacienteModalInicial, setPacienteModalInicial] = useState<PacienteRow | null>(null)
 
   const [citaDetalle, setCitaDetalle] = useState<CitaConRelaciones | null>(null)
   const [busqueda, setBusqueda] = useState('')
@@ -953,7 +972,8 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
           profesionales={profesionales}
           servicios={servicios}
           onGuardada={handleCitaGuardada}
-          onCerrar={() => { setModalAbierto(false); setCitaParaEditar(null) }}
+          pacienteInicial={pacienteModalInicial}
+          onCerrar={() => { setModalAbierto(false); setCitaParaEditar(null); setPacienteModalInicial(null) }}
         />
       )}
 

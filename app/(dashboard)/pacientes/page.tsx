@@ -268,7 +268,8 @@ export default function PacientesPage() {
           onEditar={(p) => { setPacienteSeleccionadoId(null); setPacienteEditando(p); setOpenForm(true) }}
           onToggleActivo={(p) => setModalConfirm({ tipo: 'toggle', paciente: p })}
           onEliminar={(p) => setModalConfirm({ tipo: 'eliminar', paciente: p })}
-          onNuevaCita={() => router.push('/agenda')}
+          onNuevaCita={(pacienteId) => router.push('/agenda?nuevaCita=true&pacienteId=' + pacienteId)}
+          onVerCita={(citaId) => router.push('/agenda?citaId=' + citaId)}
         />
       )}
 

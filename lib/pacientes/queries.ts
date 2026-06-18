@@ -55,6 +55,17 @@ type PacientesParams = {
   profesionalId?: string
 }
 
+export async function getPacienteBasico(pacienteId: string): Promise<PacienteRow | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('pacientes')
+    .select('*')
+    .eq('id', pacienteId)
+    .single()
+  if (error) return null
+  return data as PacienteRow
+}
+
 export async function getClinicaId(): Promise<string | null> {
   const supabase = createClient()
   const { data, error } = await supabase.rpc('auth_clinica_id')

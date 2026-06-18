@@ -48,6 +48,7 @@ type Props = {
   citaExistente?: CitaConRelaciones | null
   profesionalIdInicial?: string
   fechaHoraInicial?: Date
+  pacienteInicial?: PacienteRow | null
   profesionales: ProfesionalRow[]
   servicios: ServicioRow[]
   onGuardada: (cita: CitaConRelaciones) => void
@@ -58,6 +59,7 @@ export function ModalCita({
   citaExistente,
   profesionalIdInicial,
   fechaHoraInicial,
+  pacienteInicial,
   profesionales,
   servicios,
   onGuardada,
@@ -66,8 +68,8 @@ export function ModalCita({
   const esEdicion = !!citaExistente
 
   // ─── Estado del formulario ─────────────────────────────────────────────────
-  const [busquedaPaciente, setBusquedaPaciente] = useState(citaExistente?.pacientes?.nombre ?? '')
-  const [pacienteSeleccionado, setPacienteSeleccionado] = useState<PacienteRow | null>(citaExistente?.pacientes ?? null)
+  const [busquedaPaciente, setBusquedaPaciente] = useState(citaExistente?.pacientes?.nombre ?? pacienteInicial?.nombre ?? '')
+  const [pacienteSeleccionado, setPacienteSeleccionado] = useState<PacienteRow | null>(citaExistente?.pacientes ?? pacienteInicial ?? null)
   const [resultadosBusqueda, setResultadosBusqueda] = useState<PacienteRow[]>([])
   const [buscando, setBuscando] = useState(false)
   const [mostrarCrearPaciente, setMostrarCrearPaciente] = useState(false)
