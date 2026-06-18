@@ -25,10 +25,11 @@ function tiempoRestante(inicio: string): { texto: string; urgente: boolean } {
   return { texto: format(parseISO(inicio), "EEE d MMM", { locale: es }), urgente: false }
 }
 
-function CitaCard({ cita, onConfirmar, confirmando }: {
+function CitaCard({ cita, onConfirmar, confirmando, onVerCita }: {
   cita: CitaConRelaciones
   onConfirmar: (id: string) => void
   confirmando: string | null
+  onVerCita: (id: string) => void
 }) {
   const { texto, urgente } = tiempoRestante(cita.inicio)
   const hora = cita.inicio.slice(11, 16)
@@ -43,7 +44,10 @@ function CitaCard({ cita, onConfirmar, confirmando }: {
   }
 
   return (
-    <div className={`bg-white rounded-xl border p-4 flex items-start gap-3 ${urgente ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'}`}>
+    <div
+      className={`bg-white rounded-xl border p-4 flex items-start gap-3 cursor-pointer hover:shadow-sm transition-all ${urgente ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'}`}
+      onClick={() => onVerCita(cita.id)}
+    >
       <div className="shrink-0 text-center w-14">
         <p className="text-[15px] font-bold text-gray-900 leading-tight">{hora}</p>
         {horaFin && <p className="text-[11px] text-gray-400">{horaFin}</p>}
@@ -58,7 +62,7 @@ function CitaCard({ cita, onConfirmar, confirmando }: {
           {texto}
         </span>
       </div>
-      <div className="flex gap-1.5 shrink-0">
+      <div className="flex gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
         {cita.pacientes?.telefono && (
           <button
             onClick={abrirWhatsApp}
@@ -136,21 +140,21 @@ export default function PendientesPage() {
               : `${citas.length} cita${citas.length !== 1 ? 's' : ''} sin confirmar`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <button
             onClick={cargar}
             disabled={cargando}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`size-3.5 ${cargando ? 'animate-spin' : ''}`} />
-            Actualizar
+            <span className="hidden sm:inline">Actualizar</span>
           </button>
           <button
             onClick={() => router.push('/agenda')}
-            className="flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-2 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-2 text-[13px] font-medium text-white hover:bg-blue-700 transition-colors"
           >
             <Calendar className="size-3.5" />
-            Ver agenda
+            <span className="hidden sm:inline">Ver agenda</span>
           </button>
         </div>
       </div>
@@ -197,6 +201,7 @@ export default function PendientesPage() {
                     cita={cita}
                     onConfirmar={confirmar}
                     confirmando={confirmando}
+                    onVerCita={(id) => router.push('/agenda?citaId=' + id)}
                   />
                 ))}
               </div>
