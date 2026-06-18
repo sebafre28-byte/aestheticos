@@ -917,6 +917,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
                   const estadoLabel: Record<string, string> = {
                     pendiente: 'Pendiente',
                     confirmada: 'Confirmada',
+                    en_sala: 'En sala',
                     completada: 'Completada',
                     cancelada: 'Cancelada',
                     no_asistio: 'No asistió',
@@ -924,6 +925,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
                   const estadoStyle: Record<string, string> = {
                     pendiente: 'bg-amber-50 text-amber-600',
                     confirmada: 'bg-teal-50 text-teal-600',
+                    en_sala: 'bg-purple-50 text-purple-600',
                     completada: 'bg-blue-50 text-blue-600',
                     cancelada: 'bg-red-50 text-red-500',
                     no_asistio: 'bg-red-100 text-red-700',
