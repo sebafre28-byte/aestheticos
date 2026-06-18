@@ -158,3 +158,16 @@
 .animate-slide-in-right {
   animation: slide-in-right 0.25s ease-out forwards;
 }
+
+/* Google Places Autocomplete dropdown — forzar tema claro */
+.pac-container,
+gmp-place-autocomplete,
+gmp-place-autocomplete-element {
+  font-family: inherit !important;
+}
+
+.gm-autocomplete-container,
+[class*="PlaceAutocomplete"] {
+  background: white !important;
+  color: #111827 !important;
+}
