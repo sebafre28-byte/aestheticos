@@ -110,6 +110,7 @@ export function ModalCita({
 
   const [conflicto, setConflicto] = useState<CitaConRelaciones | null>(null)
   const [alertaSoft, setAlertaSoft] = useState<string | null>(null)
+  const [bloqueado, setBloqueado] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Map de profesionalId -> servicios asignados (string[])
@@ -220,9 +221,9 @@ export function ModalCita({
       )
 
       if (active) {
-        if (!dentro) setAlertaSoft('Horario fuera de disponibilidad del profesional.')
-        else if (bloquea) setAlertaSoft('Existe un bloqueo de agenda para ese horario.')
-        else setAlertaSoft(null)
+        if (!dentro) { setAlertaSoft('Horario fuera de disponibilidad del profesional.'); setBloqueado(false) }
+        else if (bloquea) { setAlertaSoft('Existe un bloqueo de agenda para ese horario.'); setBloqueado(true) }
+        else { setAlertaSoft(null); setBloqueado(false) }
       }
     }
     validarDisponibilidad()
@@ -332,6 +333,31 @@ export function ModalCita({
     if (!fecha || !hora) { setError('Indica fecha y hora'); return }
     if (fecha < format(new Date(), 'yyyy-MM-dd')) { setError('No puedes agendar en una fecha pasada'); return }
     if (conflicto) { setError('Existe conflicto de horario. Selecciona otro bloque.'); return }
+    if (bloqueado) { setError('El horario está bloqueado. Elige otro bloque.'); return }
+
+    if (recurrenceKind !== 'none') {
+      const base = parseISO(`${fecha}T12:00:00`)
+      for (let i = 0; i < recurrenceCount; i++) {
+        const dBase = recurrenceKind === 'daily' ? addDays(base, i) : recurrenceKind === 'weekly' ? addWeeks(base, i) : addMonths(base, i)
+        const fechaStr = sessionFechaOverrides[i] ?? format(dBase, 'yyyy-MM-dd')
+        const d = parseISO(`${fechaStr}T12:00:00`)
+        const horaSession = sessionHoraOverrides[i] ?? hora
+        const diaSemanaISO = d.getDay() === 0 ? 7 : d.getDay()
+        const diaNoAtiende = disponibilidadProfesional.length > 0
+          ? (disponibilidadProfesional.some(r => r.dia_semana === diaSemanaISO && !r.activo) || !disponibilidadProfesional.some(r => r.dia_semana === diaSemanaISO))
+          : false
+        const tieneConflicto = servicioActual && citasDelProfesional.some(c => {
+          if (!c.inicio.startsWith(fechaStr)) return false
+          const cInicio = parseInt(c.inicio.slice(11,13))*60 + parseInt(c.inicio.slice(14,16))
+          const cFin = parseInt(c.fin.slice(11,13))*60 + parseInt(c.fin.slice(14,16))
+          const sInicio = parseInt(horaSession.slice(0,2))*60 + parseInt(horaSession.slice(3,5))
+          const sFin = sInicio + (servicioActual?.duracion_minutos ?? 0)
+          return sInicio < cFin && sFin > cInicio
+        })
+        if (diaNoAtiende) { setError(`La sesión ${i + 1} cae en un día sin atención. Elige otra fecha.`); return }
+        if (tieneConflicto) { setError(`La sesión ${i + 1} tiene conflicto de horario. Elige otro bloque.`); return }
+      }
+    }
 
     setError(null)
     setGuardando(true)
@@ -623,7 +649,10 @@ export function ModalCita({
               </Label>
               <DatePicker
                 value={fecha}
-                onChange={setFecha}
+                onChange={v => {
+                  setFecha(v)
+                  setSessionFechaOverrides(prev => { const next = { ...prev }; delete next[0]; return next })
+                }}
                 min={format(new Date(), 'yyyy-MM-dd')}
               />
             </div>
@@ -808,7 +837,10 @@ export function ModalCita({
                             </div>
                             <DatePicker
                               value={fechaStr}
-                              onChange={v => setSessionFechaOverrides(prev => ({ ...prev, [i]: v }))}
+                              onChange={v => {
+                                setSessionFechaOverrides(prev => ({ ...prev, [i]: v }))
+                                if (i === 0) setFecha(v)
+                              }}
                               min={format(new Date(), 'yyyy-MM-dd')}
                               disabledDays={isDayDisabled}
                               className={`flex-1 ${hayProblema ? '[&_button]:border-red-300 [&_button]:text-red-700' : ''}`}

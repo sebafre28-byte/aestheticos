@@ -204,7 +204,10 @@ export async function crearCitasRecurrentes(
 
   const supabase = createClient()
   const { error } = await supabase.from('citas').insert(ocurrencias)
-  if (error) console.warn('[agenda] crearCitasRecurrentes batch insert falló (no crítico):', error)
+  if (error) {
+    console.error('[agenda] crearCitasRecurrentes batch insert falló:', error)
+    return null
+  }
   invalidateAgendaCache()
   return citaPadre
 }
