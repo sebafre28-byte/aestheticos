@@ -14,7 +14,6 @@ import {
   User,
   ChevronUp,
   Shield,
-  CalendarDays,
   Wallet,
   MessageCircle,
   ClipboardCheck,
@@ -292,10 +291,6 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
               <Link href="/mi-cuenta" onClick={() => setPopoverAbierto(false)} className="flex items-center gap-2.5 h-9 px-4 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">
                 <User className="size-[14px] text-gray-400 shrink-0" />
                 Mi perfil
-              </Link>
-              <Link href="/mi-cuenta?tab=google" onClick={() => setPopoverAbierto(false)} className="flex items-center gap-2.5 h-9 px-4 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">
-                <CalendarDays className="size-[14px] text-gray-400 shrink-0" />
-                Google Calendar
               </Link>
               <Link href="/mi-cuenta?tab=seguridad" onClick={() => setPopoverAbierto(false)} className="flex items-center gap-2.5 h-9 px-4 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors">
                 <Shield className="size-[14px] text-gray-400 shrink-0" />
