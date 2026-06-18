@@ -291,7 +291,6 @@ function SeccionClinica() {
           value={form.direccion}
           onChange={(v) => setForm(p => ({ ...p, direccion: v }))}
         />
-        <p className="text-[11px] text-gray-400 mt-1">Escribe para buscar y verificar la dirección con Google Maps.</p>
       </div>
       {slug && (
         <div className="mb-6 p-4 rounded-xl border border-blue-100 bg-blue-50/40">
