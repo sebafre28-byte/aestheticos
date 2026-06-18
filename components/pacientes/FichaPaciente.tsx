@@ -8,21 +8,15 @@ import { es } from 'date-fns/locale'
 import { citaWallClockTime, citaWallClockDate } from '@/lib/agenda/datetime'
 import {
   CalendarDays,
-  Clock3,
   FileText,
   Mail,
   MessageCircle,
   Phone,
-  Stethoscope,
   Trash2,
   User,
   UserCheck,
   UserX,
   X,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,9 +35,8 @@ import { getPaquetesActivosPaciente } from '@/lib/paquetes/queries'
 const PanelFichas = lazy(() => import('@/components/fichas/PanelFichas'))
 const PanelGaleria = lazy(() => import('@/components/galeria/PanelGaleria'))
 const PanelConsentimientos = lazy(() => import('@/components/pacientes/PanelConsentimientos'))
-const PaquetesTab = lazy(() => import('@/components/paquetes/PaquetesTab').then(m => ({ default: m.PaquetesTab })))
 
-type Tab = 'informacion' | 'historial' | 'salud' | 'notas' | 'fichas' | 'galeria' | 'consentimientos' | 'paquetes'
+type Tab = 'resumen' | 'fichas' | 'galeria' | 'historial' | 'salud' | 'consentimientos'
 
 type Props = {
   pacienteId: string
@@ -165,7 +158,7 @@ export function FichaPaciente({
   onNuevaCita,
   onVerCita,
 }: Props) {
-  const [tab, setTab] = useState<Tab>('informacion')
+  const [tab, setTab] = useState<Tab>('resumen')
   const [fichasCount, setFichasCount] = useState(0)
   const [paquetesActivosCount, setPaquetesActivosCount] = useState(0)
   const [paciente, setPaciente] = useState<PacienteRow | null>(null)
@@ -287,13 +280,11 @@ export function FichaPaciente({
 
   const gradient = avatarGradient(paciente.nombre)
   const tabs: { key: Tab; label: string; badge?: number }[] = [
-    { key: 'informacion', label: 'Información' },
-    { key: 'historial', label: 'Historial' },
-    { key: 'salud', label: 'Salud' },
-    { key: 'notas', label: 'Notas' },
-    { key: 'paquetes', label: 'Paquetes', badge: paquetesActivosCount > 0 ? paquetesActivosCount : undefined },
+    { key: 'resumen', label: 'Resumen' },
     { key: 'fichas', label: 'Fichas', badge: fichasCount > 0 ? fichasCount : undefined },
     { key: 'galeria', label: 'Galería' },
+    { key: 'historial', label: 'Historial' },
+    { key: 'salud', label: 'Salud' },
     { key: 'consentimientos', label: 'Consentimientos' },
   ]
 
@@ -369,59 +360,67 @@ export function FichaPaciente({
 
         {/* Tab content */}
         <div className="flex-1 overflow-y-auto p-5">
-          {/* ---- INFORMACIÓN ---- */}
-          {tab === 'informacion' && (
+          {/* ---- RESUMEN ---- */}
+          {tab === 'resumen' && (
             <div className="space-y-4">
-              <InfoRow icon={<User className="size-3.5 text-gray-400" />} label="RUT" value={paciente.rut ?? '—'} />
-              <InfoRow
-                icon={<Phone className="size-3.5 text-gray-400" />}
-                label="Teléfono"
-                value={
-                  paciente.telefono
-                    ? <a href={`tel:${paciente.telefono}`} className="text-[#2563EB] hover:underline">{paciente.telefono}</a>
-                    : '—'
-                }
-              />
-              <InfoRow
-                icon={<Mail className="size-3.5 text-gray-400" />}
-                label="Email"
-                value={
-                  paciente.email
-                    ? <a href={`mailto:${paciente.email}`} className="text-[#2563EB] hover:underline">{paciente.email}</a>
-                    : '—'
-                }
-              />
-              <InfoRow
-                icon={<CalendarDays className="size-3.5 text-gray-400" />}
-                label="Nacimiento"
-                value={
-                  paciente.fecha_nacimiento
-                    ? `${format(parseISO(paciente.fecha_nacimiento), "d 'de' MMMM, yyyy", { locale: es })} · ${getEdad(paciente.fecha_nacimiento)}`
-                    : '—'
-                }
-              />
-              <InfoRow
-                icon={<User className="size-3.5 text-gray-400" />}
-                label="Género"
-                value={paciente.genero ? (GENERO_LABELS[paciente.genero] ?? paciente.genero) : '—'}
-              />
-              {paciente.direccion && (
-                <InfoRow
-                  icon={<MessageCircle className="size-3.5 text-gray-400" />}
-                  label="Dirección"
-                  value={paciente.direccion}
+              {/* Contacto */}
+              <div className="space-y-3">
+                <InfoRow icon={<Phone className="size-3.5 text-gray-400" />} label="Teléfono"
+                  value={paciente.telefono ? <a href={`tel:${paciente.telefono}`} className="text-[#2563EB] hover:underline">{paciente.telefono}</a> : '—'}
                 />
-              )}
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" onClick={() => onEditar(paciente)} className="flex-1 text-[13px]">
-                  Editar datos
-                </Button>
-                {paciente.telefono && (
-                  <Button onClick={abrirWhatsApp} className="flex-1 text-white bg-teal-500 hover:bg-teal-600 text-[13px]">
-                    WhatsApp
-                  </Button>
+                <InfoRow icon={<Mail className="size-3.5 text-gray-400" />} label="Email"
+                  value={paciente.email ? <a href={`mailto:${paciente.email}`} className="text-[#2563EB] hover:underline">{paciente.email}</a> : '—'}
+                />
+                <InfoRow icon={<User className="size-3.5 text-gray-400" />} label="RUT" value={paciente.rut ?? '—'} />
+                <InfoRow
+                  icon={<CalendarDays className="size-3.5 text-gray-400" />}
+                  label="Nacimiento"
+                  value={paciente.fecha_nacimiento
+                    ? `${format(parseISO(paciente.fecha_nacimiento), "d 'de' MMMM, yyyy", { locale: es })} · ${getEdad(paciente.fecha_nacimiento)}`
+                    : '—'}
+                />
+                <InfoRow
+                  icon={<User className="size-3.5 text-gray-400" />}
+                  label="Género"
+                  value={paciente.genero ? (GENERO_LABELS[paciente.genero] ?? paciente.genero) : '—'}
+                />
+                {paciente.direccion && (
+                  <InfoRow icon={<MessageCircle className="size-3.5 text-gray-400" />} label="Dirección" value={paciente.direccion} />
                 )}
               </div>
+
+              {/* Paquetes activos */}
+              {paquetesActivosCount > 0 && (
+                <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold text-violet-600 uppercase tracking-wide">Paquetes activos</p>
+                    <p className="text-[13px] font-bold text-violet-900 mt-0.5">{paquetesActivosCount} paquete{paquetesActivosCount > 1 ? 's' : ''} vigente{paquetesActivosCount > 1 ? 's' : ''}</p>
+                  </div>
+                  <Suspense fallback={null}>
+                    <button
+                      onClick={() => setTab('fichas')}
+                      className="text-[11px] text-violet-600 font-medium underline underline-offset-2"
+                    >
+                      Ver fichas →
+                    </button>
+                  </Suspense>
+                </div>
+              )}
+
+              {/* Próxima cita destacada */}
+              {proximaCita && (
+                <div
+                  className={`rounded-xl border border-blue-100 bg-blue-50 p-4 ${onVerCita ? 'cursor-pointer hover:border-blue-200 hover:bg-blue-100/60 transition-colors' : ''}`}
+                  onClick={() => onVerCita?.(proximaCita.id)}
+                >
+                  <p className="text-[11px] font-semibold text-blue-600 uppercase tracking-wide mb-1">Próxima cita</p>
+                  <p className="text-[14px] font-bold text-blue-900">
+                    {formatCitaFecha(proximaCita.inicio, "EEEE d 'de' MMMM")} · {citaWallClockTime(proximaCita.inicio)}
+                  </p>
+                  <p className="text-[12px] text-blue-700 mt-0.5">{proximaCita.servicios?.nombre ?? 'Servicio'}</p>
+                  <p className="text-[11px] text-blue-500 mt-0.5">{proximaCita.profesionales?.nombre ?? ''}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -481,108 +480,71 @@ export function FichaPaciente({
             </div>
           )}
 
-          {/* ---- SALUD ---- */}
+          {/* ---- SALUD + NOTAS ---- */}
           {tab === 'salud' && (
-            <div className="space-y-4">
-              {alergias === '' && condiciones === '' ? (
-                <div className="flex flex-col items-center py-8 text-gray-300 mb-4">
-                  <Stethoscope className="size-10 mb-3" />
-                  <p className="text-[13px] text-gray-400 font-medium">Agregar información de salud</p>
-                  <p className="text-[12px] text-gray-400 mt-1">Completa los campos a continuación</p>
-                </div>
-              ) : null}
-              <div>
-                <label className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  Alergias
-                </label>
-                <textarea
-                  value={alergias}
-                  onChange={(e) => setAlergias(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: Penicilina, látex..."
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30"
-                />
-              </div>
-              <div>
-                <label className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  Condiciones médicas
-                </label>
-                <textarea
-                  value={condiciones}
-                  onChange={(e) => setCondiciones(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: Diabetes tipo 2, hipertensión..."
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30"
-                />
-              </div>
-              <Button
-                onClick={guardarSalud}
-                disabled={guardandoSalud}
-                className="w-full text-white"
-                style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
-              >
-                {guardandoSalud ? 'Guardando...' : saludGuardada ? '✓ Guardado' : 'Guardar ficha clínica'}
-              </Button>
-              <p className="text-[11px] text-gray-400 text-center">
-                Esta información es confidencial y solo visible para el equipo médico.
-              </p>
-            </div>
-          )}
-
-          {/* ---- PAQUETES DE SESIONES ---- */}
-          {tab === 'paquetes' && (
-            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
-              <PaquetesTab pacienteId={pacienteId} />
-            </Suspense>
-          )}
-
-          {/* ---- FICHAS CLÍNICAS ---- */}
-          {tab === 'fichas' && (
-            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
-              <PanelFichas pacienteId={pacienteId} onCountChange={setFichasCount} />
-            </Suspense>
-          )}
-
-          {/* ---- GALERÍA ---- */}
-          {tab === 'galeria' && (
-            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
-              <PanelGaleria pacienteId={pacienteId} />
-            </Suspense>
-          )}
-
-          {/* ---- CONSENTIMIENTOS ---- */}
-          {tab === 'consentimientos' && (
-            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
-              <PanelConsentimientos pacienteId={pacienteId} />
-            </Suspense>
-          )}
-
-          {/* ---- NOTAS CLÍNICAS ---- */}
-          {tab === 'notas' && (
-            <div className="space-y-3">
-              {puedeEscribirNotas && (
-                <>
+            <div className="space-y-5">
+              {/* Ficha de salud */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    Alergias
+                  </label>
                   <textarea
-                    value={nuevaNota}
-                    onChange={(e) => setNuevaNota(e.target.value)}
+                    value={alergias}
+                    onChange={(e) => setAlergias(e.target.value)}
                     rows={3}
-                    placeholder="Escribe una nota clínica..."
+                    placeholder="Ej: Penicilina, látex..."
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30"
                   />
-                  <Button
-                    onClick={agregarNota}
-                    disabled={guardandoNota || !nuevaNota.trim()}
-                    className="text-white"
-                    style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
-                  >
-                    {guardandoNota ? 'Guardando...' : 'Agregar nota'}
-                  </Button>
-                </>
-              )}
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    Condiciones médicas
+                  </label>
+                  <textarea
+                    value={condiciones}
+                    onChange={(e) => setCondiciones(e.target.value)}
+                    rows={3}
+                    placeholder="Ej: Diabetes tipo 2, hipertensión..."
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+                  />
+                </div>
+                <Button
+                  onClick={guardarSalud}
+                  disabled={guardandoSalud}
+                  className="w-full text-white"
+                  style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
+                >
+                  {guardandoSalud ? 'Guardando...' : saludGuardada ? '✓ Guardado' : 'Guardar ficha clínica'}
+                </Button>
+              </div>
 
-              <div className="pt-1">
+              {/* Divisor */}
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-3">Notas del equipo</p>
+
+                {puedeEscribirNotas && (
+                  <div className="space-y-2 mb-4">
+                    <textarea
+                      value={nuevaNota}
+                      onChange={(e) => setNuevaNota(e.target.value)}
+                      rows={3}
+                      placeholder="Escribe una nota clínica..."
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+                    />
+                    <Button
+                      onClick={agregarNota}
+                      disabled={guardandoNota || !nuevaNota.trim()}
+                      className="text-white"
+                      style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
+                    >
+                      {guardandoNota ? 'Guardando...' : 'Agregar nota'}
+                    </Button>
+                  </div>
+                )}
+
                 {notasClinicas.length === 0 ? (
-                  <div className="flex flex-col items-center py-10 text-gray-300">
+                  <div className="flex flex-col items-center py-8 text-gray-300">
                     <FileText className="size-9 mb-3" />
                     <p className="text-[13px] text-gray-400">Sin notas clínicas</p>
                   </div>
@@ -594,10 +556,7 @@ export function FichaPaciente({
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-1.5">
                             {nota.profesionales && (
-                              <span
-                                className="w-2 h-2 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: dotColor }}
-                              />
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />
                             )}
                             <span className="text-[11px] text-gray-400">
                               {nota.profesionales?.nombre && `${nota.profesionales.nombre} · `}
@@ -621,6 +580,28 @@ export function FichaPaciente({
               </div>
             </div>
           )}
+
+          {/* ---- FICHAS CLÍNICAS ---- */}
+          {tab === 'fichas' && (
+            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
+              <PanelFichas pacienteId={pacienteId} onCountChange={setFichasCount} />
+            </Suspense>
+          )}
+
+          {/* ---- GALERÍA ---- */}
+          {tab === 'galeria' && (
+            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
+              <PanelGaleria pacienteId={pacienteId} />
+            </Suspense>
+          )}
+
+          {/* ---- CONSENTIMIENTOS ---- */}
+          {tab === 'consentimientos' && (
+            <Suspense fallback={<p className="text-[13px] text-gray-400 text-center py-8">Cargando...</p>}>
+              <PanelConsentimientos pacienteId={pacienteId} />
+            </Suspense>
+          )}
+
         </div>
 
         {/* Footer */}
