@@ -11,7 +11,7 @@ import {
   CreditCard, BarChart3, Search, LogOut, Shield, Zap, ExternalLink,
   DollarSign, Activity,
 } from 'lucide-react'
-import { PLAN_LABELS, PLAN_PRICES, type Plan } from '@/lib/subscriptions/queries'
+import { PLAN_LABELS, PLAN_PRICES, PLAN_LIMITS, type Plan } from '@/lib/subscriptions/queries'
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -460,8 +460,14 @@ export default function SuperAdminPage() {
                                 {/* Uso vs límites */}
                                 <div className="space-y-2">
                                   <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Uso vs límites</p>
-                                  <UsageBar label="Profesionales" used={c.uso?.profesionales ?? 0} max={c.limites?.profesionales ?? 1} />
-                                  <UsageBar label="Pacientes" used={c.uso?.pacientes ?? 0} max={c.limites?.pacientes ?? 200} />
+                                  {(() => {
+                                    const plan = (c.subscription?.plan ?? 'free') as Plan
+                                    const lim = c.limites ?? PLAN_LIMITS[plan]
+                                    return <>
+                                      <UsageBar label="Profesionales" used={c.uso?.profesionales ?? 0} max={lim.profesionales} />
+                                      <UsageBar label="Pacientes" used={c.uso?.pacientes ?? 0} max={lim.pacientes} />
+                                    </>
+                                  })()}
                                   <div className="flex items-center justify-between text-xs">
                                     <span className="text-gray-500">Citas este mes</span>
                                     <span className="font-medium text-gray-800">{c.uso?.citas_mes ?? 0}</span>
