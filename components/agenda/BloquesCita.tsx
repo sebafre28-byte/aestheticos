@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Clock, CheckCircle, CheckCircle2, XCircle, UserX, DollarSign, DoorOpen } from 'lucide-react'
+import { DollarSign } from 'lucide-react'
 import { citaWallClockTime } from '@/lib/agenda/datetime'
 import type { CitaConRelaciones, EstadoCita } from '@/lib/agenda/queries'
 import { TooltipCita } from './TooltipCita'
@@ -17,31 +17,13 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`
 }
 
-const ESTADO_ICONO: Record<EstadoCita, React.ComponentType<{ className?: string }>> = {
-  pendiente:  Clock,
-  confirmada: CheckCircle,
-  en_sala:    DoorOpen,
-  completada: CheckCircle2,
-  cancelada:  XCircle,
-  no_asistio: UserX,
-}
-
-const ESTADO_ICONO_COLOR: Record<EstadoCita, string> = {
-  pendiente:  '#D97706',
-  confirmada: '#0D9488',
-  en_sala:    '#16A34A',
-  completada: '#2563EB',
-  cancelada:  '#DC2626',
-  no_asistio: '#991B1B',
-}
-
-const ESTADO_BORDE: Record<EstadoCita, { color: string; style: 'solid' | 'dashed' }> = {
-  pendiente:  { color: '#F59E0B', style: 'dashed' },
-  confirmada: { color: '#14B8A6', style: 'solid' },
-  en_sala:    { color: '#16A34A', style: 'solid' },
-  completada: { color: '#3B82F6', style: 'solid' },
-  cancelada:  { color: '#EF4444', style: 'solid' },
-  no_asistio: { color: '#991B1B', style: 'solid' },
+const ESTADO_PILL: Record<EstadoCita, { label: string; bg: string; text: string }> = {
+  pendiente:  { label: 'Pendiente',  bg: 'rgba(251,191,36,0.2)',  text: '#B45309' },
+  confirmada: { label: 'Confirmada', bg: 'rgba(20,184,166,0.15)', text: '#0F766E' },
+  en_sala:    { label: 'En sala',    bg: 'rgba(22,163,74,0.15)',  text: '#15803D' },
+  completada: { label: 'Completada', bg: 'rgba(37,99,235,0.12)',  text: '#1D4ED8' },
+  cancelada:  { label: 'Cancelada',  bg: 'rgba(239,68,68,0.12)',  text: '#B91C1C' },
+  no_asistio: { label: 'No asistió', bg: 'rgba(153,27,27,0.12)',  text: '#7F1D1D' },
 }
 
 type Props = {
@@ -90,14 +72,11 @@ export function BloqueCita({
   const nombreServicio = cita.servicios?.nombre ?? ''
 
   const esCancelada = cita.estado === 'cancelada'
-  const esNoAsistio = cita.estado === 'no_asistio'
   const esPendiente = cita.estado === 'pendiente'
   const esEnSala   = cita.estado === 'en_sala'
 
   const alturaReal = Math.max(heightPx, 20)
-  const borde = ESTADO_BORDE[cita.estado]
-  const IconoEstado = ESTADO_ICONO[cita.estado]
-  const iconColor = ESTADO_ICONO_COLOR[cita.estado]
+  const pill = ESTADO_PILL[cita.estado]
 
   // Conflict detection during drag
   const citaStartMin = minutosDia(cita.inicio)
@@ -111,9 +90,7 @@ export function BloqueCita({
 
   const bgColor = isDragging && hasConflict
     ? 'rgba(239,68,68,0.15)'
-    : esNoAsistio ? 'rgba(254,226,226,0.85)'
-    : esEnSala   ? 'rgba(220,252,231,0.9)'
-    : hexToRgba(color, 0.12)
+    : hexToRgba(color, 0.1)
 
   const estiloBloque: React.CSSProperties = {
     top: topPx,
@@ -121,12 +98,11 @@ export function BloqueCita({
     left: `${leftPercent}%`,
     width: `${widthPercent}%`,
     backgroundColor: bgColor,
-    opacity: esCancelada ? 0.5 : isDragging ? 0.75 : 1,
+    opacity: esCancelada ? 0.45 : isDragging ? 0.75 : 1,
     borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderLeftWidth: 3,
-    borderTopStyle: 'solid', borderRightStyle: 'solid', borderBottomStyle: 'solid',
-    borderLeftStyle: borde.style,
+    borderStyle: 'solid',
     borderTopColor: hexToRgba(color, 0.2), borderRightColor: hexToRgba(color, 0.2),
-    borderBottomColor: hexToRgba(color, 0.2), borderLeftColor: borde.color,
+    borderBottomColor: hexToRgba(color, 0.2), borderLeftColor: color,
     transform: isDragging ? `translateY(${dragOffsetPx}px)` : undefined,
     zIndex: isDragging ? 50 : undefined,
     boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : undefined,
@@ -218,30 +194,31 @@ export function BloqueCita({
       className="absolute rounded-md select-none overflow-hidden"
       style={estiloBloque}
     >
-      <div className="absolute top-0.5 right-0.5 z-10 pointer-events-none" style={{ color: iconColor }}>
-        <IconoEstado className="size-2.5" />
-      </div>
-      {esEnSala && (
-        <span className="absolute top-1 left-1 z-10 pointer-events-none flex size-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-          <span className="relative inline-flex rounded-full size-2 bg-green-500" />
-        </span>
-      )}
-
-      <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden pr-4" style={{ color }}>
+      <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden" style={{ color }}>
         {alturaReal >= 60 ? (
           <>
-            <p className={`text-[11px] font-bold leading-tight truncate ${esCancelada ? 'line-through' : ''}`}>{nombrePaciente}</p>
-            <p className="text-[10px] leading-tight truncate mt-0.5 text-gray-600">{nombreServicio}</p>
-            {esPendiente && <p className="text-[9px] text-amber-600 mt-0.5 leading-tight">· Sin confirmar</p>}
-            <p className="text-[10px] text-gray-400 mt-auto">{horaInicio}</p>
+            <div className="flex items-start justify-between gap-1 min-w-0">
+              <p className={`text-[11px] font-bold leading-tight truncate ${esCancelada ? 'line-through' : ''}`}>{nombrePaciente}</p>
+              {!esEnSala ? (
+                <span className="shrink-0 text-[9px] font-semibold px-1 py-0.5 rounded leading-none" style={{ backgroundColor: pill.bg, color: pill.text }}>{pill.label}</span>
+              ) : (
+                <span className="shrink-0 flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded leading-none" style={{ backgroundColor: pill.bg, color: pill.text }}>
+                  <span className="relative flex size-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full size-1.5 bg-green-500" /></span>
+                  En sala
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] leading-tight truncate mt-0.5 text-gray-500">{nombreServicio}</p>
+            <p className="text-[10px] text-gray-400 mt-auto">{horaInicio} – {horaFin}</p>
           </>
         ) : alturaReal >= 40 ? (
           <>
-            <p className={`text-[11px] font-bold leading-tight truncate ${esCancelada ? 'line-through' : ''}`}>{nombrePaciente}</p>
-            <p className="text-[10px] leading-tight truncate mt-0.5 text-gray-600">{nombreServicio}</p>
-            {alturaReal >= 50 && esPendiente && <p className="text-[9px] text-amber-600 mt-auto leading-tight">· Sin confirmar</p>}
-            {alturaReal >= 50 && !esPendiente && <p className="text-[10px] text-gray-400 mt-auto">{horaInicio}</p>}
+            <div className="flex items-start justify-between gap-1 min-w-0">
+              <p className={`text-[11px] font-bold leading-tight truncate ${esCancelada ? 'line-through' : ''}`}>{nombrePaciente}</p>
+              {esPendiente && <span className="shrink-0 text-[9px] font-semibold px-1 py-0.5 rounded leading-none" style={{ backgroundColor: pill.bg, color: pill.text }}>Pend.</span>}
+              {esEnSala && <span className="shrink-0 flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded leading-none" style={{ backgroundColor: pill.bg, color: pill.text }}><span className="relative flex size-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full size-1.5 bg-green-500" /></span>Sala</span>}
+            </div>
+            <p className="text-[10px] leading-tight truncate mt-0.5 text-gray-500">{nombreServicio}</p>
           </>
         ) : (
           <p className={`text-[11px] font-bold leading-tight truncate ${esCancelada ? 'line-through' : ''}`}>{nombrePaciente}</p>
@@ -290,9 +267,9 @@ type BloqueCompactoProps = {
 export function BloqueCompacto({ cita, onClick }: BloqueCompactoProps) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null)
   const color = cita.profesionales?.color ?? '#2563EB'
-  const borde = ESTADO_BORDE[cita.estado]
-  const IconoEstado = ESTADO_ICONO[cita.estado]
-  const iconColor = ESTADO_ICONO_COLOR[cita.estado]
+  const pill = ESTADO_PILL[cita.estado]
+  const esPendiente = cita.estado === 'pendiente'
+  const esEnSala = cita.estado === 'en_sala'
 
   return (
     <div
@@ -307,20 +284,23 @@ export function BloqueCompacto({ cita, onClick }: BloqueCompactoProps) {
       className="relative rounded px-1.5 py-1 mb-0.5 cursor-pointer transition-all hover:brightness-95 overflow-hidden"
       style={{
         backgroundColor: hexToRgba(color, 0.1),
-        borderLeft: `3px ${borde.style} ${borde.color}`,
-        opacity: cita.estado === 'cancelada' ? 0.5 : 1,
+        borderLeft: `3px solid ${color}`,
+        opacity: cita.estado === 'cancelada' ? 0.45 : 1,
       }}
     >
-      <div className="absolute top-0.5 right-0.5 pointer-events-none" style={{ color: iconColor }}>
-        <IconoEstado className="size-2.5" />
+      <div className="flex items-start justify-between gap-1 min-w-0">
+        <p className={`text-[11px] font-semibold truncate ${cita.estado === 'cancelada' ? 'line-through' : ''}`} style={{ color }}>
+          {cita.pacientes?.nombre ?? 'Paciente'}
+        </p>
+        {esPendiente && <span className="shrink-0 text-[8px] font-semibold px-1 py-0.5 rounded leading-none" style={{ backgroundColor: pill.bg, color: pill.text }}>Pend.</span>}
+        {esEnSala && (
+          <span className="shrink-0 flex items-center gap-0.5 text-[8px] font-semibold px-1 py-0.5 rounded leading-none" style={{ backgroundColor: pill.bg, color: pill.text }}>
+            <span className="relative flex size-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full size-1.5 bg-green-500" /></span>
+            Sala
+          </span>
+        )}
       </div>
-      <p className={`text-[11px] font-semibold truncate pr-3 ${cita.estado === 'cancelada' ? 'line-through' : ''}`} style={{ color }}>
-        {cita.pacientes?.nombre ?? 'Paciente'}
-      </p>
-      <div className="flex items-center gap-1 mt-0.5">
-        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-        <p className="text-[10px] text-gray-500 truncate">{cita.servicios?.nombre}</p>
-      </div>
+      <p className="text-[10px] text-gray-500 truncate mt-0.5">{cita.servicios?.nombre}</p>
       {tooltip && typeof document !== 'undefined' && (
         <TooltipCita cita={cita} x={tooltip.x} y={tooltip.y} />
       )}
