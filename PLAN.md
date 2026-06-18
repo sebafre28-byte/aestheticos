@@ -1,5 +1,5 @@
 # SimpliClinic — Plan de trabajo v1.0
-> Última actualización: 2026-06-15
+> Última actualización: 2026-06-18
 > Objetivo: Lanzamiento público ~1 jul 2026
 
 ## REGLAS DE TRABAJO
@@ -7,6 +7,7 @@
 - Completar un módulo antes de pasar al siguiente
 - Cada módulo termina con commit + PR + merge (flujo estándar)
 - Marcar con [x] cuando esté completo
+- **Al terminar cada sesión de trabajo, actualizar este archivo con lo completado**
 
 ---
 
@@ -218,7 +219,37 @@ card_type         = tipo de tarjeta (Visa, Mastercard, etc.)
 - [x] Pill en menú Configuración dinámica (Trial/Simpli/Simpli+/Pro)
 - [x] Migraciones 052-056 aplicadas en Supabase
 - [x] Campo `anual` / `billing_period` guardado al crear suscripción
+- [x] Cards de planes rediseñadas: mejor tipografía, precio legible, ahorro anual visible
 - [ ] Probar cobro real con tarjeta real (end-to-end post-trial)
+
+---
+
+---
+
+## MÓDULO 17 — UX Y FIXES (2026-06-18) ✅
+_Mejoras de producto y fixes implementados en sesión del 18 jun 2026._
+
+- [x] Servicios movido al menú lateral principal (antes solo en Configuración)
+- [x] Google Calendar unificado en Configuración (eliminado del popover del perfil)
+- [x] Línea roja de hora actual solo cubre columna del día de hoy (vista semana)
+- [x] ListaPendientes: fix label "Mañana", cierre al click-afuera, citas clickeables
+- [x] Badges de conteo diario en vista semana: colapsables, ocultos por defecto
+- [x] Mobile: vista por defecto cambiada a "Lista"
+- [x] Mobile: panel Pendientes visible con botón X para cerrar
+- [x] FichaPaciente → Agenda: citas del historial clickeables navegan a la agenda con detalle abierto
+- [x] FichaPaciente → Agenda: "Nueva cita" navega con paciente pre-cargado en el modal
+- [x] Pill `en_sala` agregada a vista lista de agenda
+- [x] Sección "Recordatorios" eliminada del modal de nueva cita (redundante con crons)
+- [x] Recurrencia: default cambiado a 3 sesiones (antes 8), mínimo 3
+- [x] Rediseño bloques de cita (vista día/semana): borde = color profesional, pill de estado
+- [x] Página `/ayuda` con FAQ, chat Crisp y email de contacto
+- [x] Widget Crisp embebido globalmente (soporte en vivo, identifica usuario automáticamente)
+- [x] Link "Ayuda" en sidebar para todos los roles
+- [x] Página `/pendientes`: citas clickeables navegan a agenda, botones responsive en mobile
+- [x] Configuración: pill de plan dinámica (muestra Trial/Simpli/Simpli+/Pro real)
+- [x] Vista día mobile: ocultar stats strip y chips de filtro de profesionales
+- [x] Columna profesional en mobile: ocultar especialidad, barra de ocupación y %
+- [x] Documentado roadmap WhatsApp auto-gestionable en ARQUITECTURA.md
 
 ---
 
@@ -297,6 +328,7 @@ M13 Cobros y Comisiones ░░░░░░░░░░   0%  ← SIGUIENTE
 M14 Paquetes sesiones   ░░░░░░░░░░   0%
 M15 Marketing automático░░░░░░░░░░   0%
 M16 Reducir no-shows    ░░░░░░░░░░   0%
+M17 UX y Fixes          ██████████ 100%  ✅ COMPLETO (2026-06-18)
 ```
 
 ### Decisión de roadmap (2026-06-15)
