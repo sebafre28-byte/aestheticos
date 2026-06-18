@@ -216,61 +216,75 @@ function PlanCard({
   const isLoadingThis = loading === plan
 
   return (
-    <div className={`relative flex flex-col rounded-2xl border p-4 transition-all ${
+    <div className={`relative flex flex-col rounded-2xl border p-5 transition-all ${
       isCurrent
-        ? 'border-[#2563EB] bg-blue-50/50'
+        ? 'border-[#2563EB] bg-blue-50/40'
         : isHighlighted
-        ? 'border-blue-200 bg-white shadow-sm'
+        ? 'border-blue-200 bg-white shadow-md'
         : 'border-gray-100 bg-white'
     }`}>
       {isCurrent && (
-        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#2563EB] text-white px-2.5 py-0.5 rounded-full whitespace-nowrap">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-[#2563EB] text-white px-3 py-1 rounded-full whitespace-nowrap">
           Plan actual
         </span>
       )}
       {isHighlighted && !isCurrent && (
-        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-gray-900 text-white px-2.5 py-0.5 rounded-full whitespace-nowrap">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-gray-900 text-white px-3 py-1 rounded-full whitespace-nowrap">
           Más popular
         </span>
       )}
 
-      <div className="flex items-center gap-2 mb-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isCurrent ? 'bg-[#2563EB] text-white' : 'bg-blue-50 text-[#2563EB]'}`}>
-          <Icon className="size-3.5" />
+      {/* Header: ícono + nombre */}
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCurrent ? 'bg-[#2563EB] text-white' : 'bg-blue-50 text-[#2563EB]'}`}>
+          <Icon className="size-4" />
         </div>
-        <div>
-          <p className="text-[13px] font-bold text-gray-900">{PLAN_LABELS[plan]}</p>
-          <p className="text-[10px] text-gray-400">
-            {PLAN_LIMITS[plan].profesionales === -1 ? 'Profesionales ilimitados' : `${PLAN_LIMITS[plan].profesionales} profesional${PLAN_LIMITS[plan].profesionales !== 1 ? 'es' : ''}`}
+        <div className="min-w-0">
+          <p className="text-[14px] font-bold text-gray-900 leading-tight">{PLAN_LABELS[plan]}</p>
+          <p className="text-[11px] text-gray-400 leading-tight mt-0.5">
+            {PLAN_LIMITS[plan].profesionales === -1
+              ? 'Profesionales ilimitados'
+              : `${PLAN_LIMITS[plan].profesionales} profesional${PLAN_LIMITS[plan].profesionales !== 1 ? 'es' : ''}`}
           </p>
-        </div>
-        <div className="ml-auto text-right">
-          <span className="text-[18px] font-extrabold text-gray-900">{formatCLP(price)}</span>
-          <span className="text-[10px] text-gray-400">/mes</span>
         </div>
       </div>
 
-      <ul className="space-y-1.5 mb-4 flex-1">
+      {/* Precio */}
+      <div className="mb-4">
+        <div className="flex items-baseline gap-1">
+          <span className="text-[26px] font-extrabold text-gray-900 leading-none">{formatCLP(price)}</span>
+          <span className="text-[12px] text-gray-400">/mes</span>
+        </div>
+        {anual && isPaid && (
+          <p className="text-[11px] text-emerald-600 mt-0.5">
+            {formatCLP(PLAN_PRICES_ANUAL[plan])}/año · ahorras {formatCLP(PLAN_PRICES[plan] * 12 - PLAN_PRICES_ANUAL[plan])}
+          </p>
+        )}
+      </div>
+
+      {/* Features */}
+      <ul className="space-y-2 mb-5 flex-1">
         {PLAN_FEATURES[plan].map(f => (
-          <li key={f} className="flex items-start gap-1.5 text-[11px] text-gray-600">
-            <Check className={`size-3 mt-0.5 shrink-0 ${isCurrent ? 'text-[#2563EB]' : 'text-emerald-500'}`} />
-            {f}
+          <li key={f} className="flex items-start gap-2 text-[12px] text-gray-600 leading-snug">
+            <Check className={`size-3.5 mt-0.5 shrink-0 ${isCurrent ? 'text-[#2563EB]' : 'text-emerald-500'}`} />
+            <span>{f}</span>
           </li>
         ))}
       </ul>
 
+      {/* CTA */}
       {isCurrent ? (
-        <div className="w-full h-8 rounded-xl bg-blue-100 text-[#2563EB] text-[12px] font-semibold flex items-center justify-center">
+        <div className="w-full h-9 rounded-xl bg-blue-100 text-[#2563EB] text-[12px] font-semibold flex items-center justify-center">
           Plan actual
         </div>
       ) : (
         <button
           disabled={isLoadingThis || !clinicaId}
           onClick={() => onUpgrade(plan)}
-          className="w-full h-8 rounded-xl text-[12px] font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-60 transition-all hover:opacity-90"
+          className="w-full h-9 rounded-xl text-[12px] font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-60 transition-all hover:opacity-90"
           style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
         >
-          {isLoadingThis ? <Loader2 className="size-3 animate-spin" /> : <ChevronRight className="size-3" />}
+          {isLoadingThis ? <Loader2 className="size-3.5 animate-spin" /> : <ChevronRight className="size-3.5" />}
           {plan === 'free' ? 'Activar plan gratuito' : `Cambiar a ${PLAN_LABELS[plan]}`}
         </button>
       )}
@@ -396,7 +410,7 @@ export default function PlanesCard() {
       </div>
 
       {/* Comparación de planes */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-2">
         {plans.map(plan => (
           <PlanCard
             key={plan}
