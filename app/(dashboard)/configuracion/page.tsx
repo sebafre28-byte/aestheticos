@@ -71,7 +71,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Cuenta",
     items: [
-      { id: "plan",      label: "Plan y facturación", icon: CreditCard, badge: "Pro", badgeColor: "bg-blue-50 text-[#2563EB]" },
+      { id: "plan",      label: "Plan y facturación", icon: CreditCard },
       { id: "seguridad", label: "Seguridad",          icon: Shield },
     ],
   },
@@ -2693,6 +2693,7 @@ function ConfiguracionInner() {
   const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
+  const { plan, esTrial } = useSubscripcion()
 
   useEffect(() => {
     if (tabParam && VALID_TABS.has(tabParam)) setActiva(tabParam)
@@ -2740,8 +2741,10 @@ function ConfiguracionInner() {
                       className={`w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-colors text-left ${isActive ? "bg-blue-50 text-[#2563EB]" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}>
                       <Icon className={`size-[15px] shrink-0 ${isActive ? "text-[#2563EB]" : "text-gray-400"}`} />
                       <span className="flex-1 truncate">{item.label}</span>
-                      {item.badge && (
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${item.badgeColor}`}>{item.badge}</span>
+                      {item.id === 'plan' && plan && (
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${esTrial ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-[#2563EB]'}`}>
+                          {esTrial ? 'Trial' : PLAN_LABELS[plan]}
+                        </span>
                       )}
                     </button>
                   )
