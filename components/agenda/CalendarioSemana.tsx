@@ -321,6 +321,7 @@ export function CalendarioSemana({
 
   // La línea roja se muestra solo si la semana visualizada contiene hoy
   const esEstaSemana = diasFecha.some((d) => isSameDay(d, hoy))
+  const [mostrarConteos, setMostrarConteos] = useState(false)
 
   return (
     <div className="flex flex-col h-full bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -360,8 +361,8 @@ export function CalendarioSemana({
                 {numDia}
               </button>
 
-              {/* Badge de citas del día */}
-              {totalCitas > 0 && (
+              {/* Badge de citas del día — solo si mostrarConteos */}
+              {mostrarConteos && totalCitas > 0 && (
                 <div className="flex justify-center mt-0.5">
                   <span
                     className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${
@@ -376,9 +377,24 @@ export function CalendarioSemana({
                   </span>
                 </div>
               )}
+              {/* Spacer para mantener altura uniforme cuando están ocultos */}
+              {!mostrarConteos && <div className="h-[18px] mt-0.5" />}
             </div>
           )
         })}
+
+        {/* Botón toggle conteos — columna derecha de la cabecera */}
+        <button
+          type="button"
+          onClick={() => setMostrarConteos(v => !v)}
+          title={mostrarConteos ? 'Ocultar conteo de citas' : 'Mostrar conteo de citas'}
+          className="w-6 shrink-0 flex items-end justify-center pb-2 text-gray-300 hover:text-gray-500 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: mostrarConteos ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
       </div>
 
       {/* Cuerpo scrolleable */}
