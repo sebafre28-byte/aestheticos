@@ -114,7 +114,7 @@ async function cargarNotificaciones(usuario: UsuarioInfo): Promise<Notificacion[
       id: `reserva-${c.id}`,
       tipo: 'reserva',
       label: `Nueva reserva: ${paciente} — ${servicio}`,
-      href: '/agenda',
+      href: `/agenda?citaId=${c.id}`,
       fecha: c.created_at,
     })
   }
@@ -136,7 +136,7 @@ async function cargarNotificaciones(usuario: UsuarioInfo): Promise<Notificacion[
       id: `cancelacion-${c.id}`,
       tipo: 'cancelacion',
       label: `Cita cancelada: ${paciente}`,
-      href: '/agenda',
+      href: `/agenda?citaId=${c.id}`,
       fecha: c.updated_at,
     })
   }
