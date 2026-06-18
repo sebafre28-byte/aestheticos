@@ -790,9 +790,9 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
 
       {/* ── Cuerpo principal ── */}
       <div className="flex-1 min-h-0 overflow-hidden flex gap-5">
-        {/* Mini calendario lateral — solo desktop */}
+        {/* Mini calendario lateral */}
         {(vista === 'dia' || vista === 'semana') && (
-          <div className="hidden md:block">
+          <div>
           <MiniCalendario
             fechaSeleccionada={fechaActual}
             citas={citas}
