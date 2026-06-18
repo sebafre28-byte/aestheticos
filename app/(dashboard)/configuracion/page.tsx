@@ -17,6 +17,7 @@ import { useAcceso } from "@/components/auth/RolGuard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DireccionAutocomplete } from "@/components/ui/DireccionAutocomplete"
 import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
   crearProfesional, getClinicaId, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
@@ -285,7 +286,12 @@ function SeccionClinica() {
         <FormField label="Sitio web" value={form.sitio_web} onChange={(v) => setForm(p => ({ ...p, sitio_web: v }))} placeholder="https://tuclinica.cl" />
       </div>
       <div className="mb-6">
-        <FormField label="Dirección" value={form.direccion} onChange={(v) => setForm(p => ({ ...p, direccion: v }))} placeholder="Av. Ejemplo 1234, Santiago" />
+        <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Dirección</Label>
+        <DireccionAutocomplete
+          value={form.direccion}
+          onChange={(v) => setForm(p => ({ ...p, direccion: v }))}
+        />
+        <p className="text-[11px] text-gray-400 mt-1">Escribe para buscar y verificar la dirección con Google Maps.</p>
       </div>
       {slug && (
         <div className="mb-6 p-4 rounded-xl border border-blue-100 bg-blue-50/40">
