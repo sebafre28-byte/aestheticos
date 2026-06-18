@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { MapPin } from 'lucide-react'
 
 type Props = {
   value: string
@@ -12,6 +11,7 @@ type Props = {
 export function DireccionAutocomplete({ value, onChange, placeholder = 'Av. Ejemplo 1234, Santiago' }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const initialized = useRef(false)
+  const hasKey = !!process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY
@@ -19,7 +19,6 @@ export function DireccionAutocomplete({ value, onChange, placeholder = 'Av. Ejem
 
     async function init() {
       try {
-        // Load Maps JS with new loading API
         if (!window.google?.maps) {
           await new Promise<void>((resolve, reject) => {
             if (document.querySelector('#gmap-script')) { resolve(); return }
@@ -31,7 +30,6 @@ export function DireccionAutocomplete({ value, onChange, placeholder = 'Av. Ejem
             s.onerror = reject
             document.head.appendChild(s)
           })
-          // Wait until google.maps is ready
           await new Promise<void>(resolve => {
             const t = setInterval(() => { if (window.google?.maps) { clearInterval(t); resolve() } }, 100)
           })
@@ -51,14 +49,12 @@ export function DireccionAutocomplete({ value, onChange, placeholder = 'Av. Ejem
           types: ['address'],
         })
 
-        // Style to match the rest of the UI
         el.style.cssText = `
           width: 100%;
           height: 36px;
           border: 1px solid hsl(var(--input));
           border-radius: calc(var(--radius) - 2px);
           background: white;
-          padding: 0 12px 0 32px;
           font-size: 13px;
           font-family: inherit;
           color: #111827;
@@ -78,19 +74,30 @@ export function DireccionAutocomplete({ value, onChange, placeholder = 'Av. Ejem
         })
 
         wrapperRef.current.appendChild(el)
+
+        // Pre-fill with current saved value
+        setTimeout(() => {
+          const inner = wrapperRef.current?.querySelector('input')
+          if (inner && value) inner.value = value
+        }, 400)
+
       } catch {
-        // Silently fall back — plain input remains visible
+        // fallback — plain input below handles it
       }
     }
 
     init()
-  }, [onChange, placeholder])
+  }, [onChange, placeholder]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hasKey = !!process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY
+  // Keep inner input in sync when value prop changes (e.g. after load)
+  useEffect(() => {
+    if (!initialized.current || !wrapperRef.current) return
+    const inner = wrapperRef.current.querySelector('input')
+    if (inner && value && inner.value !== value) inner.value = value
+  }, [value])
 
   return (
-    <div className="relative">
-      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 pointer-events-none z-10" />
+    <div className="w-full">
       {hasKey
         ? <div ref={wrapperRef} className="w-full" />
         : (
@@ -100,7 +107,7 @@ export function DireccionAutocomplete({ value, onChange, placeholder = 'Av. Ejem
             onChange={e => onChange(e.target.value)}
             placeholder={placeholder}
             autoComplete="off"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-[13px] shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-[13px] shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         )
       }
