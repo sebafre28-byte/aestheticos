@@ -50,10 +50,10 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
   // ─── Estado general ───────────────────────────────────────────────────────
   const [vista, setVista] = useState<Vista>('semana')
 
-  // Force día view on mobile
+  // Force lista view on mobile
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setVista('dia')
+      setVista('lista')
     }
   }, [])
 
