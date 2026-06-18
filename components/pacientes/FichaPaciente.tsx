@@ -52,6 +52,7 @@ type Props = {
   onToggleActivo?: (paciente: PacienteRow) => void
   onEliminar?: (paciente: PacienteRow) => void
   onNuevaCita?: (pacienteId: string) => void
+  onVerCita?: (citaId: string) => void
 }
 
 function iniciales(nombre: string) {
@@ -162,6 +163,7 @@ export function FichaPaciente({
   onToggleActivo,
   onEliminar,
   onNuevaCita,
+  onVerCita,
 }: Props) {
   const [tab, setTab] = useState<Tab>('informacion')
   const [fichasCount, setFichasCount] = useState(0)
@@ -448,7 +450,7 @@ export function FichaPaciente({
                   .map((item) => {
                     const dotColor = item.profesionales?.color ?? '#9CA3AF'
                     return (
-                      <article key={item.id} className="border border-gray-100 rounded-xl p-3">
+                      <article key={item.id} className={`border border-gray-100 rounded-xl p-3 ${onVerCita ? 'cursor-pointer hover:border-blue-200 hover:bg-blue-50/30 transition-colors' : ''}`} onClick={() => onVerCita?.(item.id)}>
                         <div className="flex items-start gap-2.5">
                           <div
                             className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5"
