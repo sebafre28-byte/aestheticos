@@ -14,6 +14,15 @@ type Props = {
 
 export function DireccionAutocomplete({ value, onChange, placeholder = 'Av. Ejemplo 1234, Santiago' }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const seeded = useRef(false)
+
+  // Seed the input once when the saved value arrives from DB (empty → value)
+  useEffect(() => {
+    if (value && !seeded.current && inputRef.current) {
+      inputRef.current.value = value
+      seeded.current = true
+    }
+  }, [value])
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY
@@ -58,7 +67,6 @@ export function DireccionAutocomplete({ value, onChange, placeholder = 'Av. Ejem
         ref={inputRef}
         type="text"
         defaultValue={value}
-        key={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         autoComplete="off"
