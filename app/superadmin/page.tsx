@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { format, isPast } from 'date-fns'
@@ -9,14 +9,30 @@ import {
   Building2, Users, TrendingUp, AlertTriangle, CheckCircle2,
   Clock, XCircle, Loader2, RefreshCw, ChevronDown, ChevronUp,
   CreditCard, BarChart3, Search, LogOut, Shield, Zap, ExternalLink,
-  DollarSign, Activity,
+  DollarSign, Activity, Pencil, RotateCcw, History, StickyNote,
 } from 'lucide-react'
-import { PLAN_LABELS, PLAN_PRICES, PLAN_LIMITS, type Plan } from '@/lib/subscriptions/queries'
+import { PLAN_LABELS, PLAN_PRICES, PLAN_LIMITS, type Plan, type PlanLimits } from '@/lib/subscriptions/queries'
 
 // ─── Types ────────────────────────────────────────────────────
 
-type Limites = { profesionales: number; pacientes: number; conversaciones_ia: number }
-type Uso = { profesionales: number; pacientes: number; citas_mes: number; citas_total: number }
+type Uso = {
+  profesionales: number
+  pacientes: number
+  citas_mes: number
+  citas_total: number
+  conv_ia_usadas: number
+  conv_ia_mes: string | null
+}
+
+type LogEntry = {
+  id: string
+  accion: string
+  campo: string | null
+  valor_previo: string | null
+  valor_nuevo: string | null
+  admin_email: string
+  created_at: string
+}
 
 type ClinicaRow = {
   id: string
@@ -25,9 +41,11 @@ type ClinicaRow = {
   created_at: string
   activo: boolean
   owner_id: string | null
+  notas_superadmin: string | null
   configuracion: { features?: Record<string, boolean> } | null
   uso: Uso
-  limites: Limites
+  limites: PlanLimits
+  limit_overrides: Partial<PlanLimits> | null
   subscription: {
     plan: Plan
     estado: 'activa' | 'trial' | 'pausada' | 'cancelada'
@@ -36,7 +54,7 @@ type ClinicaRow = {
     flow_subscription_id: string | null
     card_last4: string | null
     card_type: string | null
-    anual: boolean | null
+    billing_period: 'mensual' | 'anual' | null
     updated_at: string
   } | null
 }
@@ -73,6 +91,16 @@ const DIAS_RANGO = [
   { label: '1 año', dias: 365 },
 ]
 
+const LOG_LABELS: Record<string, string> = {
+  extend_trial:        'Trial extendido',
+  set_plan:            'Plan cambiado',
+  toggle_activo:       'Cuenta activada/desactivada',
+  toggle_feature:      'Feature flag cambiado',
+  set_limit_override:  'Límite sobreescrito',
+  set_nota:            'Nota interna editada',
+  impersonate:         'Impersonación',
+}
+
 // ─── Component ────────────────────────────────────────────────
 
 export default function SuperAdminPage() {
@@ -88,6 +116,12 @@ export default function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<Record<string, string>>({})
   const [actioning, setActioning] = useState<string | null>(null)
   const [diasRango, setDiasRango] = useState(30)
+  const [logs, setLogs] = useState<Record<string, LogEntry[]>>({})
+  const [logsLoading, setLogsLoading] = useState<string | null>(null)
+  const [editingLimit, setEditingLimit] = useState<{ clinicaId: string; key: keyof PlanLimits } | null>(null)
+  const [limitInputVal, setLimitInputVal] = useState('')
+  const [editingNota, setEditingNota] = useState<string | null>(null) // clinicaId
+  const [notaVal, setNotaVal] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -118,14 +152,25 @@ export default function SuperAdminPage() {
   useEffect(() => { load() }, [load])
   useEffect(() => { loadMetricas(diasRango) }, [loadMetricas, diasRango])
 
-  async function action(clinica_id: string, actionType: string, value?: string, feature_key?: string) {
-    const key = clinica_id + actionType + (value ?? '') + (feature_key ?? '')
+  async function loadLogs(clinica_id: string) {
+    setLogsLoading(clinica_id)
+    try {
+      const res = await fetch(`/api/superadmin/logs?clinica_id=${clinica_id}`)
+      const data = await res.json()
+      setLogs(prev => ({ ...prev, [clinica_id]: data.logs ?? [] }))
+    } finally {
+      setLogsLoading(null)
+    }
+  }
+
+  async function action(clinica_id: string, actionType: string, value?: string, feature_key?: string, limit_key?: keyof PlanLimits) {
+    const key = clinica_id + actionType + (value ?? '') + (feature_key ?? '') + (limit_key ?? '')
     setActioning(key)
     try {
       await fetch('/api/superadmin/clinicas', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clinica_id, action: actionType, value, feature_key }),
+        body: JSON.stringify({ clinica_id, action: actionType, value, feature_key, limit_key }),
       })
       await load()
     } finally {
@@ -412,16 +457,25 @@ export default function SuperAdminPage() {
                     {isExpanded && (
                       <div className="border-t border-gray-100 bg-gray-50">
                         {/* Tabs */}
-                        <div className="flex gap-1 px-5 pt-3">
-                          {['resumen', 'features', 'acceso'].map(t => (
+                        <div className="flex gap-1 px-5 pt-3 flex-wrap">
+                          {[
+                            { id: 'resumen',  label: 'Resumen' },
+                            { id: 'limites',  label: 'Límites' },
+                            { id: 'features', label: 'Feature flags' },
+                            { id: 'acceso',   label: 'Acceso' },
+                            { id: 'historial',label: 'Historial' },
+                          ].map(t => (
                             <button
-                              key={t}
-                              onClick={() => setActiveTab(prev => ({ ...prev, [c.id]: t }))}
-                              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors capitalize ${
-                                tab === t ? 'bg-white text-blue-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700'
+                              key={t.id}
+                              onClick={() => {
+                                setActiveTab(prev => ({ ...prev, [c.id]: t.id }))
+                                if (t.id === 'historial' && !logs[c.id]) loadLogs(c.id)
+                              }}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                                tab === t.id ? 'bg-white text-blue-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700'
                               }`}
                             >
-                              {t === 'resumen' ? 'Resumen' : t === 'features' ? 'Feature flags' : 'Acceso'}
+                              {t.label}
                             </button>
                           ))}
                         </div>
@@ -460,22 +514,62 @@ export default function SuperAdminPage() {
                                 {/* Uso vs límites */}
                                 <div className="space-y-2">
                                   <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Uso vs límites</p>
-                                  {(() => {
-                                    const plan = (c.subscription?.plan ?? 'free') as Plan
-                                    const lim = c.limites ?? PLAN_LIMITS[plan]
-                                    return <>
-                                      <UsageBar label="Profesionales" used={c.uso?.profesionales ?? 0} max={lim.profesionales} />
-                                      <UsageBar label="Pacientes" used={c.uso?.pacientes ?? 0} max={lim.pacientes} />
-                                    </>
-                                  })()}
+                                  <UsageBar label="Profesionales" used={c.uso.profesionales} max={c.limites.profesionales} override={c.limit_overrides?.profesionales} />
+                                  <UsageBar label="Pacientes" used={c.uso.pacientes} max={c.limites.pacientes} override={c.limit_overrides?.pacientes} />
+                                  <UsageBar label={`Conv IA (${c.uso.conv_ia_mes ?? '—'})`} used={c.uso.conv_ia_usadas} max={c.limites.conversaciones_ia} override={c.limit_overrides?.conversaciones_ia} />
                                   <div className="flex items-center justify-between text-xs">
                                     <span className="text-gray-500">Citas este mes</span>
-                                    <span className="font-medium text-gray-800">{c.uso?.citas_mes ?? 0}</span>
+                                    <span className="font-medium text-gray-800">{c.uso.citas_mes}</span>
                                   </div>
                                   <div className="flex items-center justify-between text-xs">
                                     <span className="text-gray-500">Citas total</span>
-                                    <span className="font-medium text-gray-800">{c.uso?.citas_total ?? 0}</span>
+                                    <span className="font-medium text-gray-800">{c.uso.citas_total}</span>
                                   </div>
+                                  {sub?.billing_period && (
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="text-gray-500">Facturación</span>
+                                      <span className="font-medium text-gray-800 capitalize">{sub.billing_period}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Notas internas */}
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <StickyNote className="size-3 text-gray-400" />
+                                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Notas internas</p>
+                                  </div>
+                                  {editingNota === c.id ? (
+                                    <div className="space-y-2">
+                                      <textarea
+                                        value={notaVal}
+                                        onChange={e => setNotaVal(e.target.value)}
+                                        className="w-full text-xs rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400/30 resize-none"
+                                        rows={3}
+                                        placeholder="Notas para el equipo de SimpliClinic..."
+                                      />
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={async () => {
+                                            await action(c.id, 'set_nota', notaVal)
+                                            setEditingNota(null)
+                                          }}
+                                          className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                        >Guardar</button>
+                                        <button
+                                          onClick={() => setEditingNota(null)}
+                                          className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
+                                        >Cancelar</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => { setEditingNota(c.id); setNotaVal(c.notas_superadmin ?? '') }}
+                                      className="w-full text-left text-xs text-gray-500 bg-white border border-dashed border-gray-200 rounded-lg px-3 py-2 hover:border-blue-300 hover:text-blue-600 transition-colors"
+                                    >
+                                      {c.notas_superadmin || <span className="italic text-gray-300">Sin notas. Click para agregar...</span>}
+                                    </button>
+                                  )}
                                 </div>
                               </div>
 
@@ -545,6 +639,80 @@ export default function SuperAdminPage() {
                             </div>
                           )}
 
+                          {tab === 'limites' && (
+                            <div className="space-y-4 max-w-lg">
+                              <p className="text-xs text-gray-500">
+                                Sobreescribe los límites del plan para esta clínica. Útil para cobrar diferencias manualmente o dar acceso especial.
+                                <br /><span className="text-blue-600">-1 = ilimitado</span> · dejar vacío = usar límite del plan.
+                              </p>
+                              {([
+                                { key: 'profesionales'   as keyof PlanLimits, label: 'Profesionales activos' },
+                                { key: 'pacientes'       as keyof PlanLimits, label: 'Pacientes' },
+                                { key: 'conversaciones_ia' as keyof PlanLimits, label: 'Conversaciones IA / mes' },
+                                { key: 'usuarios'        as keyof PlanLimits, label: 'Usuarios del equipo' },
+                                { key: 'storage_gb'      as keyof PlanLimits, label: 'Almacenamiento (GB)' },
+                              ] as const).map(({ key, label }) => {
+                                const planDefault = PLAN_LIMITS[(c.subscription?.plan ?? 'free') as Plan][key]
+                                const override = c.limit_overrides?.[key]
+                                const isEditing = editingLimit?.clinicaId === c.id && editingLimit.key === key
+                                const displayVal = override !== undefined ? override : planDefault
+                                return (
+                                  <div key={key} className="flex items-center justify-between gap-4 p-3 bg-white rounded-lg border border-gray-100">
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium text-gray-800">{label}</p>
+                                      <p className="text-xs text-gray-400">
+                                        Plan base: <span className="font-mono">{planDefault < 0 ? '∞' : planDefault}</span>
+                                        {override !== undefined && (
+                                          <span className="ml-2 text-purple-600 font-semibold">→ override: {override < 0 ? '∞' : override}</span>
+                                        )}
+                                      </p>
+                                    </div>
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="number"
+                                          value={limitInputVal}
+                                          onChange={e => setLimitInputVal(e.target.value)}
+                                          className="w-20 h-8 px-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/30 font-mono"
+                                          placeholder={String(planDefault)}
+                                          autoFocus
+                                          onKeyDown={e => {
+                                            if (e.key === 'Enter') { action(c.id, 'set_limit_override', limitInputVal, undefined, key); setEditingLimit(null) }
+                                            if (e.key === 'Escape') setEditingLimit(null)
+                                          }}
+                                        />
+                                        <button
+                                          onClick={() => { action(c.id, 'set_limit_override', limitInputVal, undefined, key); setEditingLimit(null) }}
+                                          className="h-8 px-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                                        >OK</button>
+                                        <button onClick={() => setEditingLimit(null)} className="h-8 px-2 text-gray-400 text-xs hover:text-gray-600">✕</button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2">
+                                        {override !== undefined && (
+                                          <button
+                                            onClick={() => action(c.id, 'set_limit_override', 'reset', undefined, key)}
+                                            title="Restaurar valor del plan"
+                                            className="text-gray-300 hover:text-gray-500 transition-colors"
+                                          >
+                                            <RotateCcw className="size-3.5" />
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={() => { setEditingLimit({ clinicaId: c.id, key }); setLimitInputVal(String(displayVal)) }}
+                                          className="flex items-center gap-1.5 h-8 px-3 border border-gray-200 rounded-lg text-xs text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors font-mono"
+                                        >
+                                          {displayVal < 0 ? '∞' : displayVal}
+                                          <Pencil className="size-3" />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+
                           {tab === 'features' && (
                             <div className="space-y-3 max-w-lg">
                               <p className="text-xs text-gray-500">
@@ -607,6 +775,50 @@ export default function SuperAdminPage() {
                               <div className="text-xs text-gray-400 space-y-1">
                                 <p><strong>Owner ID:</strong> <span className="font-mono">{c.owner_id ?? '—'}</span></p>
                               </div>
+                            </div>
+                          )}
+
+                          {tab === 'historial' && (
+                            <div className="space-y-2 max-w-2xl">
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-gray-500">Últimas 50 acciones del superadmin sobre esta clínica.</p>
+                                <button
+                                  onClick={() => loadLogs(c.id)}
+                                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                                >
+                                  {logsLoading === c.id ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
+                                  Actualizar
+                                </button>
+                              </div>
+                              {logsLoading === c.id && !logs[c.id] ? (
+                                <div className="flex justify-center py-6"><Loader2 className="size-5 animate-spin text-gray-300" /></div>
+                              ) : (logs[c.id] ?? []).length === 0 ? (
+                                <div className="flex flex-col items-center py-8 text-gray-300 gap-2">
+                                  <History className="size-8" />
+                                  <p className="text-xs">Sin acciones registradas</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  {(logs[c.id] ?? []).map(log => (
+                                    <div key={log.id} className="flex items-start gap-3 px-3 py-2 bg-white rounded-lg border border-gray-100 text-xs">
+                                      <div className="flex-1 min-w-0">
+                                        <span className="font-semibold text-gray-700">{LOG_LABELS[log.accion] ?? log.accion}</span>
+                                        {log.campo && <span className="text-gray-400 ml-1">· {log.campo}</span>}
+                                        {(log.valor_previo || log.valor_nuevo) && (
+                                          <span className="text-gray-400 ml-1">
+                                            {log.valor_previo && <><span className="line-through">{log.valor_previo}</span> → </>}
+                                            {log.valor_nuevo && <span className="text-blue-600 font-medium">{log.valor_nuevo}</span>}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-right shrink-0 text-gray-300 space-y-0.5">
+                                        <p>{safeFormat(log.created_at, 'd MMM HH:mm')}</p>
+                                        <p className="text-[10px]">{log.admin_email.split('@')[0]}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -692,14 +904,19 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-function UsageBar({ label, used, max }: { label: string; used: number; max: number }) {
-  const pct = !max || max <= 0 ? 0 : Math.min(((used ?? 0) / max) * 100, 100)
+function UsageBar({ label, used, max, override }: { label: string; used: number; max: number; override?: number }) {
+  const pct = !max || max <= 0 ? 0 : Math.min((used / max) * 100, 100)
   const color = pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-400' : 'bg-blue-500'
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <span className="text-gray-500">{label}</span>
-        <span className="font-medium text-gray-700">{used} / {max < 0 ? '∞' : max}</span>
+      <div className="flex justify-between text-xs gap-2">
+        <span className="text-gray-500 truncate">{label}</span>
+        <span className="font-medium text-gray-700 shrink-0 flex items-center gap-1">
+          {used} / {max < 0 ? '∞' : max}
+          {override !== undefined && (
+            <span className="text-[9px] px-1 py-0.5 rounded bg-purple-100 text-purple-600 font-bold">OVR</span>
+          )}
+        </span>
       </div>
       {max > 0 && (
         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
