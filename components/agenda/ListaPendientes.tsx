@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { format, parseISO, differenceInMinutes, addDays, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronDown, ChevronUp, MessageCircle, CheckCircle, AlertCircle } from 'lucide-react'
+import { ChevronDown, ChevronUp, MessageCircle, CheckCircle, AlertCircle, X } from 'lucide-react'
 import type { CitaConRelaciones } from '@/lib/agenda/queries'
 import { getCitasPendientes48h, actualizarEstadoCita } from '@/lib/agenda/queries'
 
@@ -151,12 +151,20 @@ export function ListaPendientes({ onCitaConfirmada, onVerCita }: Props) {
               <p className="text-[13px] font-semibold text-gray-900">Citas por confirmar</p>
               <p className="text-[11px] text-gray-400 mt-0.5">Próximas 48 horas</p>
             </div>
-            <button
-              onClick={cargarPendientes}
-              className="text-[11px] text-blue-600 hover:text-blue-700 font-medium"
-            >
-              Actualizar
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={cargarPendientes}
+                className="text-[11px] text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Actualizar
+              </button>
+              <button
+                onClick={() => setAbierto(false)}
+                className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* Lista agrupada */}
