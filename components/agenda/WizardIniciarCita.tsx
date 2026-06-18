@@ -234,15 +234,17 @@ function PasoConsentimiento({ cita }: { cita: CitaConRelaciones }) {
   return (
     <div className="space-y-4">
       {firmado ? (
-        <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
-          <CheckCircle2 className="size-5 text-emerald-500 shrink-0" />
-          <div>
-            <p className="text-[14px] font-semibold text-emerald-800">Consentimiento firmado</p>
-            {firmado.firmado_at && (
-              <p className="text-[12px] text-emerald-600 mt-0.5">
-                Firmado el {format(new Date(firmado.firmado_at), "d \'de\' MMMM \'a las\' HH:mm", { locale: es })}
-              </p>
-            )}
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+            <CheckCircle2 className="size-5 text-emerald-500 shrink-0" />
+            <div className="flex-1">
+              <p className="text-[14px] font-semibold text-emerald-800">Consentimiento firmado</p>
+              {firmado.firmado_at && (
+                <p className="text-[12px] text-emerald-600 mt-0.5">
+                  Firmado el {format(new Date(firmado.firmado_at), "d 'de' MMMM 'a las' HH:mm", { locale: es })}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       ) : pendiente ? (
@@ -252,17 +254,24 @@ function PasoConsentimiento({ cita }: { cita: CitaConRelaciones }) {
             <div className="flex-1 min-w-0">
               <p className="text-[14px] font-semibold text-amber-800">Pendiente de firma</p>
               <p className="text-[12px] text-amber-600 mt-0.5">Enviado a {pendiente.email_destino}</p>
-              <p className="text-[11px] text-amber-500 mt-0.5">
-                El paciente aún no ha firmado el documento
-              </p>
+              <p className="text-[11px] text-amber-500 mt-0.5">El paciente aún no ha firmado el documento</p>
             </div>
           </div>
-          <button
-            onClick={() => { setEmail(pendiente.email_destino); setShowForm(true) }}
-            className="w-full h-8 rounded-lg border border-amber-200 bg-white text-[12px] font-medium text-amber-700 hover:bg-amber-50 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Send className="size-3.5" /> Reenviar consentimiento
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={loadSolicitudes}
+              disabled={loading}
+              className="flex-1 h-8 rounded-lg border border-amber-200 bg-white text-[12px] font-medium text-amber-700 hover:bg-amber-50 transition-colors flex items-center justify-center gap-1.5"
+            >
+              {loading ? <Loader2 className="size-3.5 animate-spin" /> : '↻'} Actualizar
+            </button>
+            <button
+              onClick={() => { setEmail(pendiente.email_destino); setShowForm(true) }}
+              className="flex-1 h-8 rounded-lg border border-amber-200 bg-white text-[12px] font-medium text-amber-700 hover:bg-amber-50 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Send className="size-3.5" /> Reenviar
+            </button>
+          </div>
         </div>
       ) : (
         <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-3">
@@ -830,33 +839,31 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada, rolUsu
 
       {/* ── Barra de progreso + pasos ── */}
       <div className="px-5 py-3 border-b border-gray-100 shrink-0">
-        <div className="h-1.5 bg-gray-100 rounded-full mb-3">
-          <div
-            className="h-full rounded-full bg-[#2563EB] transition-all duration-300"
-            style={{ width: totalPasos > 1 ? `${(pasoIdx / (totalPasos - 1)) * 100}%` : '0%' }}
-          />
-        </div>
-        <div className="flex justify-between">
+        <div className="flex items-center justify-center gap-0">
           {pasosActivos.map((p, idx) => {
             const Icono = p.icono
             const activo = pasoIdx === idx
             const completo = pasoIdx > idx
             const esMio = esRolPropio(p.rol, rolUsuario)
+            const esUltimo = idx === pasosActivos.length - 1
             return (
-              <button
-                key={p.id}
-                onClick={() => completo && setPasoIdx(idx)}
-                className={`flex flex-col items-center gap-0.5 transition-opacity ${pasoIdx < idx ? 'opacity-30' : ''} ${completo ? 'cursor-pointer' : 'cursor-default'}`}
-              >
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors relative ${completo ? 'bg-[#2563EB]' : activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}>
-                  {completo ? <Check className="size-3.5 text-white" /> : <Icono className={`size-3.5 ${activo ? 'text-white' : 'text-gray-400'}`} />}
-                  {/* Dot indicating foreign role */}
-                  {!esMio && !completo && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-white" />
-                  )}
-                </div>
-                <span className={`text-[9px] font-medium hidden sm:block ${activo ? 'text-[#2563EB]' : 'text-gray-400'}`}>{p.titulo}</span>
-              </button>
+              <div key={p.id} className="flex items-center">
+                <button
+                  onClick={() => completo && setPasoIdx(idx)}
+                  className={`flex flex-col items-center gap-0.5 transition-opacity ${pasoIdx < idx ? 'opacity-30' : ''} ${completo ? 'cursor-pointer' : 'cursor-default'}`}
+                >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors relative ${completo ? 'bg-[#2563EB]' : activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}>
+                    {completo ? <Check className="size-3 text-white" /> : <Icono className={`size-3 ${activo ? 'text-white' : 'text-gray-400'}`} />}
+                    {!esMio && !completo && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 border border-white" />
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-medium w-12 text-center leading-tight hidden sm:block ${activo ? 'text-[#2563EB]' : 'text-gray-400'}`}>{p.titulo}</span>
+                </button>
+                {!esUltimo && (
+                  <div className={`w-8 h-[2px] mx-0.5 mb-3 hidden sm:block rounded-full transition-colors ${completo ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
+                )}
+              </div>
             )
           })}
         </div>

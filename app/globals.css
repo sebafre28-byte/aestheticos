@@ -171,3 +171,12 @@ gmp-place-autocomplete-element {
   background: white !important;
   color: #111827 !important;
 }
+
+/* Cursor pointer en todos los elementos interactivos */
+button,
+[role="button"],
+label[for],
+select,
+summary {
+  cursor: pointer;
+}
