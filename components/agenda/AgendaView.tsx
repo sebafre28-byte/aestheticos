@@ -558,7 +558,7 @@ export function AgendaView({ isVistaProfe = false, profesionalPropio }: Props) {
               className="h-8 pl-8 pr-3 rounded-lg border border-gray-100 bg-white text-[12px] text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 w-[160px] focus:w-[200px] transition-all"
             />
           </div>
-          {!isVistaProfe && <ListaPendientes onCitaConfirmada={handleCitaConfirmada} />}
+          {!isVistaProfe && <ListaPendientes onCitaConfirmada={handleCitaConfirmada} onVerCita={handleClickCita} />}
 
           {/* Selector de vista */}
           <div className="flex items-center bg-white border border-gray-100 rounded-lg p-0.5 gap-0.5">

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { format, parseISO, differenceInMinutes, addDays } from 'date-fns'
+import { useState, useEffect, useRef } from 'react'
+import { format, parseISO, differenceInMinutes, addDays, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ChevronDown, ChevronUp, MessageCircle, CheckCircle, AlertCircle } from 'lucide-react'
 import type { CitaConRelaciones } from '@/lib/agenda/queries'
@@ -9,6 +9,7 @@ import { getCitasPendientes48h, actualizarEstadoCita } from '@/lib/agenda/querie
 
 type Props = {
   onCitaConfirmada: (citaId: string) => void
+  onVerCita?: (cita: CitaConRelaciones) => void
 }
 
 // Calcula texto de tiempo restante y si es urgente (< 60 min)
@@ -21,18 +22,32 @@ function tiempoRestante(inicio: string): { texto: string; urgente: boolean } {
   if (diffMin < 60) return { texto: `En ${diffMin} min`, urgente: true }
   if (diffMin < 120) return { texto: 'En 1 hora', urgente: diffMin < 90 }
   if (diffMin < 1440) return { texto: `En ${Math.floor(diffMin / 60)} horas`, urgente: false }
-  return { texto: `Mañana ${inicio.slice(11, 16)}`, urgente: false }
+  const manana = addDays(new Date(), 1)
+  if (isSameDay(fechaInicio, manana)) return { texto: `Mañana ${format(fechaInicio, 'HH:mm')}`, urgente: false }
+  return { texto: format(fechaInicio, "EEEE d MMM HH:mm", { locale: es }), urgente: false }
 }
 
-export function ListaPendientes({ onCitaConfirmada }: Props) {
+export function ListaPendientes({ onCitaConfirmada, onVerCita }: Props) {
   const [abierto, setAbierto] = useState(false)
   const [citas, setCitas] = useState<CitaConRelaciones[]>([])
   const [cargando, setCargando] = useState(false)
   const [confirmando, setConfirmando] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     cargarPendientes()
   }, [])
+
+  useEffect(() => {
+    if (!abierto) return
+    function handleClick(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setAbierto(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [abierto])
 
   async function cargarPendientes() {
     setCargando(true)
@@ -96,7 +111,7 @@ export function ListaPendientes({ onCitaConfirmada }: Props) {
   const totalPendientes = citas.length
 
   return (
-    <div className="relative">
+    <div className="relative" ref={panelRef}>
       {/* Botón con badge */}
       <button
         onClick={() => setAbierto((v) => !v)}
@@ -180,9 +195,10 @@ export function ListaPendientes({ onCitaConfirmada }: Props) {
                       return (
                         <div
                           key={cita.id}
-                          className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors ${
+                          className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors cursor-pointer ${
                             urgente ? 'bg-red-50/40' : ''
                           }`}
+                          onClick={() => { if (onVerCita) { onVerCita(cita); setAbierto(false) } }}
                         >
                           {/* Hora */}
                           <div className="w-14 shrink-0 text-right">
@@ -205,7 +221,7 @@ export function ListaPendientes({ onCitaConfirmada }: Props) {
                           </div>
 
                           {/* Acciones */}
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                             {tieneTelefono && (
                               <button
                                 onClick={() => abrirWhatsApp(cita)}
