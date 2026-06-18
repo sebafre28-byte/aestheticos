@@ -188,6 +188,7 @@ function SeccionPerfil() {
 
     await supabase.auth.updateUser({ data: { avatar_url: url } })
     setFotoUrl(url)
+    window.dispatchEvent(new Event('avatar-updated'))
     setSubiendoFoto(false)
     setFeedback({ tipo: 'ok', msg: 'Foto actualizada.' })
     setTimeout(() => setFeedback(null), 3000)

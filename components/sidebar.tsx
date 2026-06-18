@@ -135,6 +135,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
   const { rol } = useRol()
   const [nombreUsuario, setNombreUsuario] = useState('')
   const [inicialesUsuario, setInicialesUsuario] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
   const rolUsuario = rol ? rolLabel(rol) : ''
   const [logoClinica, setLogoClinica] = useState('')
   const [nombreClinica, setNombreClinica] = useState('')
@@ -151,7 +152,7 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
     })
   }
 
-  useEffect(() => {
+  const cargarUsuario = () => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
@@ -159,13 +160,22 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       const email = user.email ?? ''
       const display = nombre || email.split('@')[0] || 'Usuario'
       setNombreUsuario(display)
+      setAvatarUrl((user.user_metadata?.avatar_url as string) ?? '')
       setInicialesUsuario(
         display.split(' ').filter(Boolean).slice(0, 2).map((n: string) => n[0]?.toUpperCase() ?? '').join('')
       )
     })
+  }
+
+  useEffect(() => {
+    cargarUsuario()
     cargarClinica()
     window.addEventListener('clinica-updated', cargarClinica)
-    return () => window.removeEventListener('clinica-updated', cargarClinica)
+    window.addEventListener('avatar-updated', cargarUsuario)
+    return () => {
+      window.removeEventListener('clinica-updated', cargarClinica)
+      window.removeEventListener('avatar-updated', cargarUsuario)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -311,8 +321,11 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
           onClick={() => setPopoverAbierto(v => !v)}
           className={cn("w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors", popoverAbierto ? "bg-white/10" : "hover:bg-white/10")}
         >
-          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)' }}>
-            {inicialesUsuario || '…'}
+          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold overflow-hidden" style={{ background: avatarUrl ? undefined : 'linear-gradient(135deg, #2563EB 0%, #14B8A6 100%)' }}>
+            {avatarUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+              : (inicialesUsuario || '…')}
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p className="text-[12px] font-semibold text-white truncate leading-tight">{nombreUsuario || '…'}</p>
