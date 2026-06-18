@@ -20,7 +20,7 @@ export function triggerGoogleSync(citaId: string, action: 'create' | 'update' | 
   }).catch(() => {})
 }
 
-export function dispararNotificacionCita(cita: CitaConRelaciones) {
+export function dispararNotificacionCita(cita: CitaConRelaciones, sesionesRecurrentes?: Array<{ fecha: string; hora: string }>) {
   const base = typeof window !== 'undefined'
     ? window.location.origin
     : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl')
@@ -54,6 +54,7 @@ export function dispararNotificacionCita(cita: CitaConRelaciones) {
       inicio: cita.inicio,
       fin: cita.fin,
       cancel_token: (cita as unknown as Record<string, unknown>).cancel_token ?? undefined,
+      sesiones_recurrentes: sesionesRecurrentes ?? undefined,
     }),
   })
 }

@@ -90,7 +90,7 @@ export async function verificarConflicto(
   return data && data.length > 0 ? (data[0] as CitaConRelaciones) : null
 }
 
-export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones | null> {
+export async function crearCita(data: NuevaCitaData, opts?: { skipNotificacion?: boolean }): Promise<CitaConRelaciones | null> {
   const supabase = createClient()
 
   const { data: creadaPorRpc, error: errorRpc } = await supabase.rpc('upsert_cita_atomic', {
@@ -136,7 +136,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
     invalidateAgendaCache()
     await triggerCitaJobs((nueva as CitaConRelaciones).id, 'schedule')
     triggerGoogleSync((nueva as CitaConRelaciones).id, 'create')
-    dispararNotificacionCita(nueva as CitaConRelaciones).catch(() => {})
+    if (!opts?.skipNotificacion) dispararNotificacionCita(nueva as CitaConRelaciones).catch(() => {})
     return nueva as CitaConRelaciones
   }
 
@@ -149,7 +149,7 @@ export async function crearCita(data: NuevaCitaData): Promise<CitaConRelaciones 
   invalidateAgendaCache()
   await triggerCitaJobs(citaCompleta.id, 'schedule')
   triggerGoogleSync(citaCompleta.id, 'create')
-  dispararNotificacionCita(citaCompleta as CitaConRelaciones).catch(() => {})
+  if (!opts?.skipNotificacion) dispararNotificacionCita(citaCompleta as CitaConRelaciones).catch(() => {})
   return citaCompleta as CitaConRelaciones
 }
 
@@ -172,7 +172,7 @@ export async function crearCitasRecurrentes(
     dataParent = { ...data, inicio: inicioParent, fin: finParent }
   }
 
-  const citaPadre = await crearCita(dataParent)
+  const citaPadre = await crearCita(dataParent, { skipNotificacion: true })
   if (!citaPadre) return null
 
   const n = Math.max(1, totalCitas - 1)
@@ -209,6 +209,18 @@ export async function crearCitasRecurrentes(
     return null
   }
   invalidateAgendaCache()
+
+  // Notificar con todas las sesiones
+  const horaBase = data.inicio.slice(11, 16)
+  const todasSesiones = Array.from({ length: totalCitas }, (_, i) => {
+    const base = parseISO(data.inicio)
+    const dBase = recurrenceKind === 'daily' ? addDays(base, i) : recurrenceKind === 'weekly' ? addWeeks(base, i) : addMonths(base, i)
+    const fechaStr = fechaOverrides[i] ?? format(dBase, 'yyyy-MM-dd')
+    const hora = horaOverrides[i] ?? horaBase
+    return { fecha: fechaStr, hora }
+  })
+  dispararNotificacionCita(citaPadre, todasSesiones).catch(() => {})
+
   return citaPadre
 }
 

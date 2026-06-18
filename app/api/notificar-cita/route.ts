@@ -12,6 +12,7 @@ export interface NotificarCitaPayload {
   canal?: 'book' | 'agenda' | 'whatsapp'
   email_admin?: string  // if set, notifies this specific email instead of clinica.email
   cancel_token?: string // included in confirmation email to generate cancel link
+  sesiones_recurrentes?: Array<{ fecha: string; hora: string }> // si es recurrente, lista de todas las sesiones
 }
 
 export async function POST(req: NextRequest) {
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { tipo, paciente, profesional, servicio, clinica, inicio, fin, canal, email_admin, cancel_token } = body
+  const { tipo, paciente, profesional, servicio, clinica, inicio, fin, canal, email_admin, cancel_token, sesiones_recurrentes } = body
 
   const hora = inicio.slice(11, 16)
   const horaFin = fin.slice(11, 16)
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
       clinica_email: clinica.email ?? undefined,
       clinica_direccion: clinica.direccion ?? undefined,
       canal,
+      sesiones_recurrentes: sesiones_recurrentes ?? undefined,
     }
 
     // 1. Confirmation email to patient

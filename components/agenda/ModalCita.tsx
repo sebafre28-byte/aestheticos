@@ -685,7 +685,11 @@ export function ModalCita({
                           type="button"
                           ref={seleccionado ? slotSeleccionadoRef : undefined}
                           disabled={ocupado}
-                          onClick={() => { setHora(slot); setAbiertoPicker(false) }}
+                          onClick={() => {
+                            setHora(slot)
+                            setAbiertoPicker(false)
+                            setSessionHoraOverrides(prev => { const next = { ...prev }; delete next[0]; return next })
+                          }}
                           className={`w-full text-left px-3 py-1.5 text-[13px] transition-colors flex items-center justify-between ${
                             seleccionado
                               ? 'bg-blue-100 text-blue-700 font-semibold'
@@ -847,7 +851,10 @@ export function ModalCita({
                             />
                             <TimePicker
                               value={horaSession}
-                              onChange={v => setSessionHoraOverrides(prev => ({ ...prev, [i]: v }))}
+                              onChange={v => {
+                                setSessionHoraOverrides(prev => ({ ...prev, [i]: v }))
+                                if (i === 0) setHora(v)
+                              }}
                               slots={SLOTS_HORA}
                               hasError={!!hayProblema}
                             />

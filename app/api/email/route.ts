@@ -67,6 +67,7 @@ export interface DatosCita {
   canal?: 'book' | 'agenda' | 'whatsapp'
   cancel_url?: string
   cancel_token?: string
+  sesiones_recurrentes?: Array<{ fecha: string; hora: string }>
 }
 
 
@@ -156,6 +157,31 @@ const VARIANT: Record<TipoEmailCita, {
     alertTitleColor: '#5B21B6',
     alertBodyColor: '#6D28D9',
   },
+}
+
+// ─── Sesiones recurrentes card ────────────────────────────────────────────────
+
+function sesionesCard(sesiones: Array<{ fecha: string; hora: string }>): string {
+  if (!sesiones || sesiones.length <= 1) return ''
+  const filas = sesiones.map((s, i) => `
+    <tr style="border-bottom:1px solid #F1F5F9;">
+      <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748B;width:28px;">${i + 1}</td>
+      <td style="padding:8px 4px 8px 0;font-size:13px;color:#0B132B;font-weight:500;">${s.fecha}</td>
+      <td style="padding:8px 14px 8px 0;font-size:13px;color:#2563EB;font-weight:600;white-space:nowrap;">${s.hora}</td>
+    </tr>
+  `).join('')
+  return `
+    <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:20px;">
+      <tr>
+        <td style="background:#F8FAFF;border:1.5px solid #DBEAFE;border-radius:12px;padding:14px 18px;">
+          <p style="margin:0 0 10px;font-size:10px;font-weight:700;color:#1D4ED8;text-transform:uppercase;letter-spacing:1px;">&#128197;&nbsp; ${sesiones.length} sesiones programadas</p>
+          <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+            ${filas}
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
 }
 
 // ─── Details card (Unicode icons only — Gmail-safe) ──────────────────────────
@@ -446,6 +472,7 @@ function buildBody(tipo: TipoEmailCita, datos: DatosCita): string {
         &#161;Hola, <strong style="color:#0B132B;">${paciente_nombre}!</strong> Aqu&iacute; tienes el resumen de tu reserva en <strong style="color:#0B132B;">${clinica_nombre}</strong>.
       </p>
       ${card}
+      ${datos.sesiones_recurrentes && datos.sesiones_recurrentes.length > 1 ? sesionesCard(datos.sesiones_recurrentes) : ''}
       <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:20px;">
         <tr>
           <td style="background:${v.alertBg};border:1.5px solid ${v.alertBorder};border-radius:12px;padding:14px 18px;">
@@ -472,6 +499,7 @@ function buildBody(tipo: TipoEmailCita, datos: DatosCita): string {
         <strong style="color:#0B132B;">${paciente_nombre}</strong> reserv&oacute; para el <strong style="color:#0B132B;">${datos.fecha}</strong> a las <strong style="color:#0B132B;">${datos.hora}</strong>.
       </p>
       ${card}
+      ${datos.sesiones_recurrentes && datos.sesiones_recurrentes.length > 1 ? sesionesCard(datos.sesiones_recurrentes) : ""}
       ${datos.paciente_telefono || datos.paciente_email ? `
       <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:20px;">
         <tr>
