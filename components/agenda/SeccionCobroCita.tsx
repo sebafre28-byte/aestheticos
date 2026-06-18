@@ -105,7 +105,7 @@ export function SeccionCobroCita({ cita, onPagoActualizado }: Props) {
     const cobro = await actualizarPagoCita(cita.id, {
       pago_estado: usandoPaquete ? 'pagado' : estado,
       pago_monto: usandoPaquete ? 0 : (requiereCobro ? montoNum : precioServicio),
-      pago_metodo: usandoPaquete ? null : (requiereCobro ? (metodo as PagoMetodo) : null),
+      pago_metodo: usandoPaquete ? 'paquete' : (requiereCobro ? (metodo as PagoMetodo) : null),
       comision_monto: usandoPaquete ? 0 : comisionMonto,
     })
     setGuardando(false)
