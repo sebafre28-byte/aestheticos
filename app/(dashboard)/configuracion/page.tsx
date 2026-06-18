@@ -1970,6 +1970,16 @@ function SeccionSeguridad() {
   const [guardando, setGuardando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
   const [passwords, setPasswords] = useState({ nueva: "", confirmar: "" })
+  const [mfaEnabled, setMfaEnabled] = useState<boolean | null>(null)
+  const [toggling2fa, setToggling2fa] = useState(false)
+  const [mfaFeedback, setMfaFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setMfaEnabled(user?.user_metadata?.mfa_enabled === true)
+    })
+  }, [])
 
   async function cambiarPassword(e: React.FormEvent) {
     e.preventDefault()
@@ -1989,9 +1999,32 @@ function SeccionSeguridad() {
     }
   }
 
+  async function toggle2FA() {
+    setToggling2fa(true)
+    setMfaFeedback(null)
+    const supabase = createClient()
+    const nuevoEstado = !mfaEnabled
+    const { error } = await supabase.auth.updateUser({ data: { mfa_enabled: nuevoEstado } })
+    setToggling2fa(false)
+    if (error) {
+      setMfaFeedback({ tipo: "error", msg: error.message })
+    } else {
+      setMfaEnabled(nuevoEstado)
+      setMfaFeedback({
+        tipo: "ok",
+        msg: nuevoEstado
+          ? "2FA activado. Se pedirá un código al iniciar sesión."
+          : "2FA desactivado.",
+      })
+      setTimeout(() => setMfaFeedback(null), 3000)
+    }
+  }
+
   return (
     <div>
       <SectionHeader title="Seguridad" subtitle="Controla el acceso a tu cuenta" />
+
+      {/* Cambiar contraseña */}
       <div className="mb-6">
         <p className="text-[13px] font-semibold text-gray-900 mb-3">Cambiar contraseña</p>
         <form onSubmit={cambiarPassword} className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-3">
@@ -2020,9 +2053,50 @@ function SeccionSeguridad() {
           </div>
         </form>
       </div>
-      <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
-        <p className="text-[13px] font-medium text-amber-700">2FA y gestión de sesiones — próximamente</p>
-        <p className="text-[12px] text-amber-600 mt-0.5">Autenticación de dos factores en desarrollo.</p>
+
+      {/* 2FA */}
+      <div>
+        <p className="text-[13px] font-semibold text-gray-900 mb-3">Autenticación en dos pasos (2FA)</p>
+        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-medium text-gray-800">
+                Código por correo al iniciar sesión
+              </p>
+              <p className="text-[12px] text-gray-500 mt-0.5">
+                {mfaEnabled
+                  ? "Activo — se pedirá un código de 6 dígitos en cada inicio de sesión."
+                  : "Inactivo — solo se pide contraseña para entrar."}
+              </p>
+            </div>
+            <button
+              onClick={toggle2FA}
+              disabled={toggling2fa || mfaEnabled === null}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                mfaEnabled ? "bg-[#2563EB]" : "bg-gray-200"
+              } ${toggling2fa ? "opacity-50" : ""}`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                  mfaEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+          {mfaFeedback && (
+            <div className={`mt-3 text-[12px] font-medium rounded-lg px-3 py-2 ${
+              mfaFeedback.tipo === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+            }`}>
+              {mfaFeedback.msg}
+            </div>
+          )}
+          {mfaEnabled && (
+            <div className="mt-3 flex items-start gap-2 text-[12px] text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
+              <span className="text-base leading-none mt-0.5">🔒</span>
+              <span>La sesión 2FA dura <strong>24 horas</strong>. Al iniciar sesión en otro dispositivo se pedirá el código nuevamente.</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
