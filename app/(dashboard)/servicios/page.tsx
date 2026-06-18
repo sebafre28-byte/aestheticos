@@ -5,6 +5,7 @@ import { Syringe, DollarSign, Star, TrendingUp } from 'lucide-react'
 import { FichaServicio } from '@/components/servicios/FichaServicio'
 import { FormServicio } from '@/components/servicios/FormServicio'
 import { ListaServicios } from '@/components/servicios/ListaServicios'
+import { SeccionPaquetes } from '@/components/paquetes/SeccionPaquetes'
 import {
   actualizarServicio,
   crearServicio,
@@ -171,7 +172,8 @@ export default function ServiciosPage() {
         </div>
       )}
 
-      <ListaServicios
+      <div className="mb-8">
+        <ListaServicios
         servicios={servicios}
         total={total}
         page={page}
@@ -188,6 +190,11 @@ export default function ServiciosPage() {
         onToggleActivo={(s) => setModalConfirm({ tipo: 'toggle', servicio: s })}
         onEliminar={(s) => setModalConfirm({ tipo: 'eliminar', servicio: s })}
       />
+      </div>
+
+      <div className="border-t border-gray-100 pt-8">
+        <SeccionPaquetes />
+      </div>
 
       {openForm && (
         <FormServicio
