@@ -18,6 +18,7 @@ import {
   Wallet,
   MessageCircle,
   ClipboardCheck,
+  Scissors,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -51,6 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/inbox",     label: "WhatsApp",  icon: MessageCircle,  modulo: "inbox",       badge: 'whatsapp' },
       { href: "/pendientes",label: "Pendientes",icon: ClipboardCheck, modulo: "agenda",      badge: 'pendientes' },
       { href: "/caja",      label: "Caja",      icon: Wallet,         modulo: "caja" },
+      { href: "/servicios", label: "Servicios", icon: Scissors,       modulo: "servicios" },
     ],
   },
   {
