@@ -442,20 +442,21 @@ export function CalendarioDia({
                 }
               </div>
               <p className="text-[12px] font-semibold text-gray-800 leading-tight">{prof.nombre}</p>
-              {prof.especialidad && (
-                <p className="text-[10px] text-gray-400 leading-tight">{prof.especialidad}</p>
-              )}
-              <p className="text-[10px] text-gray-400">
-                {citasProf.length} {citasProf.length === 1 ? 'cita' : 'citas'} hoy
-              </p>
-              {/* Barra de ocupación */}
-              <div className="w-full h-1 rounded-full bg-gray-100 overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${colorBarra}`}
-                  style={{ width: `${porcentaje}%` }}
-                />
+              <div className="hidden md:contents">
+                {prof.especialidad && (
+                  <p className="text-[10px] text-gray-400 leading-tight">{prof.especialidad}</p>
+                )}
+                <p className="text-[10px] text-gray-400">
+                  {citasProf.length} {citasProf.length === 1 ? 'cita' : 'citas'} hoy
+                </p>
+                <div className="w-full h-1 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${colorBarra}`}
+                    style={{ width: `${porcentaje}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400">{porcentaje}% ocupado</p>
               </div>
-              <p className="text-[10px] text-gray-400">{porcentaje}% ocupado</p>
             </div>
           )
         })}
