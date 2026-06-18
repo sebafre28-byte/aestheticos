@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   // Sign a JWT cookie valid for 24h
   const token = await new SignJWT({ sub: user.id })
     .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime('24h')
+    .setExpirationTime('7d')
     .sign(getMfaSecret())
 
   const response = NextResponse.json({ ok: true })
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24, // 24h
+    maxAge: 60 * 60 * 24 * 7, // 7 días
     path: '/',
   })
   return response
