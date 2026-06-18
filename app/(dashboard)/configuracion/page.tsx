@@ -7,9 +7,8 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, Package,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil,
 } from "lucide-react"
-import { SeccionPaquetes } from "@/components/paquetes/SeccionPaquetes"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
 import { formatLastSeen } from "@/lib/auth/usePresence"
@@ -39,7 +38,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad" | "paquetes"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
 
 type NavGroup = {
   label: string
@@ -67,12 +66,6 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "whatsapp",      label: "WhatsApp Business", icon: MessageCircle },
       { id: "recordatorios", label: "Recordatorios",     icon: Bell },
       { id: "google",        label: "Google Calendar",   icon: CalendarDays },
-    ],
-  },
-  {
-    label: "Servicios",
-    items: [
-      { id: "paquetes", label: "Paquetes de sesiones", icon: Package },
     ],
   },
   {
@@ -2697,7 +2690,7 @@ function BtnCerrarSesion() {
 function ConfiguracionInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab") as SeccionId | null
-  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad","paquetes"])
+  const VALID_TABS = new Set<SeccionId>(["clinica","equipo","horarios","usuarios","whatsapp","recordatorios","google","plan","seguridad"])
   const [activa, setActiva] = useState<SeccionId>(tabParam && VALID_TABS.has(tabParam) ? tabParam : "clinica")
   const { puede, cargando: cargandoRol } = useAcceso("configuracion")
   const { plan, esTrial } = useSubscripcion()
@@ -2723,7 +2716,6 @@ function ConfiguracionInner() {
     google:         <SeccionGoogleCalendar />,
     plan:           <SeccionPlan />,
     seguridad:      <SeccionSeguridad />,
-    paquetes:       <SeccionPaquetes />,
   }
 
   return (
