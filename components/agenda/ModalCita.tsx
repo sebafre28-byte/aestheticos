@@ -101,7 +101,7 @@ export function ModalCita({
   const [recurrenceKind, setRecurrenceKind] = useState<'none' | 'daily' | 'weekly' | 'monthly'>(
     (citaExistente?.recurrence_kind as 'none' | 'daily' | 'weekly' | 'monthly' | undefined) ?? 'none'
   )
-  const [recurrenceCount, setRecurrenceCount] = useState(8)
+  const [recurrenceCount, setRecurrenceCount] = useState(3)
   const [sessionHoraOverrides, setSessionHoraOverrides] = useState<Record<number, string>>({})
   const [sessionFechaOverrides, setSessionFechaOverrides] = useState<Record<number, string>>({})
   const [horariosClinica, setHorariosClinica] = useState<HorariosConfig | null>(null)
@@ -737,10 +737,10 @@ export function ModalCita({
                   <span className="text-[12px] text-gray-500">Repetir</span>
                   <input
                     type="number"
-                    min={2}
+                    min={3}
                     max={52}
                     value={recurrenceCount}
-                    onChange={(e) => setRecurrenceCount(Math.max(2, Math.min(52, parseInt(e.target.value) || 2)))}
+                    onChange={(e) => setRecurrenceCount(Math.max(3, Math.min(52, parseInt(e.target.value) || 3)))}
                     className="w-16 h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 text-center focus:outline-none focus:ring-1 focus:ring-blue-400/50"
                   />
                   <span className="text-[12px] text-gray-500">
