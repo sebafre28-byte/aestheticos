@@ -852,16 +852,16 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada, rolUsu
                   onClick={() => completo && setPasoIdx(idx)}
                   className={`flex flex-col items-center gap-0.5 transition-opacity ${pasoIdx < idx ? 'opacity-30' : ''} ${completo ? 'cursor-pointer' : 'cursor-default'}`}
                 >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors relative ${completo ? 'bg-[#2563EB]' : activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}>
-                    {completo ? <Check className="size-3 text-white" /> : <Icono className={`size-3 ${activo ? 'text-white' : 'text-gray-400'}`} />}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors relative ${completo ? 'bg-[#2563EB]' : activo ? 'bg-[#2563EB]' : 'bg-gray-200'}`}>
+                    {completo ? <Check className="size-4 text-white" /> : <Icono className={`size-4 ${activo ? 'text-white' : 'text-gray-400'}`} />}
                     {!esMio && !completo && (
-                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 border border-white" />
+                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-white" />
                     )}
                   </div>
-                  <span className={`text-[9px] font-medium w-12 text-center leading-tight hidden sm:block ${activo ? 'text-[#2563EB]' : 'text-gray-400'}`}>{p.titulo}</span>
+                  <span className={`text-[10px] font-medium w-14 text-center leading-tight ${activo ? 'text-[#2563EB]' : 'text-gray-400'}`}>{p.titulo}</span>
                 </button>
                 {!esUltimo && (
-                  <div className={`w-8 h-[2px] mx-0.5 mb-3 hidden sm:block rounded-full transition-colors ${completo ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
+                  <div className={`w-6 h-[2px] mx-1 mb-4 rounded-full transition-colors ${completo ? 'bg-[#2563EB]' : 'bg-gray-200'}`} />
                 )}
               </div>
             )
@@ -917,7 +917,7 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada, rolUsu
 
       {/* ── Footer de navegación ── */}
       {!completada && (
-        <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between shrink-0 bg-white">
+        <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-3 shrink-0 bg-white">
           <button
             onClick={() => setPasoIdx(i => Math.max(0, i - 1))}
             disabled={pasoIdx === 0}
@@ -926,9 +926,7 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada, rolUsu
             <ChevronLeft className="size-4" /> Anterior
           </button>
 
-          <span className="text-[12px] text-gray-400">{pasoIdx + 1} / {totalPasos}</span>
-
-          {pasoIdx < totalPasos - 1 ? (
+          {pasoIdx < totalPasos - 1 && (
             <button
               onClick={() => setPasoIdx(i => Math.min(totalPasos - 1, i + 1))}
               className="h-9 px-4 rounded-lg border-0 text-[13px] font-medium text-white flex items-center gap-1.5 transition-colors"
@@ -936,7 +934,9 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada, rolUsu
             >
               Siguiente <ChevronRight className="size-4" />
             </button>
-          ) : null}
+          )}
+
+          <span className="ml-auto text-[12px] text-gray-400">{pasoIdx + 1} / {totalPasos}</span>
         </div>
       )}
 
