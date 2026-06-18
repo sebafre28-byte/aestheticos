@@ -65,6 +65,7 @@ function calcularPosicion(inicio: string, fin: string) {
 function ColumnaDia({
   dia,
   esHoy,
+  lineaHora,
   citas,
   bloqueos,
   profesionalesFiltrados,
@@ -78,6 +79,7 @@ function ColumnaDia({
 }: {
   dia: Date
   esHoy: boolean
+  lineaHora?: number | null
   citas: CitaConRelaciones[]
   bloqueos: BloqueoProfesional[]
   profesionalesFiltrados: string[]
@@ -125,6 +127,17 @@ function ColumnaDia({
       }}
       onMouseLeave={() => { setHoverY(null); setSobreFondo(false) }}
     >
+      {/* Línea roja hora actual — solo en el día de hoy */}
+      {esHoy && lineaHora != null && (
+        <div
+          className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+          style={{ top: lineaHora }}
+        >
+          <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" style={{ marginLeft: -4 }} />
+          <div className="flex-1 border-t-2 border-red-500" />
+        </div>
+      )}
+
       {/* Menú contextual */}
       {menu && (
         <>
@@ -407,27 +420,18 @@ export function CalendarioSemana({
               )}
             </div>
 
-            {/* Línea roja de hora actual (spans toda la semana) */}
-            {esEstaSemana && lineaHora !== null && (
-              <div
-                className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
-                style={{ top: lineaHora }}
-              >
-                <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" style={{ marginLeft: -4 }} />
-                <div className="flex-1 border-t-2 border-red-500" />
-              </div>
-            )}
-
             {/* Columna de cada día */}
             {diasFecha.map((dia, i) => {
               const diaStr = format(dia, 'yyyy-MM-dd')
               const citasDia = citasFiltradas.filter((c) => citaWallClockDate(c.inicio) === diaStr)
               const bloqueosDia = bloqueos.filter((b) => citaWallClockDate(b.inicio) === diaStr)
+              const esHoy = isSameDay(dia, hoy)
               return (
                 <ColumnaDia
                   key={i}
                   dia={dia}
-                  esHoy={isSameDay(dia, hoy)}
+                  esHoy={esHoy}
+                  lineaHora={esHoy && esEstaSemana ? lineaHora : null}
                   citas={citasDia}
                   bloqueos={bloqueosDia}
                   profesionalesFiltrados={profesionalesFiltrados}
