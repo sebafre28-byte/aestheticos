@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getClinicaId } from '@/lib/onboarding/queries'
 
 export type PagoEstado = 'pendiente' | 'pagado' | 'parcial'
-export type PagoMetodo = 'efectivo' | 'transferencia' | 'debito' | 'credito'
+export type PagoMetodo = 'efectivo' | 'transferencia' | 'debito' | 'credito' | 'paquete'
 
 export type PagoCitaFields = {
   pago_monto: number
@@ -33,6 +33,7 @@ export const PAGO_METODO_LABELS: Record<PagoMetodo, string> = {
   transferencia: 'Transferencia',
   debito: 'Débito',
   credito: 'Crédito',
+  paquete: 'Paquete de sesiones',
 }
 
 export { formatCLP, montoIngresoCobrado } from './utils'
