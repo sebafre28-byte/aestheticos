@@ -1740,27 +1740,111 @@ function SeccionRecordatorios() {
 
 // ─── Sección Google Calendar ──────────────────────────────────────────────────
 
+type SyncMode = 'push_only' | 'pull_only' | 'bidirectional'
+type GCalendar = { id: string; summary: string; backgroundColor?: string; primary: boolean }
+
+const GoogleIcon = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+    <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
+    <path d="M6.3 14.7l7.4 5.4C15.5 16 19.4 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z" fill="#FF3D00"/>
+    <path d="M24 46c5.5 0 10.5-1.9 14.3-5.1l-6.6-5.6C29.6 36.7 26.9 37.5 24 37.5c-5.8 0-10.6-3.9-12.4-9.2l-7.3 5.7C7.9 41.3 15.4 46 24 46z" fill="#4CAF50"/>
+    <path d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.3l6.6 5.6C41.1 37.3 44.5 31.1 44.5 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
+  </svg>
+)
+
 function SeccionGoogleCalendar() {
   const [conectado, setConectado] = useState(false)
-  const [calendarId, setCalendarId] = useState<string | null>(null)
+  const [tokenEmail, setTokenEmail] = useState<string | null>(null)
+  const [tokenExpirado, setTokenExpirado] = useState(false)
+  const [syncMode, setSyncMode] = useState<SyncMode>('push_only')
   const [cargando, setCargando] = useState(true)
+  const [desconectando, setDesconectando] = useState(false)
+  const [guardandoMode, setGuardandoMode] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+
+  const [calendarios, setCalendarios] = useState<GCalendar[]>([])
+  const [calendarId, setCalendarId] = useState<string>('primary')
+  const [cargandoCals, setCargandoCals] = useState(false)
+  const [guardandoCal, setGuardandoCal] = useState(false)
+  const [dropdownAbierto, setDropdownAbierto] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/api/auth/google/status')
       .then(r => r.json())
-      .then((data: { connected: boolean; token: { calendar_id?: string } | null }) => {
+      .then((data: { connected: boolean; token: { calendar_id?: string; sync_mode?: SyncMode; token_expiry?: number } | null }) => {
         setConectado(data.connected)
-        setCalendarId(data.token?.calendar_id ?? null)
+        setTokenEmail(data.token?.calendar_id ?? null)
+        if (data.token?.sync_mode) setSyncMode(data.token.sync_mode)
+        if (data.token?.calendar_id) setCalendarId(data.token.calendar_id)
+        if (data.connected && data.token?.token_expiry) {
+          setTokenExpirado(Date.now() > data.token.token_expiry)
+        }
         setCargando(false)
+        if (data.connected) cargarCalendarios()
       })
       .catch(() => setCargando(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownAbierto(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  async function cargarCalendarios() {
+    setCargandoCals(true)
+    try {
+      const res = await fetch('/api/auth/google/calendars')
+      if (res.ok) {
+        const data = await res.json()
+        setCalendarios(data.calendars ?? [])
+        if (data.selected) setCalendarId(data.selected)
+      }
+    } finally {
+      setCargandoCals(false)
+    }
+  }
+
+  async function desconectar() {
+    setDesconectando(true)
+    const res = await fetch('/api/auth/google/disconnect', { method: 'DELETE' })
+    setDesconectando(false)
+    if (res.ok) { setConectado(false); setTokenEmail(null); setCalendarios([]); setFeedback({ tipo: 'ok', msg: 'Google Calendar desconectado.' }) }
+    else setFeedback({ tipo: 'error', msg: 'No se pudo desconectar.' })
+  }
+
+  async function cambiarCalendario(id: string) {
+    setCalendarId(id)
+    setDropdownAbierto(false)
+    setGuardandoCal(true)
+    const res = await fetch('/api/auth/google/calendar-id', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ calendar_id: id }),
+    })
+    setGuardandoCal(false)
+    if (res.ok) setFeedback({ tipo: 'ok', msg: 'Calendario actualizado. Las próximas citas se sincronizarán aquí.' })
+    else setFeedback({ tipo: 'error', msg: 'No se pudo actualizar el calendario.' })
+  }
+
+  const calSeleccionado = calendarios.find(c => c.id === calendarId)
+  const nombreCal = calSeleccionado?.summary ?? (calendarId === 'primary' ? 'Calendario principal' : calendarId)
 
   if (cargando) return (
     <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400">
       <Loader2 className="size-4 animate-spin" /> Cargando…
     </div>
   )
+
+  void syncMode
+  void guardandoMode
+  void setSyncMode
 
   return (
     <div>
@@ -1769,38 +1853,101 @@ function SeccionGoogleCalendar() {
         subtitle="Sincroniza tus citas con Google Calendar automáticamente"
       />
 
-      <div className="bg-gray-50 rounded-xl border border-gray-100 p-5 mb-4">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
-            <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M44.5 20H24v8.5h11.8C34.7 33.9 29.9 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
-              <path d="M6.3 14.7l7.4 5.4C15.5 16 19.4 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z" fill="#FF3D00"/>
-              <path d="M24 46c5.5 0 10.5-1.9 14.3-5.1l-6.6-5.6C29.6 36.7 26.9 37.5 24 37.5c-5.8 0-10.6-3.9-12.4-9.2l-7.3 5.7C7.9 41.3 15.4 46 24 46z" fill="#4CAF50"/>
-              <path d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.3l6.6 5.6C41.1 37.3 44.5 31.1 44.5 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
-            </svg>
+      <Feedback f={feedback} />
+
+      <div className={`rounded-xl border p-4 mb-5 ${conectado ? 'bg-[#25D366]/5 border-[#25D366]/20' : 'bg-gray-50 border-gray-100'}`}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
+            <GoogleIcon size={18} />
           </div>
           <div className="flex-1">
-            <p className="text-[14px] font-semibold text-gray-900">
-              {conectado ? "Conectado a Google Calendar" : "Google Calendar no conectado"}
-            </p>
-            <p className="text-[12px] text-gray-500 mt-0.5">
-              {conectado
-                ? `Calendario: ${calendarId === 'primary' ? 'principal' : (calendarId ?? 'principal')}`
-                : "Conecta tu cuenta para sincronizar citas automáticamente"}
-            </p>
+            <p className="text-[13px] font-semibold text-gray-900">{conectado ? 'Conectado a Google Calendar' : 'Google Calendar no conectado'}</p>
+            <p className="text-[12px] text-gray-500">{conectado ? (tokenEmail ?? 'Cuenta conectada') : 'Conecta para sincronizar tus citas automáticamente'}</p>
           </div>
-          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${conectado ? "bg-emerald-50 text-[#10B981]" : "bg-gray-100 text-gray-500"}`}>
-            {conectado ? "Conectado" : "Desconectado"}
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${conectado ? 'bg-emerald-50 text-[#10B981]' : 'bg-gray-100 text-gray-500'}`}>
+            {conectado ? 'Conectado' : 'Desconectado'}
           </span>
         </div>
       </div>
 
-      <a
-        href="/mi-cuenta?tab=google"
-        className="inline-flex items-center gap-1.5 text-[13px] text-[#2563EB] hover:underline"
-      >
-        Configurar sincronización →
-      </a>
+      {conectado && tokenExpirado && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 flex items-start gap-3">
+          <span className="text-amber-500 mt-0.5 shrink-0">⚠️</span>
+          <div className="flex-1">
+            <p className="text-[13px] font-semibold text-amber-800">Tu conexión con Google Calendar expiró</p>
+            <p className="text-[12px] text-amber-700 mt-0.5">Las citas ya no se están sincronizando. Reconecta para restaurar la sincronización.</p>
+          </div>
+          <a href="/api/auth/google" className="shrink-0 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-semibold px-3 py-1.5 transition-colors">
+            Reconectar
+          </a>
+        </div>
+      )}
+
+      {conectado ? (
+        <>
+          <p className="text-[12px] font-semibold text-gray-700 mb-2">
+            Calendario destino {guardandoCal && <span className="text-gray-400 font-normal ml-1">Guardando…</span>}
+          </p>
+          <div ref={dropdownRef} className="relative mb-5">
+            <button
+              type="button"
+              onClick={() => setDropdownAbierto(v => !v)}
+              className="w-full flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[13px] text-gray-700 hover:border-gray-300 transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {calSeleccionado?.backgroundColor && (
+                  <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: calSeleccionado.backgroundColor }} />
+                )}
+                <span className="truncate">{nombreCal}</span>
+                {(calSeleccionado?.primary || calendarId === 'primary') && (
+                  <span className="text-[11px] text-gray-400 shrink-0">· principal</span>
+                )}
+              </div>
+              {cargandoCals
+                ? <Loader2 className="size-3.5 animate-spin text-gray-400 shrink-0" />
+                : <ChevronDown className="size-3.5 text-gray-400 shrink-0" />
+              }
+            </button>
+            {dropdownAbierto && calendarios.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+                {calendarios.map(cal => (
+                  <button
+                    key={cal.id}
+                    type="button"
+                    onClick={() => cambiarCalendario(cal.id)}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: cal.backgroundColor ?? '#4285F4' }} />
+                    <span className="flex-1 truncate">{cal.summary}</span>
+                    {cal.primary && <span className="text-[11px] text-gray-400">principal</span>}
+                    {cal.id === calendarId && <Check className="size-3.5 text-[#2563EB] shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center gap-3 mb-5">
+            <CheckCircle2 className="size-4 text-[#2563EB] shrink-0" />
+            <div className="flex-1">
+              <p className="text-[13px] font-semibold text-gray-900">Exportar a Google Calendar</p>
+              <p className="text-[11px] text-gray-500">Tus citas de SimpliClinic aparecen automáticamente en Google Calendar</p>
+            </div>
+          </div>
+
+          <button onClick={desconectar} disabled={desconectando}
+            className="h-9 px-4 rounded-lg border border-red-200 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2">
+            {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
+            Desconectar
+          </button>
+        </>
+      ) : (
+        <a href="/api/auth/google"
+          className="inline-flex items-center gap-2.5 h-10 px-5 rounded-xl border border-gray-200 bg-white text-[13px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
+          <GoogleIcon size={16} />
+          Conectar con Google Calendar
+        </a>
+      )}
     </div>
   )
 }
