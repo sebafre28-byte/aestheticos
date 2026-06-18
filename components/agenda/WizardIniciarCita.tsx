@@ -917,7 +917,7 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada, rolUsu
 
       {/* ── Footer de navegación ── */}
       {!completada && (
-        <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-3 shrink-0 bg-white">
+        <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-center gap-3 shrink-0 bg-white">
           <button
             onClick={() => setPasoIdx(i => Math.max(0, i - 1))}
             disabled={pasoIdx === 0}
@@ -926,7 +926,9 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada, rolUsu
             <ChevronLeft className="size-4" /> Anterior
           </button>
 
-          {pasoIdx < totalPasos - 1 && (
+          <span className="text-[12px] text-gray-400 w-10 text-center">{pasoIdx + 1} / {totalPasos}</span>
+
+          {pasoIdx < totalPasos - 1 ? (
             <button
               onClick={() => setPasoIdx(i => Math.min(totalPasos - 1, i + 1))}
               className="h-9 px-4 rounded-lg border-0 text-[13px] font-medium text-white flex items-center gap-1.5 transition-colors"
@@ -934,9 +936,9 @@ export default function WizardIniciarCita({ cita, onCerrar, onCompletada, rolUsu
             >
               Siguiente <ChevronRight className="size-4" />
             </button>
+          ) : (
+            <div className="w-[89px]" />
           )}
-
-          <span className="ml-auto text-[12px] text-gray-400">{pasoIdx + 1} / {totalPasos}</span>
         </div>
       )}
 
