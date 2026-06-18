@@ -18,6 +18,7 @@ import {
   MessageCircle,
   ClipboardCheck,
   Scissors,
+  HelpCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -64,7 +65,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Sistema",
     items: [
-      { href: "/configuracion", label: "Configuración", icon: Settings, modulo: "configuracion" },
+      { href: "/configuracion", label: "Configuración", icon: Settings,    modulo: "configuracion" },
+      { href: "/ayuda",         label: "Ayuda",         icon: HelpCircle,  modulo: "ayuda" },
     ],
   },
 ]
