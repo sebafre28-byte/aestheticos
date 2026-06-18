@@ -57,14 +57,15 @@ export function DireccionAutocomplete({ value, onChange, placeholder = 'Av. Ejem
           height: 36px;
           border: 1px solid hsl(var(--input));
           border-radius: calc(var(--radius) - 2px);
-          background: transparent;
+          background: white;
           padding: 0 12px 0 32px;
           font-size: 13px;
           font-family: inherit;
-          color: inherit;
+          color: #111827;
           box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
           outline: none;
           box-sizing: border-box;
+          color-scheme: light;
         `
         el.setAttribute('placeholder', placeholder)
 
