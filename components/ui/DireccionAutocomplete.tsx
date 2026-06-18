@@ -1,14 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { MapPin } from 'lucide-react'
-
-declare global {
-  interface Window {
-    google: typeof google
-    initGooglePlaces?: () => void
-  }
-}
 
 type Props = {
   value: string
@@ -17,67 +10,99 @@ type Props = {
 }
 
 export function DireccionAutocomplete({ value, onChange, placeholder = 'Av. Ejemplo 1234, Santiago' }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
-  const [loaded, setLoaded] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const initialized = useRef(false)
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY
-    if (!apiKey) return
+    if (!apiKey || initialized.current) return
 
-    if (window.google?.maps?.places) {
-      setLoaded(true)
-      return
-    }
+    async function init() {
+      try {
+        // Load Maps JS with new loading API
+        if (!window.google?.maps) {
+          await new Promise<void>((resolve, reject) => {
+            if (document.querySelector('#gmap-script')) { resolve(); return }
+            const s = document.createElement('script')
+            s.id = 'gmap-script'
+            s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&libraries=places`
+            s.async = true
+            s.onload = () => resolve()
+            s.onerror = reject
+            document.head.appendChild(s)
+          })
+          // Wait until google.maps is ready
+          await new Promise<void>(resolve => {
+            const t = setInterval(() => { if (window.google?.maps) { clearInterval(t); resolve() } }, 100)
+          })
+        }
 
-    if (document.querySelector('#google-places-script')) {
-      window.initGooglePlaces = () => setLoaded(true)
-      return
-    }
+        const { PlaceAutocompleteElement } = await (window.google.maps as unknown as {
+          importLibrary: (lib: string) => Promise<{ PlaceAutocompleteElement: new (opts: object) => HTMLElement & {
+            addEventListener: (event: string, cb: (e: Event) => void) => void
+          } }>
+        }).importLibrary('places')
 
-    window.initGooglePlaces = () => setLoaded(true)
+        if (!wrapperRef.current || initialized.current) return
+        initialized.current = true
 
-    const script = document.createElement('script')
-    script.id = 'google-places-script'
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGooglePlaces`
-    script.async = true
-    script.defer = true
-    document.head.appendChild(script)
-  }, [])
+        const el = new PlaceAutocompleteElement({
+          componentRestrictions: { country: ['cl', 'ar', 'mx', 'co', 'pe', 'uy', 'ec', 'bo', 'py', 've'] },
+          types: ['address'],
+        })
 
-  useEffect(() => {
-    if (!loaded || !inputRef.current) return
+        // Style to match the rest of the UI
+        el.style.cssText = `
+          width: 100%;
+          height: 36px;
+          border: 1px solid hsl(var(--input));
+          border-radius: calc(var(--radius) - 2px);
+          background: transparent;
+          padding: 0 12px 0 32px;
+          font-size: 13px;
+          font-family: inherit;
+          color: inherit;
+          box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+          outline: none;
+          box-sizing: border-box;
+        `
+        el.setAttribute('placeholder', placeholder)
 
-    autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
-      types: ['address'],
-      componentRestrictions: { country: ['cl', 'ar', 'mx', 'co', 'pe', 'uy', 'ec', 'bo', 'py', 've'] },
-      fields: ['formatted_address'],
-    })
+        el.addEventListener('gmp-select', async (e: Event) => {
+          const detail = (e as CustomEvent).detail
+          if (detail?.place) {
+            await detail.place.fetchFields({ fields: ['formattedAddress'] })
+            onChange(detail.place.formattedAddress ?? '')
+          }
+        })
 
-    const listener = autocompleteRef.current.addListener('place_changed', () => {
-      const place = autocompleteRef.current!.getPlace()
-      if (place.formatted_address) {
-        onChange(place.formatted_address)
+        wrapperRef.current.appendChild(el)
+      } catch {
+        // Silently fall back — plain input remains visible
       }
-    })
-
-    return () => {
-      window.google.maps.event.removeListener(listener)
     }
-  }, [loaded, onChange])
+
+    init()
+  }, [onChange, placeholder])
+
+  const hasKey = !!process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY
 
   return (
     <div className="relative">
-      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 pointer-events-none" />
-      <input
-        ref={inputRef}
-        type="text"
-        defaultValue={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-[13px] shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-        autoComplete="off"
-      />
+      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 pointer-events-none z-10" />
+      {hasKey
+        ? <div ref={wrapperRef} className="w-full" />
+        : (
+          <input
+            type="text"
+            defaultValue={value}
+            onChange={e => onChange(e.target.value)}
+            placeholder={placeholder}
+            autoComplete="off"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-[13px] shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        )
+      }
     </div>
   )
 }
