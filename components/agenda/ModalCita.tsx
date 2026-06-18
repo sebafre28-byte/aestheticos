@@ -22,7 +22,7 @@ import {
 } from '@/lib/agenda/datetime'
 import {
   getPacientesBusqueda, crearPacienteRapido, crearCita, crearCitasRecurrentes, editarCita,
-  verificarConflicto, getClinicaId, getCitasDelDia, getDisponibilidadProfesional, getBloqueosRango, crearRecordatorioCita,
+  verificarConflicto, getClinicaId, getCitasDelDia, getDisponibilidadProfesional, getBloqueosRango,
   getProfesionalesConServicios,
 } from '@/lib/agenda/queries'
 import { getClinicaConfig, type HorariosConfig } from '@/lib/onboarding/queries'
@@ -112,8 +112,6 @@ export function ModalCita({
   const [alertaSoft, setAlertaSoft] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [recordatorioWhatsApp, setRecordatorioWhatsApp] = useState(true)
-  const [recordatorioMinutos, setRecordatorioMinutos] = useState(120)
   // Map de profesionalId -> servicios asignados (string[])
   const [profesionalServicios, setProfesionalServicios] = useState<Record<string, string[]>>({})
 
@@ -387,12 +385,6 @@ export function ModalCita({
       if (!resultado) {
         setError('Error al guardar la cita. Inténtalo de nuevo.')
       } else {
-        if (recordatorioWhatsApp) {
-          const clinicaId = await getClinicaId()
-          if (clinicaId) {
-            await crearRecordatorioCita(clinicaId, resultado.id, 'whatsapp', recordatorioMinutos)
-          }
-        }
         onGuardada(resultado)
       }
     } catch {
@@ -889,29 +881,6 @@ export function ModalCita({
               <p className="text-[11px] text-orange-600 mt-0.5">{alertaSoft}</p>
             </div>
           )}
-
-          <div className="p-3 bg-gray-50 border border-gray-100 rounded-lg space-y-2">
-            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Recordatorios</p>
-            <label className="flex items-center gap-2 text-[12px] text-gray-700">
-              <input
-                type="checkbox"
-                checked={recordatorioWhatsApp}
-                onChange={(e) => setRecordatorioWhatsApp(e.target.checked)}
-              />
-              Enviar recordatorio por WhatsApp
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="text-[12px] text-gray-600">Minutos antes</span>
-              <Input
-                type="number"
-                min={15}
-                step={15}
-                value={recordatorioMinutos}
-                onChange={(e) => setRecordatorioMinutos(Number(e.target.value))}
-                className="h-8 max-w-[100px] text-[12px]"
-              />
-            </div>
-          </div>
 
           {/* ── Error general ── */}
           {error && (
