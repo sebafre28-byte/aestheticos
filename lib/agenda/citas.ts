@@ -211,10 +211,9 @@ export async function crearCitasRecurrentes(
   invalidateAgendaCache()
 
   // Notificar con todas las sesiones
-  const horaBase = data.inicio.slice(11, 16)
   const todasSesiones = Array.from({ length: totalCitas }, (_, i) => {
-    const base = parseISO(data.inicio)
-    const dBase = recurrenceKind === 'daily' ? addDays(base, i) : recurrenceKind === 'weekly' ? addWeeks(base, i) : addMonths(base, i)
+    const baseDate = parseISO(data.inicio)
+    const dBase = recurrenceKind === 'daily' ? addDays(baseDate, i) : recurrenceKind === 'weekly' ? addWeeks(baseDate, i) : addMonths(baseDate, i)
     const fechaStr = fechaOverrides[i] ?? format(dBase, 'yyyy-MM-dd')
     const hora = horaOverrides[i] ?? horaBase
     return { fecha: fechaStr, hora }
