@@ -34,3 +34,9 @@ export const checkoutRatelimit = makeRatelimiter(5, 60, 'simpliclinic:rl:checkou
 
 // /api/whatsapp/webhook — 100 req / 10 s (Meta envía en ráfagas)
 export const whatsappRatelimit = makeRatelimiter(100, 10, 'simpliclinic:rl:whatsapp')
+
+// /api/auth/mfa/send — 3 req / 15 min por usuario (OTP brute-force protection)
+export const mfaSendRatelimit = makeRatelimiter(3, 900, 'simpliclinic:rl:mfa:send')
+
+// /api/auth/mfa/verify — 5 req / 15 min por usuario (OTP brute-force protection)
+export const mfaVerifyRatelimit = makeRatelimiter(5, 900, 'simpliclinic:rl:mfa:verify')

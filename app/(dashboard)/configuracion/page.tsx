@@ -450,6 +450,7 @@ function ModalProfesional({
     let profId = profesionalExistente?.id ?? null
 
     if (esEdicion && profId) {
+      const comisionVal = form.comision_porcentaje !== "" ? parseFloat(form.comision_porcentaje) : null
       const { error: updateError } = await supabase.from("profesionales").update({
         nombre: form.nombre.trim(),
         especialidad: form.especialidad.trim() || null,
@@ -642,10 +643,20 @@ function ModalProfesional({
                       placeholder="+56 9 1234 5678" className="h-9 text-[13px]" />
                   </div>
                 </div>
-                <div>
-                  <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Email</Label>
-                  <Input value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
-                    type="email" placeholder="ana@tuclinica.cl" className="h-9 text-[13px]" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Email</Label>
+                    <Input value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
+                      type="email" placeholder="ana@tuclinica.cl" className="h-9 text-[13px]" />
+                  </div>
+                  <div>
+                    <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Comisión (%)</Label>
+                    <Input
+                      value={form.comision_porcentaje}
+                      onChange={(e) => setForm(p => ({ ...p, comision_porcentaje: e.target.value }))}
+                      type="number" min="0" max="100" step="0.5"
+                      placeholder="Ej: 30" className="h-9 text-[13px]" />
+                  </div>
                 </div>
                 <div>
                   <Label className="mb-1.5 block text-[12px] font-medium text-gray-700">Bio</Label>
