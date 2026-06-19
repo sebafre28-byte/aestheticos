@@ -52,8 +52,8 @@ export async function GET(req: NextRequest) {
           .select('id')
           .eq('clinica_id', clinica.id)
           .eq('paciente_id', p.id)
-          .eq('tipo', 'email_cumpleanos')
-          .gte('enviado_at', `${thisYear}-01-01`)
+          .eq('tipo_mensaje', 'email_cumpleanos')
+          .gte('created_at', `${thisYear}-01-01`)
           .maybeSingle()
 
         if (existing) continue
@@ -73,8 +73,7 @@ export async function GET(req: NextRequest) {
           await supabase.from('whatsapp_logs').insert({
             clinica_id: clinica.id,
             paciente_id: p.id,
-            tipo: 'email_cumpleanos',
-            enviado_at: new Date().toISOString(),
+            tipo_mensaje: 'email_cumpleanos',
             canal: 'email',
           })
           enviados++

@@ -68,8 +68,8 @@ export async function GET(request: NextRequest) {
         .select('id')
         .eq('clinica_id', clinica.id)
         .eq('paciente_id', p.id)
-        .eq('tipo', 'email_reactivacion')
-        .gte('enviado_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .eq('tipo_mensaje', 'email_reactivacion')
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
         .maybeSingle()
 
       if (reciente) { stats.omitidos++; continue }
@@ -91,8 +91,7 @@ export async function GET(request: NextRequest) {
         await supabase.from('whatsapp_logs').insert({
           clinica_id: clinica.id,
           paciente_id: p.id,
-          tipo: 'email_reactivacion',
-          enviado_at: new Date().toISOString(),
+          tipo_mensaje: 'email_reactivacion',
           canal: 'email',
         })
         stats.enviados++

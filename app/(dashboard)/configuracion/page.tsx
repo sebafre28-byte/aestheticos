@@ -1212,7 +1212,7 @@ const OPCIONES_MINUTOS = [
   { label: "Personalizado",  value: -1 },
 ]
 
-type PreviewTipo = 'confirmacion_cita' | 'recordatorio_cita' | 'post_cita' | 'cancelacion_cita'
+type PreviewTipo = 'confirmacion_cita' | 'recordatorio_cita' | 'post_cita' | 'cancelacion_cita' | 'email_cumpleanos' | 'email_reactivacion'
 
 function EmailPreviewModal({ tipo, onClose }: { tipo: PreviewTipo; onClose: () => void }) {
   const [html, setHtml] = useState<string | null>(null)
@@ -1223,6 +1223,8 @@ function EmailPreviewModal({ tipo, onClose }: { tipo: PreviewTipo; onClose: () =
     recordatorio_cita: 'Recordatorio',
     post_cita:         'Post-consulta',
     cancelacion_cita:  'Cancelación',
+    email_cumpleanos:  'Email de cumpleaños',
+    email_reactivacion:'Email de reactivación',
   }
 
   useEffect(() => {
@@ -1538,26 +1540,6 @@ function SeccionRecordatorios() {
             )}
           </div>
 
-          {/* Post-consulta */}
-          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[13px] font-semibold text-gray-900">Email post-consulta</p>
-                <p className="text-[12px] text-gray-500 mt-0.5">Se envía 1–3 horas después de completar la cita</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setPreviewTipo('post_cita')}
-                  className="h-7 px-2.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center gap-1"
-                >
-                  <Eye className="size-3" /> Ver
-                </button>
-                <Toggle activo={emailCfg.post_cita} onChange={() => setEmailCfg(c => ({ ...c, post_cita: !c.post_cita }))} />
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
 
@@ -1776,8 +1758,10 @@ function SeccionMarketing() {
   const [cumpleanos, setCumpleanos] = useState(false)
   const [reactivacion, setReactivacion] = useState(false)
   const [diasReactivacion, setDiasReactivacion] = useState(45)
+  const [postConsulta, setPostConsulta] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+  const [previewTipo, setPreviewTipo] = useState<PreviewTipo | null>(null)
 
   useEffect(() => {
     getClinicaConfig().then((cfg) => {
@@ -1787,6 +1771,8 @@ function SeccionMarketing() {
         setReactivacion(m.reactivacion_auto ?? false)
         setDiasReactivacion(m.reactivacion_dias ?? 45)
       }
+      const e = cfg.email_recordatorios
+      if (e) setPostConsulta(e.post_cita ?? true)
     })
   }, [])
 
@@ -1797,6 +1783,7 @@ function SeccionMarketing() {
     const ok = await actualizarClinicaConfig({
       ...cfg,
       marketing: { ...cfg.marketing, cumpleanos, reactivacion_auto: reactivacion, reactivacion_dias: diasReactivacion as 30 | 45 | 60 | 90 },
+      email_recordatorios: { ...cfg.email_recordatorios, post_cita: postConsulta },
     })
     setGuardando(false)
     if (ok) {
@@ -1809,14 +1796,41 @@ function SeccionMarketing() {
 
   const OPCIONES_DIAS = [30, 45, 60, 90]
 
+  const btnVer = (tipo: PreviewTipo) => (
+    <button
+      type="button"
+      onClick={() => setPreviewTipo(tipo)}
+      className="h-7 px-2.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center gap-1"
+    >
+      <Eye className="size-3" /> Ver
+    </button>
+  )
+
   return (
     <div>
       <SectionHeader title="Marketing automático" subtitle="Envíos automáticos para fidelizar pacientes sin intervención manual" />
 
       <div className="space-y-3 mb-6">
+        {/* Post-consulta */}
+        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-purple-100 flex items-center justify-center shrink-0 text-lg">✉️</div>
+              <div>
+                <p className="text-[13px] font-semibold text-gray-900">Email post-consulta</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">Se envía 1–3 horas después de completar la cita</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {btnVer('post_cita')}
+              <Toggle activo={postConsulta} onChange={() => setPostConsulta(v => !v)} />
+            </div>
+          </div>
+        </div>
+
         {/* Cumpleaños */}
         <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center shrink-0 mt-0.5 text-lg">🎂</div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-3">
@@ -1824,7 +1838,10 @@ function SeccionMarketing() {
                   <p className="text-[13px] font-semibold text-gray-900">Email de cumpleaños</p>
                   <p className="text-[12px] text-gray-500 mt-0.5">Se envía automáticamente el día del cumpleaños del paciente con un mensaje personalizado.</p>
                 </div>
-                <Toggle activo={cumpleanos} onChange={() => setCumpleanos(v => !v)} />
+                <div className="flex items-center gap-2 shrink-0">
+                  {btnVer('email_cumpleanos')}
+                  <Toggle activo={cumpleanos} onChange={() => setCumpleanos(v => !v)} />
+                </div>
               </div>
               {cumpleanos && (
                 <div className="mt-3 bg-pink-50 rounded-lg border border-pink-100 px-3 py-2 text-[12px] text-pink-700">
@@ -1837,7 +1854,7 @@ function SeccionMarketing() {
 
         {/* Reactivación */}
         <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5 text-lg">💌</div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-3">
@@ -1845,7 +1862,10 @@ function SeccionMarketing() {
                   <p className="text-[13px] font-semibold text-gray-900">Reactivación de pacientes</p>
                   <p className="text-[12px] text-gray-500 mt-0.5">Envía un recordatorio automático a pacientes que llevan tiempo sin visitar la clínica.</p>
                 </div>
-                <Toggle activo={reactivacion} onChange={() => setReactivacion(v => !v)} />
+                <div className="flex items-center gap-2 shrink-0">
+                  {btnVer('email_reactivacion')}
+                  <Toggle activo={reactivacion} onChange={() => setReactivacion(v => !v)} />
+                </div>
               </div>
               {reactivacion && (
                 <div className="mt-3 space-y-3">
@@ -1878,6 +1898,10 @@ function SeccionMarketing() {
           {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Guardar configuración"}
         </Button>
       </div>
+
+      {previewTipo && (
+        <EmailPreviewModal tipo={previewTipo} onClose={() => setPreviewTipo(null)} />
+      )}
     </div>
   )
 }
