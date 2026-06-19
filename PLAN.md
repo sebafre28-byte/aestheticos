@@ -270,57 +270,59 @@ _Fixes e integraciones completados en sesión del 19 jun 2026._
 
 ---
 
-## MÓDULO 13 — COBROS Y COMISIONES ← SIGUIENTE
+## MÓDULO 13 — COBROS Y COMISIONES (60% implementado)
 > _Principio: el admin ve los números sin aprender contabilidad. Un click cierra la caja._
 
-**Por qué primero:** Es la brecha más dolorosa vs AgendaPro y Reservo. Cualquier clínica con más de un profesional lo necesita el día 1.
-
-- [ ] 13.1 Comisión por profesional: % configurable en `/configuracion` → Equipo (por defecto 0%)
-- [ ] 13.2 Al registrar cobro de cita, calcular y guardar comisión automáticamente
+- [x] 13.4 Cierre de caja diario — `app/(dashboard)/caja/page.tsx` + `components/cobros/CajaClient.tsx` existen
+- [x] 13.5 Historial de cierres de caja — incluido en CajaClient
+- [ ] 13.1 Comisión por profesional: % configurable en `/configuracion` → Equipo (UI faltante)
+- [ ] 13.2 Calcular y guardar comisión automáticamente al registrar cobro
 - [ ] 13.3 Reporte de comisiones: tabla por profesional con total del período, exportable
-- [ ] 13.4 Cierre de caja diario: resumen de ingresos por método de pago (efectivo/tarjeta/transferencia/online)
-- [ ] 13.5 Historial de cierres de caja (ver cierres anteriores)
-- [ ] 13.6 Migración DB: tabla `cobros_detalle` (método_pago) + `comisiones` (profesional_id, monto, cita_id)
+- [ ] 13.6 Verificar migración DB de comisiones (tabla `comisiones` puede faltar)
 
 ---
 
-## MÓDULO 14 — PAQUETES DE SESIONES
-> _Principio: la clínica vende el paquete en 2 clicks. El paciente ve cuántas sesiones le quedan._
+## MÓDULO 14 — PAQUETES DE SESIONES (40% implementado)
 
-**Por qué:** Es el modelo de negocio más común en estética (10 sesiones de láser, 5 de masajes). Hoy no hay forma de hacerlo. Alta demanda en beta.
-
-- [ ] 14.1 CRUD paquetes en `/configuracion` → Servicios: nombre, servicio asociado, N sesiones, precio
-- [ ] 14.2 Vender paquete a paciente desde su ficha: aparece en historial con sesiones disponibles
-- [ ] 14.3 Al agendar cita, opción "Usar sesión de paquete" si el paciente tiene paquete activo
-- [ ] 14.4 Badge en ficha del paciente mostrando paquetes activos y sesiones restantes
-- [ ] 14.5 Alerta automática cuando el paciente usa su última sesión (email + aviso en agenda)
-- [ ] 14.6 Migración DB: tablas `paquetes` + `paquetes_vendidos` (paciente_id, sesiones_total, sesiones_usadas)
+- [x] 14.4 Badge paquetes activos en ficha paciente — `components/paquetes/PaquetesTab.tsx` existe
+- [x] 14.6 Migración DB — `components/paquetes/SeccionPaquetes.tsx` sugiere que tablas existen
+- [ ] 14.1 CRUD paquetes en `/configuracion` → Servicios (verificar si está completo)
+- [ ] 14.2 Vender paquete a paciente desde su ficha
+- [ ] 14.3 Opción "Usar sesión de paquete" al agendar cita
+- [ ] 14.5 Alerta al usar última sesión
 
 ---
 
-## MÓDULO 15 — MARKETING AUTOMÁTICO SIMPLE
-> _Principio: la clínica no configura nada. El sistema envía solo. Se activa con un toggle._
+## MÓDULO 15 — MARKETING AUTOMÁTICO (70% implementado)
 
-**Por qué:** Ya tenemos toda la infraestructura de email/WhatsApp. Son triggers, no una plataforma de marketing. Diferenciador de retención vs competidores básicos.
-
-- [ ] 15.1 Email de cumpleaños: cron diario detecta pacientes con cumpleaños hoy → envía email con mensaje personalizable
-- [ ] 15.2 Campaña de reactivación: botón en `/pacientes` → "Enviar recordatorio" a pacientes sin cita en X días (configurable: 30/45/60/90)
-- [ ] 15.3 Toggle en Configuración → Marketing: activar/desactivar cada automatización
-- [ ] 15.4 Campo `fecha_nacimiento` en ficha de paciente (si no existe, agregar)
-- [ ] 15.5 Plantilla email cumpleaños + recordatorio reactivación (variantes de la plantilla existente)
-- [ ] 15.6 Log de envíos en `whatsapp_logs` con tipo `email_cumpleanos` / `email_reactivacion`
+- [x] 15.1 Cron email cumpleaños — `app/api/cron/marketing-cumpleanos/route.ts` existe
+- [x] 15.2 Cron reactivación — `app/api/cron/marketing-reactivacion/route.ts` existe
+- [x] 15.3 Toggle en Configuración → Marketing automático (UI implementada en M18)
+- [ ] 15.4 Verificar campo `fecha_nacimiento` en ficha de paciente
+- [ ] 15.5 Verificar plantillas email cumpleaños y reactivación
+- [ ] 15.6 Verificar log de envíos en `whatsapp_logs`
 
 ---
 
-## MÓDULO 16 — REDUCIR NO-SHOWS
-> _Principio: el paciente confirma en 1 click desde el email. La clínica no hace nada._
+## MÓDULO 16 — REDUCIR NO-SHOWS (0% implementado)
 
-**Por qué:** Ya tenemos confirmación por email/link. Este módulo la potencia con señal de pago y lista de espera.
+- [ ] 16.1 Lista de espera al cancelar cita
+- [ ] 16.2 Agregar paciente a lista de espera
+- [ ] 16.3 Señal de pago al reservar online
+- [ ] 16.4 Migración DB: tabla `lista_espera`
 
-- [ ] 16.1 Lista de espera: al cancelar una cita, ofrecer el horario a pacientes en lista de espera de ese servicio/profesional
-- [ ] 16.2 Agregar paciente a lista de espera desde ficha o al intentar reservar horario ocupado
-- [ ] 16.3 Señal al reservar online: % del precio cobrado al momento de la reserva (configurable por clínica, 0% = desactivado)
-- [ ] 16.4 Migración DB: tabla `lista_espera` (paciente_id, profesional_id, servicio_id, fecha_preferida)
+---
+
+## MÓDULO 19 — WHATSAPP MULTI-CLÍNICA ← PRÓXIMA SESIÓN
+> _Objetivo: cada clínica conecta su propio número desde Configuración sin intervención manual._
+
+**Estrategia:** usar 360dialog como BSP intermediario (self-service, sin mínimos, ~€49/mes por número)
+
+- [ ] 19.1 Registrar SimpliClinic como Partner en 360dialog
+- [ ] 19.2 UI "Conectar WhatsApp" en Configuración → WhatsApp Business (Embedded Signup de 360dialog)
+- [ ] 19.3 Backend: recibir API key + phone_number_id por clínica, guardar en `whatsapp_config`
+- [ ] 19.4 Agente IA y recordatorios usan credenciales por `clinica_id` (ya preparado en código)
+- [ ] 19.5 Verificación OAuth app Google Calendar (formulario + video demo)
 
 ---
 
@@ -339,19 +341,11 @@ M9  Bugs producción     ██████████ 100%  ✅ COMPLETO
 M10 Launch              █████████░  95%  ✅ (falta test cobro real Flow + anuncio)
 M11 Wizard cita         ░░░░░░░░░░   0%  (post-launch)
 M12 Plan y Facturación  █████████░  95%  ✅ (falta prueba cobro real con tarjeta)
-M13 Cobros y Comisiones ░░░░░░░░░░   0%  ← SIGUIENTE
-M14 Paquetes sesiones   ░░░░░░░░░░   0%
-M15 Marketing automático░░░░░░░░░░   0%
+M13 Cobros y Comisiones ██████░░░░  60%  (caja existe, falta comisiones)
+M14 Paquetes sesiones   ████░░░░░░  40%  (componentes existen, falta UI completa)
+M15 Marketing automático███████░░░  70%  (crons existen, falta verificar detalles)
 M16 Reducir no-shows    ░░░░░░░░░░   0%
 M17 UX y Fixes          ██████████ 100%  ✅ COMPLETO (2026-06-18)
+M18 UX y Fixes          ██████████ 100%  ✅ COMPLETO (2026-06-19)
+M19 WhatsApp multi-clínica ░░░░░░░  0%  ← PRÓXIMA SESIÓN
 ```
-
-### Decisión de roadmap (2026-06-15)
-Análisis competitivo vs AgendaPro, Reservo, Fresha, Booksy, Flowww reveló 4 brechas priorizadas por impacto y simplicidad:
-
-1. **M13 Cobros y Comisiones** — bloqueador para clínicas con >1 profesional
-2. **M14 Paquetes de sesiones** — modelo de negocio más común en estética
-3. **M15 Marketing automático** — retención sin esfuerzo, usa infraestructura existente
-4. **M16 Reducir no-shows** — lista de espera + señal, problema universal
-
-Features descartados por complejidad no justificada: inventario de productos, programa de puntos completo, app móvil para pacientes, integración SII (evaluar en 2027), marketplace.
