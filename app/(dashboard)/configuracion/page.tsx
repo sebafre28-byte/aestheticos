@@ -363,6 +363,7 @@ function ModalProfesional({
     color: profesionalExistente?.color ?? "#2563EB",
     bio: profesionalExistente?.bio ?? "",
     foto_url: profesionalExistente?.foto_url ?? "",
+    comision_porcentaje: profesionalExistente?.comision_porcentaje != null ? String(profesionalExistente.comision_porcentaje) : "",
   })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
