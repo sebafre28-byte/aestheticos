@@ -8,21 +8,31 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  const { data: miembro } = await supabase
-    .from('clinica_miembros')
+  const { data: uc } = await supabase
+    .from('usuarios_clinica')
     .select('clinica_id, rol')
     .eq('user_id', user.id)
-    .eq('estado', 'activo')
+    .eq('activo', true)
     .maybeSingle()
 
-  if (!miembro?.clinica_id || miembro.rol !== 'admin') {
+  // También aceptar owner de la clínica
+  const { data: clinicaOwner } = await supabase
+    .from('clinicas')
+    .select('id')
+    .eq('owner_id', user.id)
+    .maybeSingle()
+
+  const clinicaId = uc?.clinica_id ?? clinicaOwner?.id
+  const esAdmin = uc?.rol === 'admin' || !!clinicaOwner
+
+  if (!clinicaId || !esAdmin) {
     return NextResponse.json({ error: 'Solo admins pueden exportar' }, { status: 403 })
   }
 
   const { data: pacientes, error } = await supabase
     .from('pacientes')
     .select('nombre, rut, email, telefono, fecha_nacimiento, genero, direccion, alergias, condiciones, notas, activo, created_at')
-    .eq('clinica_id', miembro.clinica_id)
+    .eq('clinica_id', clinicaId)
     .order('nombre')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

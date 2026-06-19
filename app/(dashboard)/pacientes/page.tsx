@@ -202,16 +202,16 @@ export default function PacientesPage() {
                 <div className="absolute right-0 top-10 z-20 w-44 bg-white rounded-xl border border-gray-100 shadow-lg py-1 text-[13px]">
                   <button
                     onClick={() => handleExportar('csv')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-50"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
                   >
-                    <Download className="size-3.5 text-gray-400" />
+                    <Download className="size-4 flex-shrink-0 text-gray-400" />
                     Descargar CSV
                   </button>
                   <button
                     onClick={() => handleExportar('xlsx')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-50"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
                   >
-                    <FileSpreadsheet className="size-3.5 text-green-500" />
+                    <FileSpreadsheet className="size-4 flex-shrink-0 text-green-500" />
                     Descargar Excel (.xlsx)
                   </button>
                 </div>
