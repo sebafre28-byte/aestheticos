@@ -15,6 +15,7 @@ const PUBLIC_API_PREFIXES = [
   '/api/consentimiento/sign',
   '/api/feedback',
   '/api/auth/mfa/',
+  '/api/auth/google/',
 ]
 
 // Routes that are part of the marketing site (no auth needed on any domain)
@@ -86,7 +87,8 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/cancelar/') ||
     pathname.startsWith('/cita/') ||
     pathname.startsWith('/consentimiento/') ||
-    pathname.startsWith('/feedback/')
+    pathname.startsWith('/feedback/') ||
+    pathname === '/oauth-success'
   ) {
     return supabaseResponse
   }
