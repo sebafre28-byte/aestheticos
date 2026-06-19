@@ -19,7 +19,11 @@ export async function POST(req: NextRequest) {
   // Internal-only endpoint: require either the internal secret or a valid session
   const authHeader = req.headers.get('x-internal-secret')
   const internalSecret = process.env.INTERNAL_API_SECRET
-  const isInternalCall = internalSecret && authHeader === internalSecret
+  if (!internalSecret) {
+    console.error('[notificar-cita] INTERNAL_API_SECRET no configurado')
+    return NextResponse.json({ ok: false, reason: 'Configuración incompleta' }, { status: 500 })
+  }
+  const isInternalCall = authHeader === internalSecret
 
   if (!isInternalCall) {
     // Fall back to checking if the caller has a valid session

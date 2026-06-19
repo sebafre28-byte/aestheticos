@@ -28,7 +28,7 @@ export function GraficoCitasSemana({ data }: Props) {
         <p className="text-[11px] text-slate-400 mt-0.5">Distribución semanal — este mes</p>
       </div>
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} layout="vertical" barSize={16} margin={{ top: 0, right: 8, left: -8, bottom: 0 }}>
+        <BarChart data={data} layout="vertical" barSize={16} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} />
           <XAxis
             type="number"
@@ -43,7 +43,7 @@ export function GraficoCitasSemana({ data }: Props) {
             tick={{ fontSize: 11, fill: '#64748B', fontWeight: 500 }}
             axisLine={false}
             tickLine={false}
-            width={24}
+            width={52}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F8FAFF' }} />
           <Bar dataKey="citas" radius={[0, 4, 4, 0]}>
