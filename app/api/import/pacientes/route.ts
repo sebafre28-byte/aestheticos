@@ -76,6 +76,16 @@ function normalizeDate(raw: string): string | null {
   return null
 }
 
+function normalizeGenero(raw: string | undefined): string | null {
+  if (!raw) return null
+  const v = raw.toLowerCase().trim().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+  if (v === 'm' || v === 'masculino' || v === 'hombre' || v === 'male') return 'masculino'
+  if (v === 'f' || v === 'femenino' || v === 'mujer' || v === 'female') return 'femenino'
+  if (v === 'otro' || v === 'other' || v === 'no binario') return 'otro'
+  if (v.includes('prefiero') || v.includes('no decir')) return 'prefiero_no_decir'
+  return null
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -165,7 +175,7 @@ export async function POST(req: NextRequest) {
       email: record.email,
       telefono: record.telefono,
       fecha_nacimiento: fechaNacimiento,
-      genero: record.genero,
+      genero: normalizeGenero(record.genero),
       direccion: record.direccion,
       alergias: record.alergias,
       condiciones: record.condiciones,
