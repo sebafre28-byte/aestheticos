@@ -1,5 +1,5 @@
 # SimpliClinic — Plan de trabajo v1.0
-> Última actualización: 2026-06-18
+> Última actualización: 2026-06-19
 > Objetivo: Lanzamiento público ~1 jul 2026
 
 ## REGLAS DE TRABAJO
@@ -252,6 +252,21 @@ _Mejoras de producto y fixes implementados en sesión del 18 jun 2026._
 - [x] Documentado roadmap WhatsApp auto-gestionable en ARQUITECTURA.md
 
 ---
+
+## MÓDULO 18 — UX Y FIXES (2026-06-19) ✅
+_Fixes e integraciones completados en sesión del 19 jun 2026._
+
+- [x] FichaPaciente: tabs reducidas de 8 a 6 con orden clínico (Resumen, Fichas, Galería, Historial, Salud, Consentimientos) — sesión anterior
+- [x] 2FA por email: código 6 dígitos, sesión 7 días, toggle en Configuración y Mi cuenta — sesión anterior
+- [x] Configuración: sección Agente IA separada como ítem propio en Comunicaciones
+- [x] Configuración mobile: pills deslizables fuera del nav hidden → ahora visibles con flechas izq/der
+- [x] ScrollableTabs: flechas más visibles (z-20, h-7 w-7, borde más definido)
+- [x] Google Calendar OAuth: abre en popup separado, no reemplaza la pestaña actual
+- [x] Google Calendar OAuth: fix `redirect_uri_mismatch` — NEXT_PUBLIC_APP_URL tenía trailing slash generando doble `//`
+- [x] Google Calendar: `/api/auth/google/` agregado a PUBLIC_API_PREFIXES del middleware
+- [x] Google Calendar: botón "Sincronizar citas" manual + reconcile anti-duplicados (busca eventos existentes por `simpliclinic_cita_id` antes de crear)
+- [x] Fix 400 errors en galería: `foto_signed ?? ''` → `foto_signed ?? undefined` evita `src=""`
+- [x] Endpoint debug `/api/auth/google/debug` (temporal, para diagnóstico)
 
 ---
 
