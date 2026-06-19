@@ -2934,6 +2934,19 @@ function ConfiguracionInner() {
 
       <ClinicaHeaderCard />
 
+      {/* Mobile: pills deslizables */}
+      <div className="sm:hidden flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 shrink-0">
+        {NAV.map((item) => {
+          const isActive = activa === item.id
+          return (
+            <button key={item.id} onClick={() => setActiva(item.id)}
+              className={`shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-lg text-[12px] font-medium whitespace-nowrap border transition-colors ${isActive ? "bg-blue-50 text-[#2563EB] border-blue-100" : "text-gray-500 border-gray-100 bg-white hover:bg-gray-50"}`}>
+              {item.label}
+            </button>
+          )
+        })}
+      </div>
+
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 flex-1 min-h-0">
         <nav className="sm:w-[210px] w-full shrink-0 hidden sm:block">
           {NAV_GROUPS.map((group, gi) => (
@@ -2959,18 +2972,6 @@ function ConfiguracionInner() {
               </div>
             </div>
           ))}
-          {/* Mobile: chips horizontales */}
-          <div className="sm:hidden flex gap-1 overflow-x-auto pb-2 -mx-4 px-4">
-            {NAV.map((item) => {
-              const isActive = activa === item.id
-              return (
-                <button key={item.id} onClick={() => setActiva(item.id)}
-                  className={`shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-lg text-[12px] font-medium whitespace-nowrap border transition-colors ${isActive ? "bg-blue-50 text-[#2563EB] border-blue-100" : "text-gray-500 border-gray-100 bg-white hover:bg-gray-50"}`}>
-                  {item.label}
-                </button>
-              )
-            })}
-          </div>
           <div className="pt-3 mt-4 border-t border-gray-100">
             <BtnCerrarSesion />
           </div>
