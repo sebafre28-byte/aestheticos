@@ -7,7 +7,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, Megaphone, Lock,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
@@ -38,7 +38,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "google" | "plan" | "seguridad"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "marketing" | "google" | "plan" | "seguridad"
 
 type NavGroup = {
   label: string
@@ -63,9 +63,15 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Comunicaciones",
     items: [
-      { id: "whatsapp",      label: "WhatsApp Business", icon: MessageCircle },
-      { id: "recordatorios", label: "Recordatorios",     icon: Bell },
-      { id: "google",        label: "Google Calendar",   icon: CalendarDays },
+      { id: "recordatorios", label: "Recordatorios de cita", icon: Bell },
+      { id: "marketing",     label: "Marketing automático",  icon: Megaphone },
+    ],
+  },
+  {
+    label: "Integraciones",
+    items: [
+      { id: "whatsapp", label: "WhatsApp Business", icon: MessageCircle },
+      { id: "google",   label: "Google Calendar",   icon: CalendarDays },
     ],
   },
   {
@@ -855,20 +861,14 @@ function SeccionEquipo() {
 
 function SeccionWhatsApp() {
   const [config, setConfig] = useState<WhatsappClinicaConfig>({})
-  const [plantillas, setPlantillas] = useState<PlantillaWsp[]>(PLANTILLAS_DEFAULT)
-  const [editandoId, setEditandoId] = useState<string | null>(null)
-  const [textoEdit, setTextoEdit] = useState("")
   const [cargando, setCargando] = useState(true)
-  const [guardando, setGuardando] = useState(false)
   const [guardandoCredenciales, setGuardandoCredenciales] = useState(false)
-  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
   const [feedbackCred, setFeedbackCred] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
-  const [mostrarToken, setMostrarToken] = useState(false)
   const [mostrarGuia, setMostrarGuia] = useState(false)
+  const [mostrarCreds, setMostrarCreds] = useState(false)
 
   useEffect(() => {
-    Promise.all([getClinicaConfig(), getWhatsappClinicaConfig()]).then(([cfg, wsp]) => {
-      if (cfg.plantillas?.length) setPlantillas(cfg.plantillas)
+    getWhatsappClinicaConfig().then((wsp) => {
       setConfig(wsp ?? {})
       setCargando(false)
     })
@@ -885,36 +885,10 @@ function SeccionWhatsApp() {
     setGuardandoCredenciales(false)
     if (ok) {
       setFeedbackCred({ tipo: "ok", msg: "Configuración guardada." })
+      setMostrarCreds(false)
       setTimeout(() => setFeedbackCred(null), 2500)
     } else {
       setFeedbackCred({ tipo: "error", msg: "No se pudo guardar." })
-    }
-  }
-
-  function iniciarEdicion(pl: PlantillaWsp) {
-    setEditandoId(pl.id)
-    setTextoEdit(pl.texto)
-  }
-
-  function cancelarEdicion() {
-    setEditandoId(null)
-    setTextoEdit("")
-  }
-
-  async function guardarPlantilla(id: string) {
-    const nuevas = plantillas.map((p) => p.id === id ? { ...p, texto: textoEdit } : p)
-    setGuardando(true)
-    setFeedback(null)
-    const cfg = await getClinicaConfig()
-    const ok = await actualizarClinicaConfig({ ...cfg, plantillas: nuevas })
-    setGuardando(false)
-    if (ok) {
-      setPlantillas(nuevas)
-      setEditandoId(null)
-      setFeedback({ tipo: "ok", msg: "Plantilla guardada." })
-      setTimeout(() => setFeedback(null), 2500)
-    } else {
-      setFeedback({ tipo: "error", msg: "No se pudo guardar." })
     }
   }
 
@@ -925,7 +899,7 @@ function SeccionWhatsApp() {
 
   return (
     <div>
-      <SectionHeader title="WhatsApp Business" subtitle="Conexión y credenciales por clínica" />
+      <SectionHeader title="WhatsApp Business" subtitle="Integración con la API de Meta para enviar mensajes automáticos a tus pacientes" />
 
       {/* Webhook URL */}
       <div className="bg-blue-50/60 rounded-xl border border-blue-100 p-4 mb-6">
@@ -1080,185 +1054,120 @@ function SeccionWhatsApp() {
         )}
       </div>
 
-      {/* Formulario de credenciales */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 space-y-4">
-        <p className="text-[13px] font-semibold text-gray-900">Credenciales de acceso</p>
-
-        {/* Selector de proveedor */}
-        <div>
-          <Label className="text-[12px] text-gray-600 mb-1.5 block">Proveedor</Label>
-          <div className="flex gap-2">
-            {(["meta", "twilio"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => updateConfig({ provider: p })}
-                className={`flex-1 py-2 px-3 rounded-lg border text-[12px] font-medium transition-colors ${
-                  provider === p
-                    ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
-                    : "border-gray-200 text-gray-500 hover:border-gray-300"
-                }`}
-              >
-                {p === "meta" ? "Meta (WhatsApp Business API)" : "Twilio"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Número display */}
-        <div>
-          <Label className="text-[12px] text-gray-600 mb-1.5 block">Número de WhatsApp (ej: +56912345678)</Label>
-          <Input
-            value={config.numero_display ?? ""}
-            onChange={(e) => updateConfig({ numero_display: e.target.value })}
-            placeholder="+56912345678"
-            className="text-[13px] h-9"
-          />
-        </div>
-
-        {provider === "meta" ? (
-          <>
-            <div>
-              <Label className="text-[12px] text-gray-600 mb-1.5 block">Phone Number ID</Label>
-              <Input
-                value={config.phone_number_id ?? ""}
-                onChange={(e) => updateConfig({ phone_number_id: e.target.value })}
-                placeholder="1234567890"
-                className="text-[13px] h-9"
-              />
-            </div>
-            <div>
-              <Label className="text-[12px] text-gray-600 mb-1.5 block">Access Token</Label>
-              <div className="relative">
-                <Input
-                  type={mostrarToken ? "text" : "password"}
-                  value={config.access_token ?? ""}
-                  onChange={(e) => updateConfig({ access_token: e.target.value })}
-                  placeholder="EAA..."
-                  className="text-[13px] h-9 pr-9"
-                />
-                <button
-                  type="button"
-                  onClick={() => setMostrarToken((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {mostrarToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
-            </div>
-            <div>
-              <Label className="text-[12px] text-gray-600 mb-1.5 block">Verify Token (webhook)</Label>
-              <Input
-                value={config.verify_token ?? ""}
-                onChange={(e) => updateConfig({ verify_token: e.target.value })}
-                placeholder="mi_token_secreto"
-                className="text-[13px] h-9"
-              />
-            </div>
-          </>
-        ) : (
-          <>
-            <div>
-              <Label className="text-[12px] text-gray-600 mb-1.5 block">Account SID</Label>
-              <Input
-                value={config.account_sid ?? ""}
-                onChange={(e) => updateConfig({ account_sid: e.target.value })}
-                placeholder="ACxxxxxxxxxxxxxxxx"
-                className="text-[13px] h-9"
-              />
-            </div>
-            <div>
-              <Label className="text-[12px] text-gray-600 mb-1.5 block">Auth Token</Label>
-              <div className="relative">
-                <Input
-                  type={mostrarToken ? "text" : "password"}
-                  value={config.auth_token ?? ""}
-                  onChange={(e) => updateConfig({ auth_token: e.target.value })}
-                  placeholder="••••••••••••••••"
-                  className="text-[13px] h-9 pr-9"
-                />
-                <button
-                  type="button"
-                  onClick={() => setMostrarToken((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {mostrarToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
-            </div>
-            <div>
-              <Label className="text-[12px] text-gray-600 mb-1.5 block">Número de origen (whatsapp:+...)</Label>
-              <Input
-                value={config.from_number ?? ""}
-                onChange={(e) => updateConfig({ from_number: e.target.value })}
-                placeholder="whatsapp:+14155238886"
-                className="text-[13px] h-9"
-              />
-            </div>
-          </>
-        )}
-
-        {/* Activar conexión */}
-        <div className="flex items-center gap-3 pt-1">
-          <button
-            type="button"
-            onClick={() => updateConfig({ activo: !config.activo })}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.activo ? "bg-[#25D366]" : "bg-gray-200"}`}
-          >
-            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${config.activo ? "translate-x-4.5" : "translate-x-0.5"}`} />
-          </button>
-          <span className="text-[12px] text-gray-600">Conexión activa</span>
-        </div>
-
-        <Feedback f={feedbackCred} />
-
-        <div className="flex items-center justify-between pt-1">
-          <p className="text-[11px] text-gray-400 flex items-center gap-1">
-            <Shield className="size-3" />
-            Tus credenciales se almacenan cifradas en tu base de datos privada
-          </p>
-          <Button
-            onClick={guardarCredenciales}
-            disabled={guardandoCredenciales}
-            className="h-8 text-[12px] border-0 text-white"
-            style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}
-          >
-            {guardandoCredenciales ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
-            Guardar credenciales
-          </Button>
-        </div>
-      </div>
-
-      <Feedback f={feedback} />
-
-      <p className="text-[13px] font-semibold text-gray-900 mb-3">Plantillas de mensajes</p>
-      <div className="space-y-3">
-        {plantillas.map((pl) => (
-          <div key={pl.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[13px] font-semibold text-gray-900">{pl.nombre}</p>
-              <button onClick={() => editandoId === pl.id ? cancelarEdicion() : iniciarEdicion(pl)}
-                className="text-[12px] text-[#2563EB] font-medium hover:underline">
-                {editandoId === pl.id ? "Cancelar" : "Editar"}
-              </button>
-            </div>
-            {editandoId === pl.id ? (
-              <div>
-                <textarea value={textoEdit} onChange={(e) => setTextoEdit(e.target.value)} rows={3}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none" />
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-[11px] text-gray-400">Variables: {"{nombre}"} {"{fecha}"} {"{hora}"} {"{clinica}"}</p>
-                  <Button onClick={() => guardarPlantilla(pl.id)} disabled={guardando}
-                    className="h-7 text-[12px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
-                    {guardando ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
-                    Guardar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-[12px] text-gray-500 leading-relaxed">{pl.texto}</p>
+      {/* Credenciales — colapsadas si está activo */}
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => setMostrarCreds((v) => !v)}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
+            mostrarCreds ? "border-[#2563EB]/30 bg-blue-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <Lock className="size-4 text-gray-500" />
+            <span className="text-[13px] font-medium text-gray-700">Credenciales de acceso</span>
+            {conectado && (
+              <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Configurado</span>
             )}
           </div>
-        ))}
+          <ChevronDown className={`size-4 text-gray-400 transition-transform ${mostrarCreds ? "rotate-180" : ""}`} />
+        </button>
+
+        {mostrarCreds && (
+          <div className="mt-2 bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+            <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
+              <Shield className="size-3.5" />
+              Tus credenciales se almacenan cifradas en tu base de datos privada
+            </p>
+
+            {/* Selector de proveedor */}
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Proveedor</Label>
+              <div className="flex gap-2">
+                {(["meta", "twilio"] as const).map((p) => (
+                  <button key={p} onClick={() => updateConfig({ provider: p })}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-[12px] font-medium transition-colors ${
+                      provider === p ? "border-[#2563EB] bg-blue-50 text-[#2563EB]" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}>
+                    {p === "meta" ? "Meta WhatsApp Business API" : "Twilio"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Número display */}
+            <div>
+              <Label className="text-[12px] text-gray-600 mb-1.5 block">Número de WhatsApp (ej: +56912345678)</Label>
+              <Input value={config.numero_display ?? ""} onChange={(e) => updateConfig({ numero_display: e.target.value })}
+                placeholder="+56912345678" className="text-[13px] h-9" />
+            </div>
+
+            {provider === "meta" ? (
+              <>
+                <div>
+                  <Label className="text-[12px] text-gray-600 mb-1.5 block">Phone Number ID</Label>
+                  <Input value={config.phone_number_id ?? ""} onChange={(e) => updateConfig({ phone_number_id: e.target.value })}
+                    placeholder="1234567890" className="text-[13px] h-9" />
+                </div>
+                <div>
+                  <Label className="text-[12px] text-gray-600 mb-1.5 block">Access Token</Label>
+                  <div className="relative">
+                    <Input type="password" value={config.access_token ?? ""} onChange={(e) => updateConfig({ access_token: e.target.value })}
+                      placeholder="EAA..." className="text-[13px] h-9 pr-9" />
+                    <Lock className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[12px] text-gray-600 mb-1.5 block">Verify Token (webhook)</Label>
+                  <div className="relative">
+                    <Input type="password" value={config.verify_token ?? ""} onChange={(e) => updateConfig({ verify_token: e.target.value })}
+                      placeholder="mi_token_secreto" className="text-[13px] h-9 pr-9" />
+                    <Lock className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <Label className="text-[12px] text-gray-600 mb-1.5 block">Account SID</Label>
+                  <Input value={config.account_sid ?? ""} onChange={(e) => updateConfig({ account_sid: e.target.value })}
+                    placeholder="ACxxxxxxxxxxxxxxxx" className="text-[13px] h-9" />
+                </div>
+                <div>
+                  <Label className="text-[12px] text-gray-600 mb-1.5 block">Auth Token</Label>
+                  <div className="relative">
+                    <Input type="password" value={config.auth_token ?? ""} onChange={(e) => updateConfig({ auth_token: e.target.value })}
+                      placeholder="••••••••••••••••" className="text-[13px] h-9 pr-9" />
+                    <Lock className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[12px] text-gray-600 mb-1.5 block">Número de origen (whatsapp:+...)</Label>
+                  <Input value={config.from_number ?? ""} onChange={(e) => updateConfig({ from_number: e.target.value })}
+                    placeholder="whatsapp:+14155238886" className="text-[13px] h-9" />
+                </div>
+              </>
+            )}
+
+            <div className="flex items-center gap-3 pt-1">
+              <button type="button" onClick={() => updateConfig({ activo: !config.activo })}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.activo ? "bg-[#25D366]" : "bg-gray-200"}`}>
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${config.activo ? "translate-x-4.5" : "translate-x-0.5"}`} />
+              </button>
+              <span className="text-[12px] text-gray-600">Conexión activa</span>
+            </div>
+
+            <Feedback f={feedbackCred} />
+
+            <div className="flex justify-end pt-1">
+              <Button onClick={guardarCredenciales} disabled={guardandoCredenciales}
+                className="h-8 text-[12px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+                {guardandoCredenciales ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
+                Guardar credenciales
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1384,6 +1293,13 @@ function SeccionRecordatorios() {
   const [agenteTono, setAgenteTono] = useState<'cercano' | 'formal'>('cercano')
   const [agenteInstrucciones, setAgenteInstrucciones] = useState("")
 
+  // ── Plantillas WhatsApp state ──
+  const [plantillas, setPlantillas] = useState<PlantillaWsp[]>(PLANTILLAS_DEFAULT)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [textoEdit, setTextoEdit] = useState("")
+  const [guardandoPlantilla, setGuardandoPlantilla] = useState(false)
+  const [feedbackPlantilla, setFeedbackPlantilla] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+
   // ── Preview modal ──
   const [previewTipo, setPreviewTipo] = useState<PreviewTipo | null>(null)
 
@@ -1408,9 +1324,27 @@ function SeccionRecordatorios() {
       setAgenteNombre(cfg.agente_wsp?.nombre_asistente ?? "")
       setAgenteTono(cfg.agente_wsp?.tono === 'formal' ? 'formal' : 'cercano')
       setAgenteInstrucciones(cfg.agente_wsp?.instrucciones_extra ?? "")
+      if (cfg.plantillas?.length) setPlantillas(cfg.plantillas)
       setCargando(false)
     })
   }, [])
+
+  async function guardarPlantilla(id: string) {
+    const nuevas = plantillas.map((p) => p.id === id ? { ...p, texto: textoEdit } : p)
+    setGuardandoPlantilla(true)
+    setFeedbackPlantilla(null)
+    const cfg = await getClinicaConfig()
+    const ok = await actualizarClinicaConfig({ ...cfg, plantillas: nuevas })
+    setGuardandoPlantilla(false)
+    if (ok) {
+      setPlantillas(nuevas)
+      setEditandoId(null)
+      setFeedbackPlantilla({ tipo: "ok", msg: "Plantilla guardada." })
+      setTimeout(() => setFeedbackPlantilla(null), 2500)
+    } else {
+      setFeedbackPlantilla({ tipo: "error", msg: "No se pudo guardar." })
+    }
+  }
 
   function handleOpcionChange(val: number) {
     setOpcionSeleccionada(val)
@@ -1730,6 +1664,44 @@ function SeccionRecordatorios() {
         </Button>
       </div>
 
+      {/* Plantillas de mensajes WhatsApp */}
+      <div className="mt-8 pt-6 border-t border-gray-100">
+        <p className="text-[13px] font-semibold text-gray-900 mb-1">Plantillas de mensajes WhatsApp</p>
+        <p className="text-[12px] text-gray-400 mb-4">Personaliza el texto de los mensajes automáticos que se envían a los pacientes.</p>
+        <Feedback f={feedbackPlantilla} />
+        <div className="space-y-3">
+          {plantillas.map((pl) => (
+            <div key={pl.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[13px] font-semibold text-gray-900">{pl.nombre}</p>
+                <button
+                  onClick={() => editandoId === pl.id ? setEditandoId(null) : (setEditandoId(pl.id), setTextoEdit(pl.texto))}
+                  className="text-[12px] text-[#2563EB] font-medium hover:underline"
+                >
+                  {editandoId === pl.id ? "Cancelar" : "Editar"}
+                </button>
+              </div>
+              {editandoId === pl.id ? (
+                <div>
+                  <textarea value={textoEdit} onChange={(e) => setTextoEdit(e.target.value)} rows={3}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none" />
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-[11px] text-gray-400">Variables: {"{nombre}"} {"{fecha}"} {"{hora}"} {"{clinica}"}</p>
+                    <Button onClick={() => guardarPlantilla(pl.id)} disabled={guardandoPlantilla}
+                      className="h-7 text-[12px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+                      {guardandoPlantilla ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
+                      Guardar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[12px] text-gray-500 leading-relaxed">{pl.texto}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Preview modal */}
       {previewTipo && (
         <EmailPreviewModal tipo={previewTipo} onClose={() => setPreviewTipo(null)} />
@@ -1751,6 +1723,120 @@ const GoogleIcon = ({ size = 18 }: { size?: number }) => (
     <path d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.3l6.6 5.6C41.1 37.3 44.5 31.1 44.5 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
   </svg>
 )
+
+// ─── Sección Marketing Automático ────────────────────────────────────────────
+
+function SeccionMarketing() {
+  const [cumpleanos, setCumpleanos] = useState(false)
+  const [reactivacion, setReactivacion] = useState(false)
+  const [diasReactivacion, setDiasReactivacion] = useState(45)
+  const [guardando, setGuardando] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+
+  useEffect(() => {
+    getClinicaConfig().then((cfg) => {
+      const m = cfg.marketing
+      if (m) {
+        setCumpleanos(m.cumpleanos ?? false)
+        setReactivacion(m.reactivacion_auto ?? false)
+        setDiasReactivacion(m.reactivacion_dias ?? 45)
+      }
+    })
+  }, [])
+
+  async function guardar() {
+    setGuardando(true)
+    setFeedback(null)
+    const cfg = await getClinicaConfig()
+    const ok = await actualizarClinicaConfig({
+      ...cfg,
+      marketing: { ...cfg.marketing, cumpleanos, reactivacion_auto: reactivacion, reactivacion_dias: diasReactivacion as 30 | 45 | 60 | 90 },
+    })
+    setGuardando(false)
+    if (ok) {
+      setFeedback({ tipo: "ok", msg: "Configuración guardada." })
+      setTimeout(() => setFeedback(null), 3000)
+    } else {
+      setFeedback({ tipo: "error", msg: "No se pudo guardar." })
+    }
+  }
+
+  const OPCIONES_DIAS = [30, 45, 60, 90]
+
+  return (
+    <div>
+      <SectionHeader title="Marketing automático" subtitle="Envíos automáticos para fidelizar pacientes sin intervención manual" />
+
+      <div className="space-y-3 mb-6">
+        {/* Cumpleaños */}
+        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+          <div className="flex items-start gap-4">
+            <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center shrink-0 mt-0.5 text-lg">🎂</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-semibold text-gray-900">Email de cumpleaños</p>
+                  <p className="text-[12px] text-gray-500 mt-0.5">Se envía automáticamente el día del cumpleaños del paciente con un mensaje personalizado.</p>
+                </div>
+                <Toggle activo={cumpleanos} onChange={() => setCumpleanos(v => !v)} />
+              </div>
+              {cumpleanos && (
+                <div className="mt-3 bg-pink-50 rounded-lg border border-pink-100 px-3 py-2 text-[12px] text-pink-700">
+                  ✓ Se enviará un email el día del cumpleaños usando el nombre del paciente. Requiere <strong>fecha de nacimiento</strong> en la ficha del paciente.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Reactivación */}
+        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+          <div className="flex items-start gap-4">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5 text-lg">💌</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-semibold text-gray-900">Reactivación de pacientes</p>
+                  <p className="text-[12px] text-gray-500 mt-0.5">Envía un recordatorio automático a pacientes que llevan tiempo sin visitar la clínica.</p>
+                </div>
+                <Toggle activo={reactivacion} onChange={() => setReactivacion(v => !v)} />
+              </div>
+              {reactivacion && (
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[12px] text-gray-600 shrink-0">Enviar si no hay cita en los últimos</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {OPCIONES_DIAS.map((d) => (
+                        <button key={d} onClick={() => setDiasReactivacion(d)}
+                          className={`px-2.5 py-1 rounded-lg border text-[12px] font-medium transition-colors ${
+                            diasReactivacion === d ? "border-[#2563EB] bg-blue-50 text-[#2563EB]" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                          }`}>
+                          {d} días
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-amber-50 rounded-lg border border-amber-100 px-3 py-2 text-[12px] text-amber-700">
+                    ✓ Un email se enviará a pacientes sin citas en los últimos <strong>{diasReactivacion} días</strong> invitándolos a volver.
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Feedback f={feedback} />
+      <div className="flex justify-end">
+        <Button onClick={guardar} disabled={guardando} className="h-8 text-[13px] border-0 text-white" style={{ background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" }}>
+          {guardando ? <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</> : "Guardar configuración"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Sección Google Calendar ──────────────────────────────────────────────────
 
 function SeccionGoogleCalendar() {
   const [conectado, setConectado] = useState(false)
@@ -2787,6 +2873,7 @@ function ConfiguracionInner() {
     usuarios:       <SeccionUsuarios />,
     whatsapp:       <SeccionWhatsApp />,
     recordatorios:  <SeccionRecordatorios />,
+    marketing:      <SeccionMarketing />,
     google:         <SeccionGoogleCalendar />,
     plan:           <SeccionPlan />,
     seguridad:      <SeccionSeguridad />,
