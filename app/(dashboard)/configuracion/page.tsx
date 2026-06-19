@@ -1771,7 +1771,7 @@ function SeccionMarketing() {
         setReactivacion(m.reactivacion_auto ?? false)
         setDiasReactivacion(m.reactivacion_dias ?? 45)
       }
-      const e = cfg.email_recordatorios
+      const e = cfg.recordatorios_email
       if (e) setPostConsulta(e.post_cita ?? true)
     })
   }, [])
@@ -1783,7 +1783,7 @@ function SeccionMarketing() {
     const ok = await actualizarClinicaConfig({
       ...cfg,
       marketing: { ...cfg.marketing, cumpleanos, reactivacion_auto: reactivacion, reactivacion_dias: diasReactivacion as 30 | 45 | 60 | 90 },
-      email_recordatorios: { ...cfg.email_recordatorios, post_cita: postConsulta },
+      recordatorios_email: { ...cfg.recordatorios_email, post_cita: postConsulta },
     })
     setGuardando(false)
     if (ok) {
