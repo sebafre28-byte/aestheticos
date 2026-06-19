@@ -41,10 +41,10 @@ export function ScrollableTabs({ children, className = '' }: ScrollableTabsProps
       {canScrollLeft && (
         <button
           onClick={() => scroll('left')}
-          className="absolute left-0 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-gray-500 hover:text-gray-700 shrink-0"
+          className="absolute left-0 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md border border-gray-200 text-gray-600 hover:text-gray-900 shrink-0"
           aria-label="Scroll tabs left"
         >
-          <ChevronLeft className="size-3.5" />
+          <ChevronLeft className="size-4" />
         </button>
       )}
       <div
@@ -52,17 +52,17 @@ export function ScrollableTabs({ children, className = '' }: ScrollableTabsProps
         className="flex items-center gap-1 overflow-x-auto scrollbar-none w-full"
         style={{ scrollbarWidth: 'none' }}
       >
-        {canScrollLeft && <span className="w-5 shrink-0" />}
+        {canScrollLeft && <span className="w-6 shrink-0" />}
         {children}
-        {canScrollRight && <span className="w-5 shrink-0" />}
+        {canScrollRight && <span className="w-6 shrink-0" />}
       </div>
       {canScrollRight && (
         <button
           onClick={() => scroll('right')}
-          className="absolute right-0 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-gray-500 hover:text-gray-700 shrink-0"
+          className="absolute right-0 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md border border-gray-200 text-gray-600 hover:text-gray-900 shrink-0"
           aria-label="Scroll tabs right"
         >
-          <ChevronRight className="size-3.5" />
+          <ChevronRight className="size-4" />
         </button>
       )}
     </div>

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DireccionAutocomplete } from "@/components/ui/DireccionAutocomplete"
+import { ScrollableTabs } from "@/components/ui/ScrollableTabs"
 import {
   getClinicaBasica, actualizarClinicaBasica, getClinicaConfig, actualizarClinicaConfig,
   crearProfesional, getClinicaId, PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT, TEMPLATE_RECORDATORIO_DEFAULT,
@@ -2935,16 +2936,18 @@ function ConfiguracionInner() {
       <ClinicaHeaderCard />
 
       {/* Mobile: pills deslizables */}
-      <div className="sm:hidden flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 shrink-0">
-        {NAV.map((item) => {
-          const isActive = activa === item.id
-          return (
-            <button key={item.id} onClick={() => setActiva(item.id)}
-              className={`shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-lg text-[12px] font-medium whitespace-nowrap border transition-colors ${isActive ? "bg-blue-50 text-[#2563EB] border-blue-100" : "text-gray-500 border-gray-100 bg-white hover:bg-gray-50"}`}>
-              {item.label}
-            </button>
-          )
-        })}
+      <div className="sm:hidden shrink-0 -mx-4">
+        <ScrollableTabs className="px-4">
+          {NAV.map((item) => {
+            const isActive = activa === item.id
+            return (
+              <button key={item.id} onClick={() => setActiva(item.id)}
+                className={`shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-lg text-[12px] font-medium whitespace-nowrap border transition-colors ${isActive ? "bg-blue-50 text-[#2563EB] border-blue-100" : "text-gray-500 border-gray-100 bg-white hover:bg-gray-50"}`}>
+                {item.label}
+              </button>
+            )
+          })}
+        </ScrollableTabs>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 flex-1 min-h-0">
