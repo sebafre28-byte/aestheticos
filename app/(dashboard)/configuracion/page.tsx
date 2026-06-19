@@ -1901,7 +1901,8 @@ function SeccionGoogleCalendar() {
   const [dropdownAbierto, setDropdownAbierto] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  const cargarEstado = useCallback(() => {
+    setCargando(true)
     fetch('/api/auth/google/status')
       .then(r => r.json())
       .then((data: { connected: boolean; token: { calendar_id?: string; sync_mode?: SyncMode; token_expiry?: number } | null }) => {
@@ -1918,6 +1919,8 @@ function SeccionGoogleCalendar() {
       .catch(() => setCargando(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => { cargarEstado() }, [cargarEstado])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -2074,11 +2077,18 @@ function SeccionGoogleCalendar() {
           </button>
         </>
       ) : (
-        <a href="/api/auth/google"
+        <button
+          onClick={() => {
+            const popup = window.open('/api/auth/google', 'google-calendar-auth', 'width=520,height=680,scrollbars=yes,resizable=yes,left=' + Math.round(window.screenX + (window.outerWidth - 520) / 2) + ',top=' + Math.round(window.screenY + (window.outerHeight - 680) / 2))
+            if (!popup) { window.open('/api/auth/google', '_blank'); return }
+            const timer = setInterval(() => {
+              if (popup.closed) { clearInterval(timer); cargarEstado() }
+            }, 800)
+          }}
           className="inline-flex items-center gap-2.5 h-10 px-5 rounded-xl border border-gray-200 bg-white text-[13px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
           <GoogleIcon size={16} />
           Conectar con Google Calendar
-        </a>
+        </button>
       )}
     </div>
   )

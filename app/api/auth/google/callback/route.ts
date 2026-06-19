@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
 
   if (error || !code || !userId) {
-    return NextResponse.redirect(`${origin}/mi-cuenta?google=error`)
+    return NextResponse.redirect(`${origin}/oauth-success?google=error`)
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID!
@@ -25,11 +25,11 @@ export async function GET(req: NextRequest) {
   })
   const tokenData = await tokenRes.json()
   if (!tokenData.access_token) {
-    return NextResponse.redirect(`${origin}/mi-cuenta?google=error`)
+    return NextResponse.redirect(`${origin}/oauth-success?google=error`)
   }
 
   if (!tokenData.refresh_token) {
-    return NextResponse.redirect(`${origin}/mi-cuenta?google=error`)
+    return NextResponse.redirect(`${origin}/oauth-success?google=error`)
   }
 
   const supabase = await createClient()
@@ -52,12 +52,8 @@ export async function GET(req: NextRequest) {
 
   if (upsertError) {
     console.error('Error saving google token:', upsertError)
-    return NextResponse.redirect(`${origin}/mi-cuenta?google=error`)
+    return NextResponse.redirect(`${origin}/oauth-success?google=error`)
   }
 
-  const isAdmin = miembro.rol === 'admin'
-  if (isAdmin) {
-    return NextResponse.redirect(`${origin}/configuracion?tab=google_calendar&google=success`)
-  }
-  return NextResponse.redirect(`${origin}/mi-cuenta?google=success`)
+  return NextResponse.redirect(`${origin}/oauth-success?google=success`)
 }
