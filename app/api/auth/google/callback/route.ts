@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get('state')
   const error = searchParams.get('error')
 
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl'
+  const origin = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.simpliclinic.cl').replace(/\/$/, '')
 
   if (error || !code || !userId) {
     return NextResponse.redirect(`${origin}/oauth-success?google=error`)
