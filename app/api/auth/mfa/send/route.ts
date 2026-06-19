@@ -43,8 +43,10 @@ export async function POST() {
       <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
         <tr>
           <td style="background:linear-gradient(135deg,#2563EB 0%,#1D4ED8 100%);padding:28px 32px;">
-            <img src="https://rkcgnnzimwemrtavtinw.supabase.co/storage/v1/object/public/assets/Logos/Logo%20SimpliClinic.png" alt="SimpliClinic" height="36" style="display:block;height:36px;width:auto;" />
-            <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.8);">Verificación de seguridad</p>
+            <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 14px;margin-bottom:10px;">
+              <img src="https://rkcgnnzimwemrtavtinw.supabase.co/storage/v1/object/public/assets/Logos/Logo%20SimpliClinic.png" alt="SimpliClinic" height="28" style="display:block;height:28px;width:auto;" />
+            </div>
+            <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.85);">Verificación de seguridad</p>
           </td>
         </tr>
         <tr>
