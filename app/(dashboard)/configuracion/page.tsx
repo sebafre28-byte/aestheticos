@@ -1783,7 +1783,7 @@ function SeccionMarketing() {
     const ok = await actualizarClinicaConfig({
       ...cfg,
       marketing: { ...cfg.marketing, cumpleanos, reactivacion_auto: reactivacion, reactivacion_dias: diasReactivacion as 30 | 45 | 60 | 90 },
-      recordatorios_email: { ...cfg.recordatorios_email, post_cita: postConsulta },
+      recordatorios_email: { ...RECORDATORIOS_EMAIL_DEFAULT, ...cfg.recordatorios_email, post_cita: postConsulta },
     })
     setGuardando(false)
     if (ok) {
