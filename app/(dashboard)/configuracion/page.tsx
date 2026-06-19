@@ -1915,7 +1915,7 @@ function SeccionGoogleCalendar() {
           setTokenExpirado(Date.now() > data.token.token_expiry)
         }
         setCargando(false)
-        if (data.connected) { cargarCalendarios(); sincronizarAhora() }
+        if (data.connected) cargarCalendarios()
       })
       .catch(() => setCargando(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1958,11 +1958,16 @@ function SeccionGoogleCalendar() {
   async function sincronizarAhora() {
     setSincronizando(true)
     setFeedback(null)
-    const res = await fetch('/api/auth/google/sync-all', { method: 'POST' })
-    const json = await res.json()
-    setSincronizando(false)
-    if (res.ok) setFeedback({ tipo: 'ok', msg: `Sincronizadas ${json.synced} citas con Google Calendar.` })
-    else setFeedback({ tipo: 'error', msg: 'Error al sincronizar.' })
+    try {
+      const res = await fetch('/api/auth/google/sync-all', { method: 'POST' })
+      const json = await res.json()
+      if (res.ok) setFeedback({ tipo: 'ok', msg: `${json.synced} citas sincronizadas con Google Calendar.` })
+      else setFeedback({ tipo: 'error', msg: 'Error al sincronizar.' })
+    } catch {
+      setFeedback({ tipo: 'error', msg: 'Error de conexión al sincronizar.' })
+    } finally {
+      setSincronizando(false)
+    }
   }
 
   async function cambiarCalendario(id: string) {
