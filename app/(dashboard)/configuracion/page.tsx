@@ -7,7 +7,7 @@ import {
   Building2, Bell, MessageCircle, Users, CreditCard, Shield,
   Check, Plus, Trash2, Wifi, WifiOff, Eye, EyeOff,
   LogOut, Loader2, AlertCircle, CheckCircle2, X, UserCog,
-  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, Megaphone, Lock,
+  ChevronDown, Clock, Link2, ExternalLink, Copy, CalendarDays, Pencil, Megaphone, Lock, Bot,
 } from "lucide-react"
 import PlanesCard from "@/components/subscriptions/PlanesCard"
 import { useSubscripcion } from "@/lib/subscriptions/useSubscripcion"
@@ -38,7 +38,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "marketing" | "google" | "plan" | "seguridad"
+type SeccionId = "clinica" | "horarios" | "equipo" | "usuarios" | "whatsapp" | "recordatorios" | "agente" | "marketing" | "google" | "plan" | "seguridad"
 
 type NavGroup = {
   label: string
@@ -64,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Comunicaciones",
     items: [
       { id: "recordatorios", label: "Recordatorios de cita", icon: Bell },
+      { id: "agente",        label: "Agente IA",             icon: Bot },
       { id: "marketing",     label: "Marketing automático",  icon: Megaphone },
     ],
   },
@@ -1287,12 +1288,6 @@ function SeccionRecordatorios() {
   // ── Email state ──
   const [emailCfg, setEmailCfg] = useState<RecordatoriosEmailConfig>(RECORDATORIOS_EMAIL_DEFAULT)
 
-  // ── Agente IA state ──
-  const [agenteActivo, setAgenteActivo] = useState(false)
-  const [agenteNombre, setAgenteNombre] = useState("")
-  const [agenteTono, setAgenteTono] = useState<'cercano' | 'formal'>('cercano')
-  const [agenteInstrucciones, setAgenteInstrucciones] = useState("")
-
   // ── Plantillas WhatsApp state ──
   const [plantillas, setPlantillas] = useState<PlantillaWsp[]>(PLANTILLAS_DEFAULT)
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -1320,10 +1315,6 @@ function SeccionRecordatorios() {
       if (cfg.recordatorios_email) {
         setEmailCfg(cfg.recordatorios_email)
       }
-      setAgenteActivo(cfg.agente_wsp?.activo === true)
-      setAgenteNombre(cfg.agente_wsp?.nombre_asistente ?? "")
-      setAgenteTono(cfg.agente_wsp?.tono === 'formal' ? 'formal' : 'cercano')
-      setAgenteInstrucciones(cfg.agente_wsp?.instrucciones_extra ?? "")
       if (cfg.plantillas?.length) setPlantillas(cfg.plantillas)
       setCargando(false)
     })
@@ -1360,12 +1351,6 @@ function SeccionRecordatorios() {
       ...cfg,
       recordatorios_wsp: { activo, minutos_antes: mins, template },
       recordatorios_email: emailCfg,
-      agente_wsp: {
-        activo: agenteActivo,
-        nombre_asistente: agenteNombre.trim() || undefined,
-        tono: agenteTono,
-        instrucciones_extra: agenteInstrucciones.trim() || undefined,
-      },
     })
     setGuardando(false)
     if (ok) {
@@ -1382,88 +1367,6 @@ function SeccionRecordatorios() {
 
   return (
     <div className="space-y-8">
-
-      {/* ── BLOQUE AGENTE IA ────────────────────────────────────────────────── */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-            <MessageCircle className="size-4 text-violet-600" />
-          </div>
-          <div>
-            <p className="text-[14px] font-semibold text-gray-900">Agente IA de agendamiento</p>
-            <p className="text-[12px] text-gray-400">Responde automáticamente por WhatsApp: agenda, cancela y reagenda citas por chat</p>
-          </div>
-          <div className="ml-auto">
-            <Toggle activo={agenteActivo} onChange={() => setAgenteActivo(v => !v)} />
-          </div>
-        </div>
-        {agenteActivo && (
-          <div className="pl-9 space-y-4">
-            <div className="bg-violet-50 rounded-xl border border-violet-100 p-4 text-[12px] text-violet-900 space-y-1">
-              <p>✓ Los pacientes pueden agendar, consultar y cancelar citas escribiendo por WhatsApp.</p>
-              <p>✓ El agente conoce tus servicios, profesionales y horarios, y solo ofrece horas realmente disponibles.</p>
-              <p>✓ Si el paciente lo pide o el tema es clínico, deriva la conversación a tu equipo (aparece en el Inbox).</p>
-              <p className="text-violet-600">Requiere WhatsApp conectado. No olvides guardar los cambios.</p>
-            </div>
-
-            {/* Personalización del agente */}
-            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-4">
-              <div>
-                <p className="text-[12px] font-semibold text-gray-700 mb-1">Nombre del asistente</p>
-                <input
-                  type="text"
-                  value={agenteNombre}
-                  onChange={(e) => setAgenteNombre(e.target.value)}
-                  placeholder="ej: Sofi"
-                  className="h-8 w-full max-w-[240px] px-2.5 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
-                />
-              </div>
-
-              <div>
-                <p className="text-[12px] font-semibold text-gray-700 mb-2">Tono de conversación</p>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { label: "Cercano", value: 'cercano' },
-                    { label: "Formal",  value: 'formal' },
-                  ] as const).map((op) => (
-                    <button
-                      key={op.value}
-                      type="button"
-                      onClick={() => setAgenteTono(op.value)}
-                      className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${agenteTono === op.value ? "border-violet-600 bg-violet-50 text-violet-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
-                    >
-                      {op.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[11px] text-gray-400 mt-1.5">
-                  {agenteTono === 'formal' ? 'Trata a los pacientes de usted, sin emojis.' : 'Trato cercano y profesional, estilo chileno.'}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-[12px] font-semibold text-gray-700 mb-1">Instrucciones adicionales</p>
-                <p className="text-[12px] text-gray-400 mb-2">Reglas propias de tu clínica que el agente debe seguir</p>
-                <textarea
-                  value={agenteInstrucciones}
-                  onChange={(e) => setAgenteInstrucciones(e.target.value)}
-                  rows={4}
-                  placeholder="ej: No agendar primeras horas del lunes. Los tratamientos láser requieren evaluación previa."
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-[13px] text-gray-900 leading-relaxed placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
-                />
-              </div>
-            </div>
-
-            <a
-              href="/configuracion/agente-test"
-              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-700 hover:text-violet-900"
-            >
-              <MessageCircle className="size-3.5" />
-              Probar el agente en el simulador →
-            </a>
-          </div>
-        )}
-      </div>
 
       {/* ── BLOQUE WHATSAPP ─────────────────────────────────────────────────── */}
       <div>
@@ -1723,6 +1626,148 @@ const GoogleIcon = ({ size = 18 }: { size?: number }) => (
     <path d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.3l6.6 5.6C41.1 37.3 44.5 31.1 44.5 24c0-1.3-.2-2.7-.5-4z" fill="#1976D2"/>
   </svg>
 )
+
+// ─── Sección Agente IA ────────────────────────────────────────────────────────
+
+function SeccionAgenteIA() {
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+  const [agenteActivo, setAgenteActivo] = useState(false)
+  const [agenteNombre, setAgenteNombre] = useState("")
+  const [agenteTono, setAgenteTono] = useState<'cercano' | 'formal'>('cercano')
+  const [agenteInstrucciones, setAgenteInstrucciones] = useState("")
+
+  useEffect(() => {
+    getClinicaConfig().then((cfg) => {
+      setAgenteActivo(cfg.agente_wsp?.activo === true)
+      setAgenteNombre(cfg.agente_wsp?.nombre_asistente ?? "")
+      setAgenteTono(cfg.agente_wsp?.tono === 'formal' ? 'formal' : 'cercano')
+      setAgenteInstrucciones(cfg.agente_wsp?.instrucciones_extra ?? "")
+      setCargando(false)
+    })
+  }, [])
+
+  async function guardar() {
+    setGuardando(true)
+    setFeedback(null)
+    const cfg = await getClinicaConfig()
+    const ok = await actualizarClinicaConfig({
+      ...cfg,
+      agente_wsp: {
+        activo: agenteActivo,
+        nombre_asistente: agenteNombre.trim() || undefined,
+        tono: agenteTono,
+        instrucciones_extra: agenteInstrucciones.trim() || undefined,
+      },
+    })
+    setGuardando(false)
+    if (ok) {
+      setFeedback({ tipo: "ok", msg: "Configuración guardada." })
+      setTimeout(() => setFeedback(null), 3000)
+    } else {
+      setFeedback({ tipo: "error", msg: "No se pudo guardar." })
+    }
+  }
+
+  if (cargando) return <div className="flex items-center gap-2 py-12 justify-center text-[13px] text-gray-400"><Loader2 className="size-4 animate-spin" /> Cargando…</div>
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader title="Agente IA de agendamiento" subtitle="Responde automáticamente por WhatsApp: agenda, cancela y reagenda citas por chat" />
+
+      <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+            <Bot className="size-5 text-violet-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[13px] font-semibold text-gray-900">Activar agente IA</p>
+            <p className="text-[12px] text-gray-500">Requiere WhatsApp Business conectado</p>
+          </div>
+          <Toggle activo={agenteActivo} onChange={() => setAgenteActivo(v => !v)} />
+        </div>
+      </div>
+
+      {agenteActivo && (
+        <div className="space-y-4">
+          <div className="bg-violet-50 rounded-xl border border-violet-100 p-4 text-[12px] text-violet-900 space-y-1">
+            <p>✓ Los pacientes pueden agendar, consultar y cancelar citas escribiendo por WhatsApp.</p>
+            <p>✓ El agente conoce tus servicios, profesionales y horarios, y solo ofrece horas realmente disponibles.</p>
+            <p>✓ Si el paciente lo pide o el tema es clínico, deriva la conversación a tu equipo (aparece en el Inbox).</p>
+          </div>
+
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-4">
+            <div>
+              <p className="text-[12px] font-semibold text-gray-700 mb-1">Nombre del asistente</p>
+              <input
+                type="text"
+                value={agenteNombre}
+                onChange={(e) => setAgenteNombre(e.target.value)}
+                placeholder="ej: Sofi"
+                className="h-8 w-full max-w-[240px] px-2.5 rounded-lg border border-gray-200 bg-white text-[13px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+              />
+            </div>
+
+            <div>
+              <p className="text-[12px] font-semibold text-gray-700 mb-2">Tono de conversación</p>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { label: "Cercano", value: 'cercano' },
+                  { label: "Formal",  value: 'formal' },
+                ] as const).map((op) => (
+                  <button
+                    key={op.value}
+                    type="button"
+                    onClick={() => setAgenteTono(op.value)}
+                    className={`h-8 px-3 rounded-lg text-[12px] font-medium border transition-colors ${agenteTono === op.value ? "border-violet-600 bg-violet-50 text-violet-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    {op.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                {agenteTono === 'formal' ? 'Trata a los pacientes de usted, sin emojis.' : 'Trato cercano y profesional, estilo chileno.'}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[12px] font-semibold text-gray-700 mb-1">Instrucciones adicionales</p>
+              <p className="text-[12px] text-gray-400 mb-2">Reglas propias de tu clínica que el agente debe seguir</p>
+              <textarea
+                value={agenteInstrucciones}
+                onChange={(e) => setAgenteInstrucciones(e.target.value)}
+                rows={4}
+                placeholder="ej: No agendar primeras horas del lunes. Los tratamientos láser requieren evaluación previa."
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-[13px] text-gray-900 leading-relaxed placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-none"
+              />
+            </div>
+          </div>
+
+          <a
+            href="/configuracion/agente-test"
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-700 hover:text-violet-900"
+          >
+            <MessageCircle className="size-3.5" />
+            Probar el agente en el simulador →
+          </a>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-2">
+        <Button onClick={guardar} disabled={guardando} className="h-9 px-5 text-[13px] font-semibold text-white" style={{ background: 'linear-gradient(135deg,#7C3AED 0%,#6D28D9 100%)' }}>
+          {guardando ? <><Loader2 className="size-4 animate-spin mr-2" />Guardando…</> : "Guardar cambios"}
+        </Button>
+        {feedback && (
+          <span className={`flex items-center gap-1.5 text-[13px] ${feedback.tipo === "ok" ? "text-emerald-600" : "text-red-500"}`}>
+            {feedback.tipo === "ok" ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
+            {feedback.msg}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // ─── Sección Marketing Automático ────────────────────────────────────────────
 
@@ -2873,6 +2918,7 @@ function ConfiguracionInner() {
     usuarios:       <SeccionUsuarios />,
     whatsapp:       <SeccionWhatsApp />,
     recordatorios:  <SeccionRecordatorios />,
+    agente:         <SeccionAgenteIA />,
     marketing:      <SeccionMarketing />,
     google:         <SeccionGoogleCalendar />,
     plan:           <SeccionPlan />,

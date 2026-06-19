@@ -310,7 +310,7 @@ export default function PanelGaleria({ pacienteId, clinicaId }: { pacienteId: st
           <div className="flex flex-col items-center gap-3 px-4" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={lightbox.fotos[lightbox.idx].foto_signed ?? ''}
+              src={lightbox.fotos[lightbox.idx].foto_signed ?? undefined}
               alt="foto"
               className="max-h-[80vh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
             />
