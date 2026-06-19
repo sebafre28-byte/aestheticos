@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
       email: record.email,
       telefono: record.telefono,
       fecha_nacimiento: fechaNacimiento,
-      genero: normalizeGenero(record.genero) ?? undefined,
+      genero: normalizeGenero(record.genero ?? undefined) ?? undefined,
       direccion: record.direccion,
       alergias: record.alergias,
       condiciones: record.condiciones,
