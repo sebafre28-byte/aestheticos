@@ -1893,6 +1893,7 @@ function SeccionGoogleCalendar() {
   const [desconectando, setDesconectando] = useState(false)
   const [guardandoMode, setGuardandoMode] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
+  const [sincronizando, setSincronizando] = useState(false)
 
   const [calendarios, setCalendarios] = useState<GCalendar[]>([])
   const [calendarId, setCalendarId] = useState<string>('primary')
@@ -1914,7 +1915,7 @@ function SeccionGoogleCalendar() {
           setTokenExpirado(Date.now() > data.token.token_expiry)
         }
         setCargando(false)
-        if (data.connected) cargarCalendarios()
+        if (data.connected) { cargarCalendarios(); sincronizarAhora() }
       })
       .catch(() => setCargando(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1952,6 +1953,16 @@ function SeccionGoogleCalendar() {
     setDesconectando(false)
     if (res.ok) { setConectado(false); setTokenEmail(null); setCalendarios([]); setFeedback({ tipo: 'ok', msg: 'Google Calendar desconectado.' }) }
     else setFeedback({ tipo: 'error', msg: 'No se pudo desconectar.' })
+  }
+
+  async function sincronizarAhora() {
+    setSincronizando(true)
+    setFeedback(null)
+    const res = await fetch('/api/auth/google/sync-all', { method: 'POST' })
+    const json = await res.json()
+    setSincronizando(false)
+    if (res.ok) setFeedback({ tipo: 'ok', msg: `Sincronizadas ${json.synced} citas con Google Calendar.` })
+    else setFeedback({ tipo: 'error', msg: 'Error al sincronizar.' })
   }
 
   async function cambiarCalendario(id: string) {
@@ -2070,11 +2081,18 @@ function SeccionGoogleCalendar() {
             </div>
           </div>
 
-          <button onClick={desconectar} disabled={desconectando}
-            className="h-9 px-4 rounded-lg border border-red-200 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2">
-            {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
-            Desconectar
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={sincronizarAhora} disabled={sincronizando}
+              className="h-9 px-4 rounded-lg border border-blue-200 text-[13px] font-medium text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-60 flex items-center gap-2">
+              {sincronizando ? <Loader2 className="size-3.5 animate-spin" /> : <CalendarDays className="size-3.5" />}
+              Sincronizar citas
+            </button>
+            <button onClick={desconectar} disabled={desconectando}
+              className="h-9 px-4 rounded-lg border border-red-200 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center gap-2">
+              {desconectando ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
+              Desconectar
+            </button>
+          </div>
         </>
       ) : (
         <button
