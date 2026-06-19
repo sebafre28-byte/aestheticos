@@ -199,20 +199,20 @@ export default function PacientesPage() {
                 <ChevronDown className="size-3.5 text-gray-400" />
               </button>
               {exportDropdown && (
-                <div className="absolute right-0 top-10 z-20 w-44 bg-white rounded-xl border border-gray-100 shadow-lg py-1 text-[13px]">
+                <div className="absolute right-0 top-10 z-20 w-48 bg-white rounded-xl border border-gray-100 shadow-lg py-1 text-[13px]">
                   <button
                     onClick={() => handleExportar('csv')}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-50 text-left"
                   >
                     <Download className="size-4 flex-shrink-0 text-gray-400" />
-                    Descargar CSV
+                    <span>Descargar CSV</span>
                   </button>
                   <button
                     onClick={() => handleExportar('xlsx')}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-50 text-left"
                   >
                     <FileSpreadsheet className="size-4 flex-shrink-0 text-green-500" />
-                    Descargar Excel (.xlsx)
+                    <span>Descargar Excel (.xlsx)</span>
                   </button>
                 </div>
               )}
