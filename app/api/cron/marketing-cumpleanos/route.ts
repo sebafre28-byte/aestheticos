@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     // Fetch all clinicas with marketing_cumpleanos enabled
     const { data: clinicas } = await supabase
       .from('clinicas')
-      .select('id, nombre, logo_url, configuracion')
+      .select('id, nombre, logo_url, email, configuracion')
 
     let enviados = 0
     let errores = 0
@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
         const ok = await sendMarketingEmail({
           tipo: 'email_cumpleanos',
           destinatario: p.email,
+          reply_to: clinica.email ?? null,
           datos: {
             paciente_nombre: p.nombre,
             clinica_nombre: clinica.nombre,

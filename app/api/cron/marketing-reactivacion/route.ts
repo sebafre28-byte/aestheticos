@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   // Get all clinics with auto-reactivacion enabled
   const { data: clinicas } = await supabase
     .from('clinicas')
-    .select('id, nombre, logo_url, slug, configuracion')
+    .select('id, nombre, logo_url, email, slug, configuracion')
 
   if (!clinicas?.length) return NextResponse.json({ ok: true, procesadas: 0 })
 
@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
       const ok = await sendMarketingEmail({
         tipo: 'email_reactivacion',
         destinatario: p.email,
+        reply_to: clinica.email ?? null,
         datos: {
           paciente_nombre: p.nombre,
           clinica_nombre: clinica.nombre,

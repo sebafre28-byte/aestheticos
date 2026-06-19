@@ -296,9 +296,10 @@ function whatsappBtn(tel: string, msg: string): string {
 
 // ─── Full email wrapper ────────────────────────────────────────────────────────
 
-function buildEmail(tipo: TipoEmailCita, datos: DatosCita, body: string): string {
+function buildEmail(tipo: TipoEmailCita, datos: DatosCita, body: string, preheader?: string): string {
   const v = VARIANT[tipo]
   const { clinica_nombre, clinica_logo_url, clinica_telefono, clinica_email } = datos
+  const ph = preheader ?? getPreheader(tipo, datos)
 
   // Clinic logo in header: use image if available, else initial avatar
   const clinicLogoHtml = clinica_logo_url
@@ -338,6 +339,7 @@ function buildEmail(tipo: TipoEmailCita, datos: DatosCita, body: string): string
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 </head>
 <body style="margin:0;padding:0;background:#EEF2F7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${ph}&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;</div>
 
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EEF2F7;">
   <tr>
@@ -701,6 +703,18 @@ function getSubject(tipo: TipoEmailCita, datos: DatosCita): string {
   return `Tu cita fue cancelada · ${c}`
 }
 
+function getPreheader(tipo: TipoEmailCita, datos: DatosCita): string {
+  const c = datos.clinica_nombre
+  const s = datos.servicio_nombre
+  const p = datos.profesional_nombre
+  if (tipo === 'confirmacion_cita')   return `${s} con ${p} el ${datos.fecha} a las ${datos.hora}. ¡Te esperamos en ${c}!`
+  if (tipo === 'nueva_reserva_admin') return `${datos.paciente_nombre} reservó ${s} el ${datos.fecha} a las ${datos.hora}.`
+  if (tipo === 'recordatorio_cita')   return `${s} con ${p} en ${c}. Llega 10 min antes.`
+  if (tipo === 'post_cita')           return `Gracias por visitarnos. Tu opinión nos ayuda a mejorar.`
+  if (tipo === 'cancelacion_admin')   return `${datos.paciente_nombre} canceló su cita del ${datos.fecha} a las ${datos.hora}.`
+  return `Puedes reagendar cuando quieras. Estamos en ${c}.`
+}
+
 // ─── Consentimiento informado email ──────────────────────────────────────────
 
 export function buildConsentimientoEmail(d: DatosConsentimiento): { subject: string; html: string } {
@@ -1031,6 +1045,7 @@ export async function dispatchEmail(opts: {
       body: JSON.stringify({
         from: getFromAddress(opts.tipo),
         to: [opts.destinatario],
+        ...((opts.datos as DatosCita).clinica_email ? { reply_to: [(opts.datos as DatosCita).clinica_email!] } : {}),
         subject,
         html,
       }),
@@ -1112,6 +1127,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         from: getFromAddress(tipo),
         to: [destinatario],
+        ...((datos as DatosCita).clinica_email ? { reply_to: [(datos as DatosCita).clinica_email!] } : {}),
         subject,
         html,
       }),
