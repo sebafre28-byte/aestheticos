@@ -845,7 +845,7 @@ function buildWelcomeEmail(d: DatosBienvenida): { subject: string; html: string 
               &#161;Bienvenido/a, ${d.nombre}!
             </h1>
             <p style="margin:0;font-size:15px;color:#64748B;line-height:1.7;max-width:420px;margin-left:auto;margin-right:auto;">
-              Tu clínica <strong style="color:#0B132B;">${d.clinica_nombre}</strong> ya está creada en SimpliClinic. Tienes <strong style="color:#2563EB;">14 días gratis</strong> para explorar todo sin compromiso.
+              Tu clínica <strong style="color:#0B132B;">${d.clinica_nombre}</strong> ya está creada en SimpliClinic. Tienes <strong style="color:#2563EB;">7 días gratis</strong> para explorar todo sin compromiso.
             </p>
           </td>
         </tr>
