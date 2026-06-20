@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PlanGate } from '@/components/subscriptions/PlanGate'
+import { useSubscripcion } from '@/lib/subscriptions/useSubscripcion'
+import LimiteAlcanzadoBanner from '@/components/subscriptions/LimiteAlcanzadoBanner'
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -232,6 +234,10 @@ function PanelPaciente({ telefono, onClose }: { telefono: string; onClose: () =>
 // ─── Page ─────────────────────────────────────────────────────
 
 export default function InboxPage() {
+  const { convIaUsadas, limite, planLabel } = useSubscripcion()
+  const limiteIa = limite('conversaciones_ia')
+  const mostrarBannerIa = limiteIa > 0 && convIaUsadas >= Math.floor(limiteIa * 0.9)
+
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([])
   const [seleccionada, setSeleccionada] = useState<Conversacion | null>(null)
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
@@ -428,6 +434,14 @@ export default function InboxPage() {
       <div className={`${mostrarChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-shrink-0 border-r border-gray-200 flex-col`}>
         <div className="px-4 py-4 border-b border-gray-200">
           <h1 className="text-lg font-semibold text-gray-900 mb-3">Inbox</h1>
+          {mostrarBannerIa && (
+            <LimiteAlcanzadoBanner
+              tipo="conversaciones_ia"
+              planActual={planLabel ?? ''}
+              usados={convIaUsadas}
+              limite={limiteIa}
+            />
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
