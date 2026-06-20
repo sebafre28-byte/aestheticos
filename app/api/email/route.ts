@@ -993,11 +993,114 @@ function buildInviteEmail(d: DatosInvitacion): { subject: string; html: string }
   return { subject, html }
 }
 
+// ─── Onboarding día 1 ────────────────────────────────────────────────────────
+
+function buildOnboardingDia1Email(d: { clinica_nombre: string; dashboard_url: string }): { subject: string; html: string } {
+  const subject = `Un paso más para recibir tu primera reserva — ${d.clinica_nombre}`
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background:#EEF2F7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EEF2F7;">
+  <tr><td align="center" style="padding:24px 12px 40px;">
+    <table width="100%" style="max-width:560px;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10);" cellpadding="0" cellspacing="0" border="0">
+      <tr><td style="background:linear-gradient(135deg,#1E3A5F 0%,#2563EB 100%);padding:36px 32px 28px;text-align:center;">
+        <img src="${SC_LOGO_URL}" width="40" height="40" alt="" style="border-radius:10px;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;"/>
+        <div style="font-size:36px;margin-bottom:8px;">🛠️</div>
+        <h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">Configura tu clínica en 3 pasos</h1>
+      </td></tr>
+      <tr><td style="background:#ffffff;padding:32px 32px 24px;">
+        <p style="margin:0 0 20px;font-size:14px;color:#475569;line-height:1.6;">Hola, para que <strong style="color:#0B132B;">${d.clinica_nombre}</strong> pueda recibir reservas necesitas completar la configuración básica:</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+          ${[
+            ['1', '👤', 'Agrega tus profesionales', 'Configuración → Equipo → Nuevo profesional'],
+            ['2', '✂️', 'Crea tus servicios', 'Menú lateral → Servicios → Nuevo servicio'],
+            ['3', '🕐', 'Configura tus horarios', 'Configuración → Horarios'],
+          ].map(([n, icon, titulo, desc]) => `
+          <tr><td style="padding:0 0 12px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:14px 16px;">
+              <tr>
+                <td width="36" valign="middle" style="width:36px;">
+                  <div style="width:28px;height:28px;background:#2563EB;border-radius:50%;text-align:center;line-height:28px;color:#fff;font-size:13px;font-weight:800;">${n}</div>
+                </td>
+                <td style="padding-left:12px;">
+                  <p style="margin:0 0 2px;font-size:13px;font-weight:700;color:#0B132B;">${icon} ${titulo}</p>
+                  <p style="margin:0;font-size:12px;color:#64748B;">${desc}</p>
+                </td>
+              </tr>
+            </table>
+          </td></tr>`).join('')}
+        </table>
+
+        <div style="text-align:center;">
+          <a href="${d.dashboard_url}/configuracion" style="display:inline-block;background:linear-gradient(135deg,#2563EB,#1D4ED8);color:#fff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;text-decoration:none;">Ir a Configuración →</a>
+        </div>
+        <p style="margin:20px 0 0;font-size:13px;color:#94A3B8;text-align:center;">¿Tienes dudas? Responde este email y te ayudamos.</p>
+      </td></tr>
+      <tr><td style="background:#F8FAFC;padding:16px 32px;text-align:center;border-top:1px solid #E2E8F0;">
+        <p style="margin:0;font-size:11px;color:#94A3B8;">SimpliClinic · Tu clínica, más simple.</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`
+  return { subject, html }
+}
+
+// ─── Onboarding día 3 ────────────────────────────────────────────────────────
+
+function buildOnboardingDia3Email(d: { clinica_nombre: string; book_url: string | null; dashboard_url: string }): { subject: string; html: string } {
+  const subject = `¿Ya compartiste tu página de reservas? — ${d.clinica_nombre}`
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background:#EEF2F7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EEF2F7;">
+  <tr><td align="center" style="padding:24px 12px 40px;">
+    <table width="100%" style="max-width:560px;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10);" cellpadding="0" cellspacing="0" border="0">
+      <tr><td style="background:linear-gradient(135deg,#0F4C3A 0%,#059669 100%);padding:36px 32px 28px;text-align:center;">
+        <img src="${SC_LOGO_URL}" width="40" height="40" alt="" style="border-radius:10px;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;"/>
+        <div style="font-size:36px;margin-bottom:8px;">🔗</div>
+        <h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">Tu página de reservas está lista</h1>
+      </td></tr>
+      <tr><td style="background:#ffffff;padding:32px 32px 24px;">
+        <p style="margin:0 0 20px;font-size:14px;color:#475569;line-height:1.6;">Hola, llevamos 3 días juntos. Si ya configuraste tu clínica, el siguiente paso es conseguir tu primera reserva online.</p>
+
+        ${d.book_url ? `
+        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+          <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#16A34A;text-transform:uppercase;letter-spacing:.5px;">Tu link de reservas</p>
+          <p style="margin:0;font-size:13px;color:#0B132B;word-break:break-all;"><a href="${d.book_url}" style="color:#2563EB;text-decoration:none;font-weight:600;">${d.book_url}</a></p>
+        </div>
+        <p style="margin:0 0 20px;font-size:14px;color:#475569;line-height:1.6;">Compártelo en tu Instagram, WhatsApp o donde tengas pacientes. Ellos reservan en 2 clics, sin llamadas.</p>
+        ` : `
+        <div style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+          <p style="margin:0;font-size:13px;color:#92400E;">Aún no tienes una página de reservas activa. Necesitas agregar al menos un profesional y un servicio para activarla.</p>
+        </div>
+        `}
+
+        <div style="text-align:center;margin-bottom:16px;">
+          <a href="${d.book_url ?? d.dashboard_url}" style="display:inline-block;background:linear-gradient(135deg,#059669,#047857);color:#fff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;text-decoration:none;">${d.book_url ? 'Ver mi página de reservas →' : 'Completar configuración →'}</a>
+        </div>
+
+        <p style="margin:0;font-size:13px;color:#94A3B8;text-align:center;">¿Necesitas ayuda? Responde este email.</p>
+      </td></tr>
+      <tr><td style="background:#F8FAFC;padding:16px 32px;text-align:center;border-top:1px solid #E2E8F0;">
+        <p style="margin:0;font-size:11px;color:#94A3B8;">SimpliClinic · Tu clínica, más simple.</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`
+  return { subject, html }
+}
+
 // ─── Direct sender (no HTTP loopback) ───────────────────────────────────────
 
 // Tipos de email del sistema (no-reply) vs pacientes (hola@)
 const TIPOS_NOREPLY = new Set([
   'bienvenida', 'invitacion_equipo', 'pago_fallido', 'suscripcion_cancelada', 'limite_conv_ia',
+  'onboarding_dia1', 'onboarding_dia3',
 ])
 
 function getFromAddress(tipo: string): string {
@@ -1019,7 +1122,15 @@ export async function dispatchEmail(opts: {
   let html: string
   let subject: string
 
-  if (opts.tipo === 'bienvenida') {
+  if (opts.tipo === 'onboarding_dia1') {
+    const d = opts.datos as unknown as { clinica_nombre: string; dashboard_url: string }
+    const r = buildOnboardingDia1Email(d)
+    html = r.html; subject = r.subject
+  } else if (opts.tipo === 'onboarding_dia3') {
+    const d = opts.datos as unknown as { clinica_nombre: string; book_url: string | null; dashboard_url: string }
+    const r = buildOnboardingDia3Email(d)
+    html = r.html; subject = r.subject
+  } else if (opts.tipo === 'bienvenida') {
     const r = buildWelcomeEmail(opts.datos as DatosBienvenida)
     html = r.html; subject = r.subject
   } else if (opts.tipo === 'invitacion_equipo') {
