@@ -75,8 +75,8 @@ _Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
 ## Pendientes medios
 - [ ] **A2-M1** `firma_img` en `consentimiento_solicitudes` como base64 TEXT → migrar a Storage URL (reduce 95% overhead TOAST)
 - [ ] **A2-M2** Marketing crons: N+1 queries (100 clínicas × consulta individual) → reescribir con JOIN en una sola query
-- [ ] **A2-M3** Índice faltante: `citas(profesional_id, inicio)` para queries de agenda por profesional
-- [ ] **A2-M4** Índice faltante: `pacientes(clinica_id, fecha_nacimiento)` para cron de cumpleaños
+- [x] **A2-M3** ✅ Índice `idx_citas_profesional_inicio` aplicado en Supabase (2026-06-20)
+- [x] **A2-M4** ✅ Índice `idx_pacientes_clinica_nacimiento` aplicado en Supabase (2026-06-20)
 - [ ] **A2-M5** Tabla `mensajes_whatsapp` deprecada — verificar si hay referencias y limpiar
 - [ ] **A2-M6** Renombrar plan `'free'` → `'starter'` en código y DB (naming confuso para usuarios)
 
@@ -208,7 +208,7 @@ _Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
 ## SEMANA 5-6 (12-25 jul) — CALIDAD POST-LAUNCH
 
 ### DB performance (ejecutar en Supabase)
-- [ ] **S3.1** Índices faltantes: `citas(profesional_id, inicio)`, `pacientes(clinica_id, fecha_nacimiento)` (A2-M3, A2-M4)
+- [x] **S3.1** ✅ Índices `citas(profesional_id, inicio)` y `pacientes(clinica_id, fecha_nacimiento)` aplicados (2026-06-20)
 - [ ] **S3.2** Reescribir crons de marketing para eliminar N+1 (A2-M2)
 - [ ] **S3.3** Plan para reemplazar `auth_clinica_id()` RLS → evaluar `current_setting` o política por tabla (A2-RC1) — no implementar aún, solo plan
 
