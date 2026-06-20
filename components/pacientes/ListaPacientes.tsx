@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { format, isAfter, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Mail, MoreHorizontal, Pencil, Phone, Search, Trash2, UserCheck, UserX } from 'lucide-react'
+import { Mail, MoreHorizontal, Pencil, Phone, Search, Trash2, UserCheck, UserX, Users, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { PacienteListaItem } from '@/lib/pacientes/queries'
@@ -172,7 +172,21 @@ export function ListaPacientes({
         {loading ? (
           <div className="px-5 py-8 text-center text-[13px] text-gray-400">Cargando pacientes...</div>
         ) : pacientes.length === 0 ? (
-          <div className="px-5 py-8 text-center text-[13px] text-gray-400">No hay pacientes para este filtro.</div>
+          <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 mb-4">
+              <Users className="h-6 w-6 text-[#2563EB]" />
+            </div>
+            <p className="text-[14px] font-semibold text-gray-800 mb-1">Aún no tienes pacientes</p>
+            <p className="text-[12px] text-gray-400 mb-5">Agrega tu primer paciente para comenzar a gestionar tus citas.</p>
+            <button
+              type="button"
+              onClick={onNuevoPaciente}
+              className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-[#2563EB] text-white text-[12px] font-semibold hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Agregar paciente
+            </button>
+          </div>
         ) : (
           pacientes.map((paciente) => {
             const estado = estadoPaciente(paciente)
@@ -241,8 +255,22 @@ export function ListaPacientes({
             </tr>
           ) : pacientes.length === 0 ? (
             <tr>
-              <td colSpan={6} className="px-5 py-8 text-center text-[13px] text-gray-400">
-                No hay pacientes para este filtro.
+              <td colSpan={6}>
+                <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 mb-4">
+                    <Users className="h-6 w-6 text-[#2563EB]" />
+                  </div>
+                  <p className="text-[14px] font-semibold text-gray-800 mb-1">Aún no tienes pacientes</p>
+                  <p className="text-[12px] text-gray-400 mb-5">Agrega tu primer paciente para comenzar a gestionar tus citas.</p>
+                  <button
+                    type="button"
+                    onClick={onNuevoPaciente}
+                    className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-[#2563EB] text-white text-[12px] font-semibold hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Agregar paciente
+                  </button>
+                </div>
               </td>
             </tr>
           ) : (

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { MoreHorizontal, Pencil, Search, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { MoreHorizontal, Pencil, Search, Trash2, ToggleLeft, ToggleRight, Scissors, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { ServicioListaItem } from '@/lib/servicios/queries'
@@ -165,7 +165,21 @@ export function ListaServicios({
         {loading ? (
           <div className="px-5 py-8 text-center text-[13px] text-gray-400">Cargando servicios...</div>
         ) : servicios.length === 0 ? (
-          <div className="px-5 py-8 text-center text-[13px] text-gray-400">No hay servicios para este filtro.</div>
+          <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 mb-4">
+              <Scissors className="h-6 w-6 text-[#14B8A6]" />
+            </div>
+            <p className="text-[14px] font-semibold text-gray-800 mb-1">Aún no tienes servicios</p>
+            <p className="text-[12px] text-gray-400 mb-5">Crea tu primer servicio con duración y precio para poder agendar citas.</p>
+            <button
+              type="button"
+              onClick={onNuevoServicio}
+              className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-[#14B8A6] text-white text-[12px] font-semibold hover:bg-teal-600 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Crear servicio
+            </button>
+          </div>
         ) : (
           servicios.map((servicio) => {
             const estado = estadoServicio(servicio)
@@ -224,8 +238,22 @@ export function ListaServicios({
             </tr>
           ) : servicios.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-5 py-8 text-center text-[13px] text-gray-400">
-                No hay servicios para este filtro.
+              <td colSpan={7}>
+                <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 mb-4">
+                    <Scissors className="h-6 w-6 text-[#14B8A6]" />
+                  </div>
+                  <p className="text-[14px] font-semibold text-gray-800 mb-1">Aún no tienes servicios</p>
+                  <p className="text-[12px] text-gray-400 mb-5">Crea tu primer servicio con duración y precio para poder agendar citas.</p>
+                  <button
+                    type="button"
+                    onClick={onNuevoServicio}
+                    className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-[#14B8A6] text-white text-[12px] font-semibold hover:bg-teal-600 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Crear servicio
+                  </button>
+                </div>
               </td>
             </tr>
           ) : (
