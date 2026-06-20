@@ -1625,6 +1625,10 @@ const GoogleIcon = ({ size = 18 }: { size?: number }) => (
 // ─── Sección Agente IA ────────────────────────────────────────────────────────
 
 function SeccionAgenteIA() {
+  const { convIaUsadas, limite: limiteRecurso, planLabel } = useSubscripcion()
+  const limiteIa = limiteRecurso('conversaciones_ia')
+  const pctIa = limiteIa > 0 ? Math.round((convIaUsadas / limiteIa) * 100) : 0
+
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [feedback, setFeedback] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null)
@@ -1670,6 +1674,37 @@ function SeccionAgenteIA() {
   return (
     <div className="space-y-6">
       <SectionHeader title="Agente IA de agendamiento" subtitle="Responde automáticamente por WhatsApp: agenda, cancela y reagenda citas por chat" />
+
+      {/* Contador de uso mensual */}
+      {limiteIa > 0 && (
+        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[12px] font-semibold text-gray-700">Conversaciones IA este mes</p>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+              pctIa >= 100 ? 'bg-red-100 text-red-600' :
+              pctIa >= 90  ? 'bg-amber-100 text-amber-600' :
+              'bg-gray-100 text-gray-500'
+            }`}>
+              {convIaUsadas} / {limiteIa}
+            </span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${
+                pctIa >= 100 ? 'bg-red-500' :
+                pctIa >= 90  ? 'bg-amber-400' :
+                'bg-violet-500'
+              }`}
+              style={{ width: `${Math.min(100, pctIa)}%` }}
+            />
+          </div>
+          {pctIa >= 90 && (
+            <p className="text-[11px] text-amber-600 mt-1.5">
+              {pctIa >= 100 ? 'Límite alcanzado — el agente no responde hasta el próximo mes.' : `Cerca del límite (${pctIa}%). Considera hacer upgrade a ${planLabel === 'Simpli+' ? 'Simpli Pro' : 'un plan superior'}.`}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
         <div className="flex items-center gap-3">
