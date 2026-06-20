@@ -269,8 +269,12 @@ function PasoServicio({
       <h2 className="text-xl font-semibold text-[#0B132B] mb-1">¿Qué servicio necesitas?</h2>
       <p className="text-sm text-gray-500 mb-5">Selecciona el tratamiento que deseas reservar</p>
       {serviciosFiltrados.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-sm">Esta clínica no tiene servicios disponibles por ahora.</p>
+        <div className="flex flex-col items-center justify-center py-14 text-center gap-3">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-50">
+            <svg className="h-7 w-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 3h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+          </div>
+          <p className="text-[15px] font-semibold text-gray-800">Reservas no disponibles</p>
+          <p className="text-[13px] text-gray-500 max-w-xs">Esta clínica aún no tiene servicios habilitados para reservar online. Contáctalos directamente para agendar tu cita.</p>
         </div>
       ) : (
         <div className="grid gap-3">

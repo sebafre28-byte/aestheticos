@@ -431,6 +431,10 @@ export function ModalCita({
   // ─── Preview visible cuando todos los campos están completos ──────────────
   const mostrarPreview = !!(pacienteSeleccionado && profesionalId && servicioId && fecha && hora)
 
+  // Bloqueo: sin profesionales o servicios no se puede agendar
+  const sinProfesionales = !esEdicion && profesionales.length === 0
+  const sinServicios = !esEdicion && servicios.length === 0
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       {/* Backdrop */}
@@ -459,6 +463,49 @@ export function ModalCita({
 
         {/* Body scrollable */}
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
+
+          {/* ── Aviso: sin profesionales o servicios ── */}
+          {(sinProfesionales || sinServicios) && (
+            <div className="flex flex-col items-center justify-center py-8 text-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
+                <AlertTriangle className="h-6 w-6 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-[14px] font-semibold text-gray-800 mb-1">
+                  {sinProfesionales && sinServicios
+                    ? 'Faltan profesionales y servicios'
+                    : sinProfesionales
+                    ? 'No hay profesionales creados'
+                    : 'No hay servicios creados'}
+                </p>
+                <p className="text-[12px] text-gray-500">
+                  Para agendar una cita necesitas tener al menos un profesional y un servicio activos.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 w-full max-w-xs">
+                {sinProfesionales && (
+                  <a
+                    href="/configuracion"
+                    className="flex items-center justify-center h-8 px-4 rounded-lg border border-blue-200 bg-blue-50 text-[12px] font-medium text-[#2563EB] hover:bg-blue-100 transition-colors"
+                  >
+                    Ir a Configuración → Profesionales
+                  </a>
+                )}
+                {sinServicios && (
+                  <a
+                    href="/servicios"
+                    className="flex items-center justify-center h-8 px-4 rounded-lg border border-teal-200 bg-teal-50 text-[12px] font-medium text-[#14B8A6] hover:bg-teal-100 transition-colors"
+                  >
+                    Ir a Servicios
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Formulario normal (solo si hay profesionales y servicios) ── */}
+          {!sinProfesionales && !sinServicios && <>
+
           {/* ── Búsqueda de paciente ── */}
           <div>
             <Label className="text-[12px] font-semibold text-gray-700 mb-1.5 block">
@@ -952,10 +999,12 @@ export function ModalCita({
               </div>
             </div>
           )}
+
+          </> /* fin bloque formulario normal */}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-white rounded-b-2xl flex-shrink-0">
+        {/* Footer — solo cuando se puede agendar */}
+        {!sinProfesionales && !sinServicios && <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-white rounded-b-2xl flex-shrink-0">
           <Button variant="ghost" size="sm" onClick={onCerrar} className="text-[13px]">
             Cancelar
           </Button>
@@ -970,7 +1019,7 @@ export function ModalCita({
               <><Loader2 className="size-3.5 animate-spin mr-1.5" />Guardando…</>
             ) : esEdicion ? 'Guardar cambios' : 'Crear cita'}
           </Button>
-        </div>
+        </div>}
       </div>
     </div>
   )
