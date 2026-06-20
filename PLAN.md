@@ -68,15 +68,15 @@ _Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
 ## Pendientes críticos (aplicar en Supabase SQL Editor)
 - [ ] **A2-RC1** `auth_clinica_id()` hace subquery RLS por cada fila → reemplazar con `current_setting('app.clinica_id')` o memoizar. **BLOQUEANTE A 500+ clínicas.**
 - [ ] **A2-RC2** 12 pares de migraciones con números duplicados → el schema no es reproducible desde cero. Auditar y renumerar con script.
-- [ ] **A2-RC3** `handle_new_user` trigger reescrito 5+ veces → verificar cuál versión está activa. Ejecutar en producción: `SELECT routine_definition FROM information_schema.routines WHERE routine_name = 'handle_new_user'`
-- [ ] **A2-RC4** `cancel_token` en citas usado por 4 RPCs pero sin índice → `CREATE INDEX IF NOT EXISTS idx_citas_cancel_token ON citas(cancel_token)`
-- [ ] **A2-RC5** `feedback_citas`: política INSERT anónima → `CREATE POLICY "solo_token_valido" ON feedback_citas FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM citas WHERE id = cita_id AND cancel_token = current_setting('request.jwt.claims')::json->>'token'))`
+- [x] **A2-RC3** ✅ `handle_new_user` verificado en producción — versión correcta activa con `INSERT INTO subscriptions ... 'trial'` (2026-06-20)
+- [x] **A2-RC4** ✅ Índice `idx_citas_cancel_token` creado en producción (2026-06-20)
+- [x] **A2-RC5** ✅ Política `solo_token_valido` en `feedback_citas` aplicada (2026-06-20)
 
 ## Pendientes medios
 - [ ] **A2-M1** `firma_img` en `consentimiento_solicitudes` como base64 TEXT → migrar a Storage URL (reduce 95% overhead TOAST)
 - [ ] **A2-M2** Marketing crons: N+1 queries (100 clínicas × consulta individual) → reescribir con JOIN en una sola query
-- [ ] **A2-M3** Índice faltante: `citas(profesional_id, inicio)` para queries de agenda por profesional
-- [ ] **A2-M4** Índice faltante: `pacientes(clinica_id, fecha_nacimiento)` para cron de cumpleaños
+- [x] **A2-M3** ✅ Índice `idx_citas_profesional_inicio` aplicado en Supabase (2026-06-20)
+- [x] **A2-M4** ✅ Índice `idx_pacientes_clinica_nacimiento` aplicado en Supabase (2026-06-20)
 - [ ] **A2-M5** Tabla `mensajes_whatsapp` deprecada — verificar si hay referencias y limpiar
 - [ ] **A2-M6** Renombrar plan `'free'` → `'starter'` en código y DB (naming confuso para usuarios)
 
@@ -175,13 +175,13 @@ _Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
 
 ### Seguridad y DB (hacer primero, sin excepción)
 - [x] **S1.1** ✅ `proxy.ts` es el middleware activo — `middleware.ts` eliminado, verificado
-- [ ] **S1.2** ⚠️ MANUAL — Aplicar en Supabase: `CREATE INDEX IF NOT EXISTS idx_citas_cancel_token ON citas(cancel_token)`
-- [ ] **S1.3** ⚠️ MANUAL — Aplicar fix `feedback_citas` política INSERT (A2-RC5)
-- [ ] **S1.4** ⚠️ MANUAL — Verificar `handle_new_user` activo en producción (A2-RC3)
+- [x] **S1.2** ✅ MANUAL — Índice `idx_citas_cancel_token` aplicado en Supabase (2026-06-20)
+- [x] **S1.3** ✅ MANUAL — Política `solo_token_valido` en `feedback_citas` aplicada (2026-06-20)
+- [x] **S1.4** ✅ MANUAL — `handle_new_user` verificado activo en producción (2026-06-20)
 - [x] **S1.5** ✅ Directorio `/api/auth/google/debug` vacío eliminado
 
 ### Onboarding (la más importante de todas)
-- [x] **S1.6** ✅ Checklist de onboarding en dashboard — 5 pasos con estados. ⚠️ MANUAL: ejecutar migración 067 y UPDATE en Supabase
+- [x] **S1.6** ✅ Checklist de onboarding en dashboard — 5 pasos con estados. Migración 067 aplicada en Supabase (2026-06-20)
 - [x] **S1.7** ✅ Empty states en pacientes y servicios con CTA directo
 - [ ] **S1.8** Trial 14 días — descartado (usuario prefiere 7 días)
 
@@ -208,7 +208,7 @@ _Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
 ## SEMANA 5-6 (12-25 jul) — CALIDAD POST-LAUNCH
 
 ### DB performance (ejecutar en Supabase)
-- [ ] **S3.1** Índices faltantes: `citas(profesional_id, inicio)`, `pacientes(clinica_id, fecha_nacimiento)` (A2-M3, A2-M4)
+- [x] **S3.1** ✅ Índices `citas(profesional_id, inicio)` y `pacientes(clinica_id, fecha_nacimiento)` aplicados (2026-06-20)
 - [ ] **S3.2** Reescribir crons de marketing para eliminar N+1 (A2-M2)
 - [ ] **S3.3** Plan para reemplazar `auth_clinica_id()` RLS → evaluar `current_setting` o política por tabla (A2-RC1) — no implementar aún, solo plan
 
@@ -296,5 +296,44 @@ AUDITORÍA BASE DE DATOS ████░░░░░░  40%  (índices + auth_c
 AUDITORÍA PRODUCTO/UX   █████████░  90%  (onboarding ✅, mobile ✅, empty states ✅, upgrade ✅, disclaimer ✅)
 ```
 
-## PRÓXIMA SESIÓN: Semana 3-4 pre-launch
-Prioridad: **SQL manual en Supabase** (migración 067 + slug + índice) + **S2.1 cobro real Flow** + **S2.2 WhatsApp e2e** + **S2.5 clínicas beta**
+## MÓDULO 21 — AUDITORÍA Y FIXES (2026-06-20 sesión 2) ✅
+- [x] S3.4 Reporte mensual automático por email a cada clínica (1ro de cada mes)
+- [x] S3.6 Personalización agente IA: nombre_asistente, tono (cercano/formal), instrucciones_extra
+- [x] S3.7 Handoff IA→humano: mensaje [sistema] visible en inbox + pill centrada con ícono
+- [x] A2-M5 Migración 068: DROP TABLE mensajes_whatsapp (tabla deprecada, sin referencias)
+- [x] S4.4 Cron marketing-cumpleanos verificado: filtro fecha_nacimiento, dedup por año ✅
+- [x] S4.6 Comisiones verificadas: ya completo — campo en DB, config en UI, cálculo al cobrar, resumen en caja
+- [x] S4.5 Paquetes verificados: ya completo — PaquetesTab en ficha paciente, venta, deducción por sesión
+
+```
+M0  Emails              ██████████ 100%  ✅
+M1  Seguridad           ██████████ 100%  ✅
+M2  Inbox WhatsApp      █████████░  90%  (falta prueba e2e WhatsApp real)
+M3  Notas clínicas      ██████████ 100%  ✅
+M4  Performance         ██████████ 100%  ✅
+M5  Invitación equipo   ██████████ 100%  ✅
+M6  Monitoreo           ██████████ 100%  ✅
+M7  Crons               ██████████ 100%  ✅ (horarios + reporte mensual)
+M8  QA y Beta           ████████░░  80%  (falta onboarding beta)
+M9  Bugs producción     ██████████ 100%  ✅
+M10 Launch              █████████░  95%  (falta test cobro real + anuncio)
+M11 Wizard cita         ░░░░░░░░░░   0%  BACKLOG
+M12 Plan y Facturación  █████████░  95%  (falta test cobro real)
+M13 Cobros / Comisiones ██████████ 100%  ✅ (caja, comisiones por profesional completo)
+M14 Paquetes sesiones   █████████░  95%  ✅ (completo — falta gating PlanGate)
+M15 Marketing automático█████████░  95%  ✅ (crons verificados, reporte mensual agregado)
+M16 No-shows            ░░░░░░░░░░   0%  BACKLOG
+M17 UX Fixes jun-18     ██████████ 100%  ✅
+M18 UX Fixes jun-19     ██████████ 100%  ✅
+M19 UX Fixes jun-20     ██████████ 100%  ✅
+M20 WhatsApp multi-clin ░░░░░░░░░░   0%  (agosto, post 10 clínicas pagando)
+M21 Auditoría fixes     ██████████ 100%  ✅
+
+AUDITORÍA ARQUITECTURA  █████████░  90%  (todos los fixes de código ✅, A1-RC4 multi-clínica baja prioridad)
+AUDITORÍA BASE DE DATOS ████████░░  80%  (índices ✅, feedback_citas ✅, mensajes_whatsapp DROP pendiente SQL)
+AUDITORÍA PRODUCTO/UX   ██████████ 100%  ✅ (onboarding, mobile, empty states, upgrade, disclaimer, agente IA)
+```
+
+## PRÓXIMA SESIÓN: Launch
+Prioridad: **S2.1 cobro real Flow.cl** + **S2.2 WhatsApp e2e** + **S2.5 clínicas beta** + **S2.6 anuncio público**
+SQL pendiente: `DROP TABLE IF EXISTS mensajes_whatsapp;` (migración 068)

@@ -32,6 +32,9 @@ type HorarioDia = { activo: boolean; desde: string; hasta: string }
 
 type AgenteWspConfig = {
   activo?: boolean
+  nombre_asistente?: string
+  tono?: 'cercano' | 'formal'
+  instrucciones_extra?: string
 }
 
 type ClinicaAgente = {
@@ -363,6 +366,13 @@ async function ejecutarTool(
       .from('conversaciones')
       .update({ estado: 'humano', no_leidos: 99 })
       .eq('id', ctx.conversacionId)
+    // Insertar mensaje de sistema visible en el inbox
+    await ctx.supabase.from('mensajes_inbox').insert({
+      conversacion_id: ctx.conversacionId,
+      direccion: 'saliente',
+      contenido: '[sistema] El agente IA derivó esta conversación al equipo humano.',
+      estado_whatsapp: 'recibido',
+    })
     return {
       result: JSON.stringify({ ok: true, nota: 'Conversación derivada al equipo. Despídete indicando que una persona del equipo le responderá pronto.' }),
       escalado: true,
@@ -387,7 +397,18 @@ function buildSystemPrompt(
         .join('\n')
     : '(no configurados — escala a humano si preguntan)'
 
-  return `Eres el asistente virtual de agendamiento de "${clinica.nombre}", una clínica en Chile. Atiendes a pacientes por WhatsApp.
+  const cfg = clinica.configuracion?.agente_wsp
+  const nombreAsistente = cfg?.nombre_asistente?.trim() || 'asistente virtual'
+  const esFormal = cfg?.tono === 'formal'
+  const estiloTono = esFormal
+    ? 'Usa un tono formal y respetuoso. Trata al paciente de "usted".'
+    : 'Usa un tono cercano y amable. Trata al paciente de "tú".'
+
+  const extra = cfg?.instrucciones_extra?.trim()
+    ? `\nINSTRUCCIONES ADICIONALES DE LA CLÍNICA\n${cfg.instrucciones_extra.trim()}`
+    : ''
+
+  return `Eres ${nombreAsistente}, el asistente virtual de agendamiento de "${clinica.nombre}", una clínica en Chile. Atiendes a pacientes por WhatsApp.
 
 Hoy es ${ahora.diaSemana} ${ahora.fecha} y son las ${ahora.hora} (hora de Chile).
 
@@ -408,7 +429,7 @@ TU TRABAJO
 Ayudar al paciente a: agendar una cita, consultar sus citas, cancelar o reagendar, y responder preguntas básicas sobre servicios, precios y horarios.
 
 REGLAS
-- Responde SIEMPRE en español chileno, cercano y profesional. Mensajes cortos: esto es WhatsApp, máximo 3-4 líneas por mensaje salvo que listes horarios.
+- ${estiloTono} Mensajes cortos: esto es WhatsApp, máximo 3-4 líneas por mensaje salvo que listes horarios.
 - NUNCA inventes horarios disponibles: usa consultar_disponibilidad antes de proponer horas.
 - Para agendar necesitas: servicio, profesional, fecha, hora confirmada por el paciente, su nombre completo, su RUT y su email (para enviar confirmación). Pide solo lo que falte, de a poco: primero confirma la cita y luego pide nombre, RUT y email juntos en un mismo mensaje.
 - Si hay varios profesionales disponibles y el paciente no tiene preferencia, sugiere el que tenga más horarios libres.
@@ -416,7 +437,7 @@ REGLAS
 - No des consejos médicos ni diagnósticos. Para temas clínicos, precios especiales, convenios o reclamos, usa escalar_a_humano.
 - Si el paciente escribe algo no relacionado con la clínica, redirige amablemente.
 - Nunca muestres IDs internos (UUIDs) al paciente.
-- Usa emojis con moderación (uno por mensaje máximo).`
+- Usa emojis con moderación (uno por mensaje máximo).${extra}`
 }
 
 // ─── Notificación de límite ───────────────────────────────────

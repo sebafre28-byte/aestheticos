@@ -75,6 +75,67 @@ export function buildReactivacionEmail(d: {
   return { subject, html: shell('linear-gradient(135deg,#2563EB 0%,#7C3AED 100%)', '💙', body, d.clinica_logo_url, preheader) }
 }
 
+export function buildReporteMensualEmail(d: {
+  clinica_nombre: string
+  clinica_logo_url?: string | null
+  mes_nombre: string
+  anio: number
+  total_citas: number
+  citas_completadas: number
+  citas_canceladas: number
+  ingresos_total: number
+  pacientes_nuevos: number
+  dashboard_url: string
+}): { subject: string; html: string } {
+  const subject = `Resumen de ${d.mes_nombre} — ${d.clinica_nombre}`
+  const fmt = (n: number) => `$${n.toLocaleString('es-CL')}`
+  const tasa = d.total_citas > 0 ? Math.round((d.citas_completadas / d.total_citas) * 100) : 0
+
+  const body = `
+    <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0B132B;">Resumen de ${d.mes_nombre} ${d.anio} 📊</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#64748B;">Aquí tienes un resumen de la actividad de <strong>${d.clinica_nombre}</strong> el mes pasado.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+      <tr>
+        <td width="48%" style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:12px;padding:16px 20px;vertical-align:top;">
+          <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#16A34A;text-transform:uppercase;letter-spacing:.5px;">Citas realizadas</p>
+          <p style="margin:0;font-size:32px;font-weight:800;color:#0B132B;">${d.citas_completadas}</p>
+          <p style="margin:4px 0 0;font-size:12px;color:#64748B;">${tasa}% de asistencia</p>
+        </td>
+        <td width="4%"></td>
+        <td width="48%" style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:16px 20px;vertical-align:top;">
+          <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#2563EB;text-transform:uppercase;letter-spacing:.5px;">Ingresos estimados</p>
+          <p style="margin:0;font-size:32px;font-weight:800;color:#0B132B;">${fmt(d.ingresos_total)}</p>
+          <p style="margin:4px 0 0;font-size:12px;color:#64748B;">según precio de servicios</p>
+        </td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+      <tr>
+        <td width="48%" style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:14px 18px;vertical-align:top;">
+          <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#EA580C;text-transform:uppercase;letter-spacing:.5px;">Pacientes nuevos</p>
+          <p style="margin:0;font-size:26px;font-weight:800;color:#0B132B;">${d.pacientes_nuevos}</p>
+        </td>
+        <td width="4%"></td>
+        <td width="48%" style="background:#FAF5FF;border:1px solid #DDD6FE;border-radius:12px;padding:14px 18px;vertical-align:top;">
+          <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#7C3AED;text-transform:uppercase;letter-spacing:.5px;">Cancelaciones</p>
+          <p style="margin:0;font-size:26px;font-weight:800;color:#0B132B;">${d.citas_canceladas}</p>
+        </td>
+      </tr>
+    </table>
+
+    <div style="text-align:center;">
+      <a href="${d.dashboard_url}" style="display:inline-block;background:linear-gradient(135deg,#2563EB,#1D4ED8);color:#fff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;text-decoration:none;">Ver agenda completa →</a>
+    </div>
+
+    <p style="margin:24px 0 0;font-size:13px;color:#94A3B8;text-align:center;">Gracias por confiar en SimpliClinic 💙</p>
+  `
+
+  const preheader = `${d.mes_nombre}: ${d.citas_completadas} citas · ${fmt(d.ingresos_total)} en ingresos · ${d.pacientes_nuevos} pacientes nuevos`
+  return { subject, html: shell('linear-gradient(135deg,#0F172A 0%,#1E3A5F 100%)', '📊', body, d.clinica_logo_url, preheader) }
+}
+
 export async function sendMarketingEmail(opts: {
   tipo: 'email_cumpleanos' | 'email_reactivacion'
   destinatario: string

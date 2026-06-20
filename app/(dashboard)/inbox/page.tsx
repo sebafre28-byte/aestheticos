@@ -134,6 +134,20 @@ function ConversacionItem({
 
 function BurbujaMensaje({ msg }: { msg: Mensaje }) {
   const esSaliente = msg.direccion === 'saliente'
+  const esSistema = msg.contenido?.startsWith('[sistema]')
+
+  if (esSistema) {
+    const texto = msg.contenido.replace('[sistema]', '').trim()
+    return (
+      <div className="flex justify-center my-3">
+        <div className="flex items-center gap-1.5 px-3 py-1 bg-violet-50 border border-violet-200 rounded-full">
+          <Bot className="w-3 h-3 text-violet-500 flex-shrink-0" />
+          <span className="text-xs text-violet-700">{texto}</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`flex ${esSaliente ? 'justify-end' : 'justify-start'} mb-2`}>
       <div

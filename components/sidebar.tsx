@@ -19,10 +19,12 @@ import {
   ClipboardCheck,
   Scissors,
   HelpCircle,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { getClinicaBasica } from "@/lib/onboarding/queries"
+import { getClinicaBasica, getUserClinicas, setClinicaActiva } from "@/lib/onboarding/queries"
 import { useRol, puedeAcceder } from "@/lib/auth/useRol"
 import { rolLabel } from "@/lib/usuarios/queries"
 import { NotificationBell } from "@/components/layout/NotificationBell"
@@ -139,6 +141,10 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
   const rolUsuario = rol ? rolLabel(rol) : ''
   const [logoClinica, setLogoClinica] = useState('')
   const [nombreClinica, setNombreClinica] = useState('')
+  const [clinicaActivaId, setClinicaActivaId] = useState<string | null>(null)
+  const [todasClinicas, setTodasClinicas] = useState<{ id: string; nombre: string; logo_url: string | null }[]>([])
+  const [switcherAbierto, setSwitcherAbierto] = useState(false)
+  const switcherRef = useRef<HTMLDivElement>(null)
   const [popoverAbierto, setPopoverAbierto] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
   const badges = useBadgeCounts()
@@ -148,8 +154,10 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       if (c) {
         setLogoClinica(c.logo_url ?? '')
         setNombreClinica(c.nombre ?? '')
+        setClinicaActivaId(c.id)
       }
     })
+    getUserClinicas().then(setTodasClinicas)
   }
 
   const cargarUsuario = () => {
@@ -183,10 +191,23 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
         setPopoverAbierto(false)
       }
+      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) {
+        setSwitcherAbierto(false)
+      }
     }
-    if (popoverAbierto) document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [popoverAbierto])
+  }, [])
+
+  function handleCambiarClinica(clinica: { id: string; nombre: string; logo_url: string | null }) {
+    setClinicaActiva(clinica.id)
+    setClinicaActivaId(clinica.id)
+    setNombreClinica(clinica.nombre)
+    setLogoClinica(clinica.logo_url ?? '')
+    setSwitcherAbierto(false)
+    // Recargar página para que todos los queries del dashboard usen la clínica nueva
+    window.location.reload()
+  }
 
   async function handleLogout() {
     const supabase = createClient()
@@ -223,14 +244,56 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
           ) : (
             <LogoIcon />
           )}
-          <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-bold text-white leading-tight tracking-tight truncate">
-              {nombreClinica || 'SimpliClinic'}
-            </p>
-            <p className="text-[10px] leading-tight" style={{ color: '#60A5FA' }}>
-              Tu clínica, más simple.
-            </p>
-          </div>
+
+          {/* Clinic name — switcher si hay 2+ clínicas */}
+          {todasClinicas.length > 1 ? (
+            <div className="relative min-w-0 flex-1" ref={switcherRef}>
+              <button
+                onClick={() => setSwitcherAbierto(p => !p)}
+                className="flex items-center gap-1 w-full min-w-0 hover:opacity-80 transition-opacity"
+              >
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="text-[13px] font-bold text-white leading-tight tracking-tight truncate">
+                    {nombreClinica || 'SimpliClinic'}
+                  </p>
+                  <p className="text-[10px] leading-tight" style={{ color: '#60A5FA' }}>Cambiar clínica</p>
+                </div>
+                <ChevronsUpDown className="w-3.5 h-3.5 text-white/50 flex-shrink-0" />
+              </button>
+              {switcherAbierto && (
+                <div className="absolute left-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50">
+                  {todasClinicas.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleCambiarClinica(c)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      {c.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.logo_url} className="w-6 h-6 rounded-md object-cover flex-shrink-0" alt="" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-md bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[10px] font-bold text-blue-600">{c.nombre[0]}</span>
+                        </div>
+                      )}
+                      <span className="text-[13px] text-gray-800 font-medium truncate flex-1">{c.nombre}</span>
+                      {c.id === clinicaActivaId && <Check className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-white leading-tight tracking-tight truncate">
+                {nombreClinica || 'SimpliClinic'}
+              </p>
+              <p className="text-[10px] leading-tight" style={{ color: '#60A5FA' }}>
+                Tu clínica, más simple.
+              </p>
+            </div>
+          )}
+
           <div className="hidden md:block">
             <NotificationBell dark />
           </div>

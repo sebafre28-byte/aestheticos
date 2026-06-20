@@ -133,8 +133,46 @@ const RECORDATORIOS_DEFAULT: RecordatorioConfig[] = [
   { id: 'r4', activo: false, horasAntes: -1 },
 ]
 
+const CLINICA_ACTIVA_KEY = 'clinica_activa'
+
+export async function getUserClinicas(): Promise<{ id: string; nombre: string; logo_url: string | null }[]> {
+  const supabase = createClient()
+  const { data: uc } = await supabase
+    .from('usuarios_clinica')
+    .select('clinica_id')
+  if (!uc?.length) return []
+  const ids = uc.map(r => r.clinica_id as string)
+  const { data: clinicas } = await supabase
+    .from('clinicas')
+    .select('id, nombre, logo_url')
+    .in('id', ids)
+    .order('nombre')
+  return (clinicas ?? []) as { id: string; nombre: string; logo_url: string | null }[]
+}
+
+export function setClinicaActiva(clinicaId: string): void {
+  if (typeof window !== 'undefined') localStorage.setItem(CLINICA_ACTIVA_KEY, clinicaId)
+}
+
 export async function getClinicaId(): Promise<string | null> {
   const supabase = createClient()
+
+  // Preferencia guardada en localStorage
+  if (typeof window !== 'undefined') {
+    const guardada = localStorage.getItem(CLINICA_ACTIVA_KEY)
+    if (guardada) {
+      // Validar que el usuario pertenece a esa clínica
+      const { data } = await supabase
+        .from('usuarios_clinica')
+        .select('clinica_id')
+        .eq('clinica_id', guardada)
+        .maybeSingle()
+      if (data) return guardada
+      // Si no pertenece, limpiar preferencia inválida
+      localStorage.removeItem(CLINICA_ACTIVA_KEY)
+    }
+  }
+
   const { data, error } = await supabase.rpc('auth_clinica_id')
   if (error) return null
   return (data as string | null) ?? null
