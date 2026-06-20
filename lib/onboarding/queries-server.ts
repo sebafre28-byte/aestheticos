@@ -35,25 +35,21 @@ export async function needsOnboarding(): Promise<boolean> {
   } = await supabase.auth.getUser()
   if (!user) return false
 
-  // Usuarios invitados (rol en metadata) nunca necesitan onboarding
+  // Usuarios invitados nunca necesitan onboarding
   const rolMetadata = user.user_metadata?.rol as string | undefined
   if (rolMetadata && rolMetadata !== 'admin') return false
 
-  // Solo owners necesitan onboarding — verificar si tiene clínica propia
+  // Solo owners necesitan onboarding
   const { data: clinicaPropia } = await supabase
     .from('clinicas')
-    .select('id')
+    .select('id, onboarding_completado')
     .eq('owner_id', user.id)
     .maybeSingle()
 
   if (!clinicaPropia) return false
 
-  const [profesionales, servicios] = await Promise.all([
-    supabase.from('profesionales').select('id', { count: 'exact', head: true }).eq('activo', true),
-    supabase.from('servicios').select('id', { count: 'exact', head: true }).eq('activo', true),
-  ])
+  // Si ya completó el wizard, nunca volver a mostrarlo
+  if (clinicaPropia.onboarding_completado) return false
 
-  const totalProfesionales = profesionales.count ?? 0
-  const totalServicios = servicios.count ?? 0
-  return totalProfesionales === 0 || totalServicios === 0
+  return true
 }

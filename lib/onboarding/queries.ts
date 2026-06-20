@@ -337,6 +337,13 @@ export async function getOnboardingCounts(): Promise<{
 
 export { PLANTILLAS_DEFAULT, RECORDATORIOS_DEFAULT }
 
+export async function marcarOnboardingCompletado(): Promise<void> {
+  const clinicaId = await getClinicaId()
+  if (!clinicaId) return
+  const supabase = createClient()
+  await supabase.from('clinicas').update({ onboarding_completado: true }).eq('id', clinicaId)
+}
+
 export async function getWhatsappClinicaConfig(): Promise<WhatsappClinicaConfig> {
   const clinicaId = await getClinicaId()
   if (!clinicaId) return {}
