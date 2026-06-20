@@ -1,5 +1,5 @@
 # SimpliClinic — Plan de trabajo v2.0
-> Última actualización: 2026-06-20
+> Última actualización: 2026-06-20 (sesión 2026-06-20 completada)
 > Objetivo: Lanzamiento público ~15 jul 2026 (2 semanas de margen para fixes críticos)
 
 ## REGLAS DE TRABAJO
@@ -26,15 +26,15 @@
 
 ## Lo que está roto o es riesgo real ❌
 Ver módulos de auditoría abajo. Resumen:
-- **Onboarding inexistente** → churn día 1 inevitable
-- **Modal nueva cita no funciona en mobile** → el 70% de admins usa el celular
-- **Trial 7 días** → muy corto para decidir (estándar mercado: 14-30 días)
+- ~~**Onboarding inexistente**~~ → ✅ CORREGIDO: checklist en dashboard + wizard con flag persistido
+- ~~**Modal nueva cita no funciona en mobile**~~ → ✅ CORREGIDO: iOS zoom fix + modal paciente 1 col
+- **Trial 7 días** → decisión consciente, se mantiene en 7
 - **DB: auth_clinica_id()** en RLS hace subquery por fila → colapso a 500+ clínicas
 - **DB: migraciones duplicadas** → schema no reproducible desde cero
-- **Crons 2x/día** → recordatorios mismo día se pierden (CORREGIDO hoy a horario)
-- **Billing escalation en subscription-confirm** → CORREGIDO hoy
-- **Agente IA sin límite de costo por clínica** → riesgo financiero
-- **feedback_citas sin auth** → cualquier anónimo puede insertar
+- ~~**Crons 2x/día**~~ → ✅ CORREGIDO: ahora horario `0 * * * *`
+- ~~**Billing escalation en subscription-confirm**~~ → ✅ CORREGIDO
+- **Agente IA sin límite de costo por clínica** → riesgo financiero (S3.5)
+- **feedback_citas sin auth** → cualquier anónimo puede insertar (pendiente SQL)
 
 ---
 
@@ -48,13 +48,13 @@ _Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
 - [x] **A1-1** `INTERNAL_API_SECRET` fail-hard si no está configurado
 
 ## Pendientes críticos
-- [ ] **A1-RC2** Verificar que `middleware.ts` re-exporta `proxy.ts` correctamente — el middleware podría estar inerte
+- [x] **A1-RC2** ✅ `middleware.ts` eliminado — `proxy.ts` ES el middleware en Next.js 16, verificado activo
 - [ ] **A1-RC4** `getClinicaId()` usa `maybeSingle()` en `usuarios_clinica` → para usuarios con múltiples clínicas devuelve una aleatoria. Agregar filtro por contexto activo.
 - [ ] **A1-RC6** `claude-opus-4-8` en agente WhatsApp — verificar que el model ID existe y agregar límite de costo máximo por clínica/mes
 
 ## Pendientes medios
 - [ ] **A1-M1** `feedback_citas`: políticas INSERT/UPDATE no verifican auth → cualquier anónimo puede insertar reseñas
-- [ ] **A1-M2** Endpoint `/api/auth/google/debug` temporal — eliminarlo antes del launch
+- [x] **A1-M2** ✅ Endpoint `/api/auth/google/debug` — directorio vacío eliminado
 - [ ] **A1-M3** `getClinicaId()` en `lib/onboarding/queries.ts` — auditar todos los callers para asegurar aislamiento tenant
 
 ---
@@ -95,17 +95,17 @@ _Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
 - [x] **A3-2** Billing escalation corregido
 
 ## Pendientes críticos (BLOQUEANTES DE RETENCIÓN)
-- [ ] **A3-RC1** **Onboarding guiado** — checklist de 5 pasos en el dashboard (crear servicio → crear profesional → compartir link → agendar primera cita → configurar recordatorios). Sin esto el churn día 1 es >60%.
-- [ ] **A3-RC2** **Empty states con CTAs** en agenda, pacientes, servicios — el usuario no sabe qué hacer al llegar a una pantalla vacía
-- [ ] **A3-RC3** **Modal nueva cita en mobile** — verificar y corregir el formulario en viewport móvil
-- [ ] **A3-RC4** **Trial 14 días** — cambiar de 7 a 14 días en trigger `handle_new_user` y en UI
+- [x] **A3-RC1** ✅ **Onboarding guiado** — checklist de 5 pasos en el dashboard implementado. Migración 067 pendiente de aplicar en Supabase.
+- [x] **A3-RC2** ✅ **Empty states con CTAs** — pacientes y servicios con ícono + mensaje + botón de acción. Aviso en modal nueva cita si faltan profesionales/servicios.
+- [x] **A3-RC3** ✅ **Modal nueva cita en mobile** — iOS zoom fix en inputs. Modal nuevo paciente a 1 columna.
+- [ ] **A3-RC4** **Trial 14 días** — descartado, se mantiene en 7 días (decisión del usuario)
 
 ## Pendientes altos (UX que afecta adopción)
-- [ ] **A3-H1** Preview del booking público desde el dashboard — botón "Ver mi página" que abre `/book/[slug]` en nueva pestaña con teléfono simulado
-- [ ] **A3-H2** Pantalla de upgrade con contexto: "Para usar el Agente IA necesitas Simpli Pro ($99.900/mes)" — no un bloqueo genérico
+- [x] **A3-H1** ✅ Botón "Ver mi página de reservas" ya existía — `BookingLinkBanner` en dashboard (requiere slug en DB)
+- [x] **A3-H2** ✅ Pantalla de upgrade con plan y precio específico: "Upgrade a Simpli Pro — $99.900/mes"
 - [ ] **A3-H3** Recordatorios WhatsApp probados end-to-end con una clínica real antes del launch
-- [ ] **A3-H4** Disclaimer de IA en agente WhatsApp: "Soy un asistente automatizado. Para información médica, consulta directamente con el profesional."
-- [ ] **A3-H5** Límite de costo IA por clínica/mes (evitar facturas explosivas de Anthropic)
+- [x] **A3-H4** ✅ Disclaimer IA en agente WhatsApp — aparece solo en primera respuesta de cada conversación
+- [ ] **A3-H5** Límite de costo IA por clínica/mes (evitar facturas explosivas de Anthropic) → S3.5
 
 ## Pendientes medios (V1 post-launch)
 - [ ] **A3-M1** Personalización del agente IA: nombre, tono, prompt editable por clínica desde Configuración
@@ -174,20 +174,20 @@ _Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
 ## SEMANA 1-2 (20-30 jun) — FIXES CRÍTICOS PRE-LAUNCH
 
 ### Seguridad y DB (hacer primero, sin excepción)
-- [ ] **S1.1** Verificar `middleware.ts` → re-exporta `proxy.ts` → probar en incógnito que rutas autenticadas redirigen a `/login` (A1-RC2)
-- [ ] **S1.2** Aplicar en Supabase SQL Editor: `CREATE INDEX IF NOT EXISTS idx_citas_cancel_token ON citas(cancel_token)` (A2-RC4)
-- [ ] **S1.3** Aplicar fix `feedback_citas` — política INSERT sin auth (A2-RC5 / A1-M1)
-- [ ] **S1.4** Verificar versión activa de `handle_new_user` en producción (A2-RC3)
-- [ ] **S1.5** Eliminar endpoint `/api/auth/google/debug` (A1-M2)
+- [x] **S1.1** ✅ `proxy.ts` es el middleware activo — `middleware.ts` eliminado, verificado
+- [ ] **S1.2** ⚠️ MANUAL — Aplicar en Supabase: `CREATE INDEX IF NOT EXISTS idx_citas_cancel_token ON citas(cancel_token)`
+- [ ] **S1.3** ⚠️ MANUAL — Aplicar fix `feedback_citas` política INSERT (A2-RC5)
+- [ ] **S1.4** ⚠️ MANUAL — Verificar `handle_new_user` activo en producción (A2-RC3)
+- [x] **S1.5** ✅ Directorio `/api/auth/google/debug` vacío eliminado
 
 ### Onboarding (la más importante de todas)
-- [ ] **S1.6** Checklist de onboarding en dashboard: 5 pasos con barra de progreso y estados persistidos por clínica
-- [ ] **S1.7** Empty states en agenda vacía, pacientes vacíos, servicios vacíos — con CTA directo
-- [ ] **S1.8** Trial: cambiar 7 → 14 días en trigger handle_new_user y en UI (A3-RC4)
+- [x] **S1.6** ✅ Checklist de onboarding en dashboard — 5 pasos con estados. ⚠️ MANUAL: ejecutar migración 067 y UPDATE en Supabase
+- [x] **S1.7** ✅ Empty states en pacientes y servicios con CTA directo
+- [ ] **S1.8** Trial 14 días — descartado (usuario prefiere 7 días)
 
 ### UX Mobile
-- [ ] **S1.9** Auditar y corregir modal nueva cita en mobile (A3-RC3)
-- [ ] **S1.10** Botón "Ver mi página de reservas" en dashboard → abre `/book/[slug]` en nueva pestaña
+- [x] **S1.9** ✅ Modal nueva cita en mobile — iOS zoom fix. Modal nuevo paciente 1 columna.
+- [x] **S1.10** ✅ Botón "Ver mi página de reservas" ya existía (BookingLinkBanner)
 
 ---
 
@@ -196,8 +196,8 @@ _Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
 ### Pre-launch
 - [ ] **S2.1** Probar cobro real Flow.cl con tarjeta real (M10.5)
 - [ ] **S2.2** Probar recordatorio WhatsApp end-to-end con clínica real (A3-H3)
-- [ ] **S2.3** Disclaimer IA en agente WhatsApp (A3-H4)
-- [ ] **S2.4** Pantalla upgrade con contexto específico por feature (A3-H2)
+- [x] **S2.3** ✅ Disclaimer IA en agente WhatsApp — primera respuesta de cada conversación
+- [x] **S2.4** ✅ Pantalla upgrade con plan y precio específico por feature
 - [ ] **S2.5** Onboarding: 3 clínicas beta con seguimiento directo (M8.3)
 
 ### Launch
@@ -234,7 +234,19 @@ _Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
 
 ---
 
-## MÓDULO 19 — WHATSAPP MULTI-CLÍNICA (agosto 2026)
+## MÓDULO 19 — UX Y FIXES (2026-06-20) ✅
+- [x] Fix loop onboarding wizard (flag `onboarding_completado` en DB)
+- [x] Fix wizard mobile layout (pasos 1, 2, 4)
+- [x] Buffer del servicio respetado en booking público
+- [x] Empty states con CTA en pacientes y servicios
+- [x] Disclaimer IA en primera respuesta del agente WhatsApp
+- [x] Modal nuevo paciente: 1 columna en mobile + sin zoom iOS
+- [x] Aviso en modal nueva cita cuando faltan profesionales o servicios
+- [x] Mensaje mejorado en booking público sin servicios disponibles
+- [x] Pantalla upgrade con plan y precio específico por feature
+- [x] Agente IA: mapa de features ampliado (agente_wsp, marketing, paquetes)
+
+## MÓDULO 20 — WHATSAPP MULTI-CLÍNICA (agosto 2026)
 > Primero llegar a 10 clínicas pagando. Luego construir esto.
 - [ ] 19.1 Registrar SimpliClinic como Partner en 360dialog
 - [ ] 19.2 UI "Conectar WhatsApp" en Configuración con Embedded Signup de 360dialog
@@ -254,17 +266,17 @@ _Construir solo si 20+ clínicas lo piden explícitamente_
 
 ---
 
-# ESTADO ACTUAL (2026-06-20)
+# ESTADO ACTUAL (2026-06-20 — post sesión)
 
 ```
 M0  Emails              ██████████ 100%  ✅
-M1  Seguridad           ██████████ 100%  ✅ (+ fixes auditoría pendientes en DB)
+M1  Seguridad           ██████████ 100%  ✅ (fixes auditoría pendientes: SQL manual)
 M2  Inbox WhatsApp      █████████░  90%  (falta prueba e2e WhatsApp real)
 M3  Notas clínicas      ██████████ 100%  ✅
 M4  Performance         ██████████ 100%  ✅
 M5  Invitación equipo   ██████████ 100%  ✅
 M6  Monitoreo           ██████████ 100%  ✅
-M7  Crons               ██████████ 100%  ✅ (ahora horarios)
+M7  Crons               ██████████ 100%  ✅ (horarios)
 M8  QA y Beta           ████████░░  80%  (falta onboarding beta)
 M9  Bugs producción     ██████████ 100%  ✅
 M10 Launch              █████████░  95%  (falta test cobro real + anuncio)
@@ -276,12 +288,13 @@ M15 Marketing automático███████░░░  70%  (crons existen, fa
 M16 No-shows            ░░░░░░░░░░   0%  BACKLOG
 M17 UX Fixes jun-18     ██████████ 100%  ✅
 M18 UX Fixes jun-19     ██████████ 100%  ✅
-M19 WhatsApp multi-clin ░░░░░░░░░░   0%  (agosto, post 10 clínicas pagando)
+M19 UX Fixes jun-20     ██████████ 100%  ✅ (onboarding, empty states, mobile, buffer, upgrade)
+M20 WhatsApp multi-clin ░░░░░░░░░░   0%  (agosto, post 10 clínicas pagando)
 
-AUDITORÍA ARQUITECTURA  ██████░░░░  60%  (billing+crons corregidos, middleware+DB pendientes)
-AUDITORÍA BASE DE DATOS ████░░░░░░  40%  (índices + auth_clinica_id + duplicados pendientes)
-AUDITORÍA PRODUCTO/UX   ████░░░░░░  40%  (onboarding + mobile críticos pendientes)
+AUDITORÍA ARQUITECTURA  ████████░░  80%  (middleware ✅, billing ✅, debug endpoint ✅ — DB pendiente manual)
+AUDITORÍA BASE DE DATOS ████░░░░░░  40%  (índices + auth_clinica_id + duplicados pendientes SQL manual)
+AUDITORÍA PRODUCTO/UX   █████████░  90%  (onboarding ✅, mobile ✅, empty states ✅, upgrade ✅, disclaimer ✅)
 ```
 
-## PRÓXIMA SESIÓN: Semana 1-2 del plan de mejora
-Prioridad máxima: **S1.1 middleware** + **S1.6 onboarding** + **S1.9 mobile nueva cita**
+## PRÓXIMA SESIÓN: Semana 3-4 pre-launch
+Prioridad: **SQL manual en Supabase** (migración 067 + slug + índice) + **S2.1 cobro real Flow** + **S2.2 WhatsApp e2e** + **S2.5 clínicas beta**
