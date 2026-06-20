@@ -24,6 +24,7 @@ type SubscripcionState = {
 const FEATURES: Record<string, Plan[]> = {
   whatsapp:                ['pro', 'clinica'],
   inbox:                   ['pro', 'clinica'],
+  agente_wsp:              ['clinica'],
   reportes:                ['pro', 'clinica'],
   booking_publico:         ['pro', 'clinica'],
   agenda_semana:           ['pro', 'clinica'],
@@ -31,6 +32,8 @@ const FEATURES: Record<string, Plan[]> = {
   multiples_profesionales: ['pro', 'clinica'],
   consentimiento:          ['pro', 'clinica'],
   wizard:                  ['pro', 'clinica'],
+  marketing:               ['pro', 'clinica'],
+  paquetes:                ['pro', 'clinica'],
 }
 
 // null = ilimitado
