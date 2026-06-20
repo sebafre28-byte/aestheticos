@@ -12,6 +12,7 @@ import {
   crearServicioOnboarding,
   getClinicaBasica,
   getOnboardingCounts,
+  marcarOnboardingCompletado,
   type ClinicaBasica,
 } from '@/lib/onboarding/queries'
 
@@ -256,8 +257,7 @@ export function OnboardingWizard() {
   async function handlePaso4(e: React.FormEvent) {
     e.preventDefault()
     setGuardando(true)
-    // Save horarios to clinica configuracion
-    await actualizarClinicaBasica({ horarios })
+    await Promise.all([actualizarClinicaBasica({ horarios }), marcarOnboardingCompletado()])
     setGuardando(false)
     setCompletado(true)
     redirectTimerRef.current = setTimeout(() => router.replace('/dashboard'), 10000)
@@ -651,7 +651,7 @@ export function OnboardingWizard() {
               </button>
             </div>
             <div className="pb-5 text-center">
-              <button type="button" onClick={() => router.replace('/dashboard')} className="text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2">
+              <button type="button" onClick={async () => { await marcarOnboardingCompletado(); router.replace('/dashboard') }} className="text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2">
                 Saltar, configurar después
               </button>
             </div>
