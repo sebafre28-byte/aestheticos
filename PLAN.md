@@ -296,5 +296,44 @@ AUDITORÍA BASE DE DATOS ████░░░░░░  40%  (índices + auth_c
 AUDITORÍA PRODUCTO/UX   █████████░  90%  (onboarding ✅, mobile ✅, empty states ✅, upgrade ✅, disclaimer ✅)
 ```
 
-## PRÓXIMA SESIÓN: Semana 3-4 pre-launch
-Prioridad: **SQL manual en Supabase** (migración 067 + slug + índice) + **S2.1 cobro real Flow** + **S2.2 WhatsApp e2e** + **S2.5 clínicas beta**
+## MÓDULO 21 — AUDITORÍA Y FIXES (2026-06-20 sesión 2) ✅
+- [x] S3.4 Reporte mensual automático por email a cada clínica (1ro de cada mes)
+- [x] S3.6 Personalización agente IA: nombre_asistente, tono (cercano/formal), instrucciones_extra
+- [x] S3.7 Handoff IA→humano: mensaje [sistema] visible en inbox + pill centrada con ícono
+- [x] A2-M5 Migración 068: DROP TABLE mensajes_whatsapp (tabla deprecada, sin referencias)
+- [x] S4.4 Cron marketing-cumpleanos verificado: filtro fecha_nacimiento, dedup por año ✅
+- [x] S4.6 Comisiones verificadas: ya completo — campo en DB, config en UI, cálculo al cobrar, resumen en caja
+- [x] S4.5 Paquetes verificados: ya completo — PaquetesTab en ficha paciente, venta, deducción por sesión
+
+```
+M0  Emails              ██████████ 100%  ✅
+M1  Seguridad           ██████████ 100%  ✅
+M2  Inbox WhatsApp      █████████░  90%  (falta prueba e2e WhatsApp real)
+M3  Notas clínicas      ██████████ 100%  ✅
+M4  Performance         ██████████ 100%  ✅
+M5  Invitación equipo   ██████████ 100%  ✅
+M6  Monitoreo           ██████████ 100%  ✅
+M7  Crons               ██████████ 100%  ✅ (horarios + reporte mensual)
+M8  QA y Beta           ████████░░  80%  (falta onboarding beta)
+M9  Bugs producción     ██████████ 100%  ✅
+M10 Launch              █████████░  95%  (falta test cobro real + anuncio)
+M11 Wizard cita         ░░░░░░░░░░   0%  BACKLOG
+M12 Plan y Facturación  █████████░  95%  (falta test cobro real)
+M13 Cobros / Comisiones ██████████ 100%  ✅ (caja, comisiones por profesional completo)
+M14 Paquetes sesiones   █████████░  95%  ✅ (completo — falta gating PlanGate)
+M15 Marketing automático█████████░  95%  ✅ (crons verificados, reporte mensual agregado)
+M16 No-shows            ░░░░░░░░░░   0%  BACKLOG
+M17 UX Fixes jun-18     ██████████ 100%  ✅
+M18 UX Fixes jun-19     ██████████ 100%  ✅
+M19 UX Fixes jun-20     ██████████ 100%  ✅
+M20 WhatsApp multi-clin ░░░░░░░░░░   0%  (agosto, post 10 clínicas pagando)
+M21 Auditoría fixes     ██████████ 100%  ✅
+
+AUDITORÍA ARQUITECTURA  █████████░  90%  (todos los fixes de código ✅, A1-RC4 multi-clínica baja prioridad)
+AUDITORÍA BASE DE DATOS ████████░░  80%  (índices ✅, feedback_citas ✅, mensajes_whatsapp DROP pendiente SQL)
+AUDITORÍA PRODUCTO/UX   ██████████ 100%  ✅ (onboarding, mobile, empty states, upgrade, disclaimer, agente IA)
+```
+
+## PRÓXIMA SESIÓN: Launch
+Prioridad: **S2.1 cobro real Flow.cl** + **S2.2 WhatsApp e2e** + **S2.5 clínicas beta** + **S2.6 anuncio público**
+SQL pendiente: `DROP TABLE IF EXISTS mensajes_whatsapp;` (migración 068)
