@@ -68,9 +68,9 @@ _Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
 ## Pendientes críticos (aplicar en Supabase SQL Editor)
 - [ ] **A2-RC1** `auth_clinica_id()` hace subquery RLS por cada fila → reemplazar con `current_setting('app.clinica_id')` o memoizar. **BLOQUEANTE A 500+ clínicas.**
 - [ ] **A2-RC2** 12 pares de migraciones con números duplicados → el schema no es reproducible desde cero. Auditar y renumerar con script.
-- [ ] **A2-RC3** `handle_new_user` trigger reescrito 5+ veces → verificar cuál versión está activa. Ejecutar en producción: `SELECT routine_definition FROM information_schema.routines WHERE routine_name = 'handle_new_user'`
-- [ ] **A2-RC4** `cancel_token` en citas usado por 4 RPCs pero sin índice → `CREATE INDEX IF NOT EXISTS idx_citas_cancel_token ON citas(cancel_token)`
-- [ ] **A2-RC5** `feedback_citas`: política INSERT anónima → `CREATE POLICY "solo_token_valido" ON feedback_citas FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM citas WHERE id = cita_id AND cancel_token = current_setting('request.jwt.claims')::json->>'token'))`
+- [x] **A2-RC3** ✅ `handle_new_user` verificado en producción — versión correcta activa con `INSERT INTO subscriptions ... 'trial'` (2026-06-20)
+- [x] **A2-RC4** ✅ Índice `idx_citas_cancel_token` creado en producción (2026-06-20)
+- [x] **A2-RC5** ✅ Política `solo_token_valido` en `feedback_citas` aplicada (2026-06-20)
 
 ## Pendientes medios
 - [ ] **A2-M1** `firma_img` en `consentimiento_solicitudes` como base64 TEXT → migrar a Storage URL (reduce 95% overhead TOAST)
@@ -175,13 +175,13 @@ _Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
 
 ### Seguridad y DB (hacer primero, sin excepción)
 - [x] **S1.1** ✅ `proxy.ts` es el middleware activo — `middleware.ts` eliminado, verificado
-- [ ] **S1.2** ⚠️ MANUAL — Aplicar en Supabase: `CREATE INDEX IF NOT EXISTS idx_citas_cancel_token ON citas(cancel_token)`
-- [ ] **S1.3** ⚠️ MANUAL — Aplicar fix `feedback_citas` política INSERT (A2-RC5)
-- [ ] **S1.4** ⚠️ MANUAL — Verificar `handle_new_user` activo en producción (A2-RC3)
+- [x] **S1.2** ✅ MANUAL — Índice `idx_citas_cancel_token` aplicado en Supabase (2026-06-20)
+- [x] **S1.3** ✅ MANUAL — Política `solo_token_valido` en `feedback_citas` aplicada (2026-06-20)
+- [x] **S1.4** ✅ MANUAL — `handle_new_user` verificado activo en producción (2026-06-20)
 - [x] **S1.5** ✅ Directorio `/api/auth/google/debug` vacío eliminado
 
 ### Onboarding (la más importante de todas)
-- [x] **S1.6** ✅ Checklist de onboarding en dashboard — 5 pasos con estados. ⚠️ MANUAL: ejecutar migración 067 y UPDATE en Supabase
+- [x] **S1.6** ✅ Checklist de onboarding en dashboard — 5 pasos con estados. Migración 067 aplicada en Supabase (2026-06-20)
 - [x] **S1.7** ✅ Empty states en pacientes y servicios con CTA directo
 - [ ] **S1.8** Trial 14 días — descartado (usuario prefiere 7 días)
 
