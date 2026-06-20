@@ -64,7 +64,7 @@ function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) 
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="h-9 rounded-lg border border-slate-200 bg-white px-2 pr-6 text-sm font-medium text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 cursor-pointer appearance-none"
+      className="flex-1 min-w-0 h-9 rounded-lg border border-slate-200 bg-white px-2 pr-6 text-sm font-medium text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 cursor-pointer appearance-none"
       style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
     >
       {MEDIAS.map(h => <option key={h} value={h}>{h}</option>)}
@@ -397,7 +397,7 @@ export function OnboardingWizard() {
                   {TIPOS_CLINICA.map(t => <option key={t} value={t}>{t}</option>)}
                 </Select>
               </Field>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <Field label="Teléfono de contacto" required>
                   <Input
                     type="tel"
@@ -468,7 +468,7 @@ export function OnboardingWizard() {
                   placeholder="Ej: Dermatóloga, Esteticista, Kinesiólogo"
                 />
               </Field>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <Field label="Email profesional" hint="opcional">
                   <Input
                     type="email"
@@ -487,14 +487,14 @@ export function OnboardingWizard() {
                 </Field>
               </div>
               <Field label="Color en la agenda" hint="para identificar sus citas">
-                <div className="flex gap-2 flex-wrap pt-1">
+                <div className="grid grid-cols-8 gap-2 pt-1">
                   {COLORES_PROF.map(c => (
                     <button
                       key={c.hex}
                       type="button"
                       title={c.label}
                       onClick={() => setColorProfesional(c.hex)}
-                      className="size-9 rounded-full transition-all hover:scale-110 focus:outline-none"
+                      className="size-8 rounded-full transition-all hover:scale-110 focus:outline-none"
                       style={{
                         background: c.hex,
                         boxShadow: colorProfesional === c.hex ? `0 0 0 3px white, 0 0 0 5px ${c.hex}` : 'none',
@@ -607,22 +607,22 @@ export function OnboardingWizard() {
                 {DIAS.map(dia => {
                   const cfg = horarios[dia.key]
                   return (
-                    <div key={dia.key} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${cfg.activo ? 'border-[#2563EB]/30 bg-blue-50/50' : 'border-slate-200 bg-slate-50'}`}>
+                    <div key={dia.key} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${cfg.activo ? 'border-[#2563EB]/30 bg-blue-50/50' : 'border-slate-200 bg-slate-50'}`}>
                       <button
                         type="button"
                         onClick={() => toggleDia(dia.key)}
-                        className={`size-8 rounded-full text-xs font-bold flex-shrink-0 transition-all ${cfg.activo ? 'text-white' : 'bg-white border border-slate-200 text-slate-400'}`}
+                        className={`size-7 rounded-full text-[11px] font-bold flex-shrink-0 transition-all ${cfg.activo ? 'text-white' : 'bg-white border border-slate-200 text-slate-400'}`}
                         style={cfg.activo ? { backgroundColor: '#2563EB' } : {}}
                       >
                         {dia.label}
                       </button>
-                      <span className={`text-sm font-medium w-20 flex-shrink-0 capitalize ${cfg.activo ? 'text-slate-700' : 'text-slate-400'}`}>
+                      <span className={`text-sm font-medium w-[72px] flex-shrink-0 capitalize ${cfg.activo ? 'text-slate-700' : 'text-slate-400'}`}>
                         {dia.key === 'miércoles' ? 'Miércoles' : dia.key.charAt(0).toUpperCase() + dia.key.slice(1)}
                       </span>
                       {cfg.activo ? (
-                        <div className="flex items-center gap-2 flex-1">
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
                           <TimeSelect value={cfg.desde} onChange={v => setHoraDia(dia.key, 'desde', v)} />
-                          <span className="text-slate-400 text-xs font-medium">→</span>
+                          <span className="text-slate-300 text-xs">—</span>
                           <TimeSelect value={cfg.hasta} onChange={v => setHoraDia(dia.key, 'hasta', v)} />
                         </div>
                       ) : (
