@@ -148,6 +148,7 @@ function buildSlotsDisponibles(
   fecha: Date,
   profesionalId: string,
   tz: string = DEFAULT_TZ,
+  bufferMinutosServicio: number = 0,
 ): Date[] {
   const slots: Date[] = []
   const [desdeH, desdeM] = horarioDia.desde.split(':').map(Number)
@@ -166,6 +167,11 @@ function buildSlotsDisponibles(
     const fh = Math.floor(slotFinMin / 60)
     const fm = slotFinMin % 60
     const slotFinStr = `${fechaStr}T${String(fh).padStart(2, '0')}:${String(fm).padStart(2, '0')}:00`
+    // Effective end including buffer of the service being booked
+    const slotFinConBufferMin = slotFinMin + bufferMinutosServicio
+    const bfh = Math.floor(slotFinConBufferMin / 60)
+    const bfm = slotFinConBufferMin % 60
+    const slotFinConBufferStr = `${fechaStr}T${String(bfh).padStart(2, '0')}:${String(bfm).padStart(2, '0')}:00`
 
     // Slots ocupados usan wall-clock almacenado como UTC en timestamptz.
     // toISOString() recupera el componente UTC que ES el wall-clock original.
@@ -174,7 +180,8 @@ function buildSlotsDisponibles(
       const oInicioWall = new Date(s.inicio).toISOString().slice(0, 19)
       const bufferMs = (s.buffer_minutos ?? 0) * 60_000
       const oFinWall = new Date(new Date(s.fin).getTime() + bufferMs).toISOString().slice(0, 19)
-      return slotInicioStr < oFinWall && slotFinStr > oInicioWall
+      // Use buffer-extended end so the new booking's buffer doesn't overlap next appointment
+      return slotInicioStr < oFinWall && slotFinConBufferStr > oInicioWall
     })
 
     if (!ocupado) {
@@ -542,7 +549,7 @@ function PasoHora({
 
     const bloqueos: Array<{ inicio: string; fin: string; profesional_id: string | null }> = Array.isArray(bloqueosData) ? bloqueosData : []
 
-    let disponibles = buildSlotsDisponibles(horarioEfectivo, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz)
+    let disponibles = buildSlotsDisponibles(horarioEfectivo, servicio.duracion_minutos, ocupados, fecha, profesionalId, tz, servicio.buffer_minutos)
 
     // Filtrar slots que se solapan con bloqueos (para todos los profesionales o el específico)
     // Comparison uses wall-clock strings to avoid timezone mismatch:
@@ -554,7 +561,8 @@ function PasoHora({
         const hh = String(slot.getHours()).padStart(2, '0')
         const mm = String(slot.getMinutes()).padStart(2, '0')
         const slotInicioWall = `${fechaStr}T${hh}:${mm}:00`
-        const slotFinMin = slot.getHours() * 60 + slot.getMinutes() + servicio.duracion_minutos
+        // Include service buffer so the new booking's buffer doesn't overlap a block
+        const slotFinMin = slot.getHours() * 60 + slot.getMinutes() + servicio.duracion_minutos + servicio.buffer_minutos
         const sfh = String(Math.floor(slotFinMin / 60)).padStart(2, '0')
         const sfm = String(slotFinMin % 60).padStart(2, '0')
         const slotFinWall = `${fechaStr}T${sfh}:${sfm}:00`
