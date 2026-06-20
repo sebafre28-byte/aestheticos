@@ -103,26 +103,28 @@ export function FormPaciente({ open, paciente, onClose, onSubmit }: Props) {
           </button>
         </div>
 
-        <div className="p-5 sm:p-6 grid grid-cols-2 gap-4 overflow-y-auto max-h-[70vh]">
-          <div className="col-span-2">
+        <div className="p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto max-h-[70vh]">
+          <div className="sm:col-span-2">
             <Label className="mb-1.5 block text-[12px] font-semibold">Nombre *</Label>
-            <Input value={data.nombre} onChange={(e) => setData((v) => ({ ...v, nombre: e.target.value }))} />
+            <Input className="text-base sm:text-[13px]" value={data.nombre} onChange={(e) => setData((v) => ({ ...v, nombre: e.target.value }))} />
           </div>
           <div>
             <Label className="mb-1.5 block text-[12px] font-semibold">Teléfono *</Label>
-            <Input value={data.telefono} onChange={(e) => setData((v) => ({ ...v, telefono: e.target.value }))} />
+            <Input className="text-base sm:text-[13px]" value={data.telefono} onChange={(e) => setData((v) => ({ ...v, telefono: e.target.value }))} />
           </div>
           <div>
             <Label className="mb-1.5 block text-[12px] font-semibold">RUT</Label>
             <Input
+              className="text-base sm:text-[13px]"
               value={data.rut}
               onChange={(e) => setData((v) => ({ ...v, rut: e.target.value }))}
               placeholder="12.345.678-5"
             />
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <Label className="mb-1.5 block text-[12px] font-semibold">Email</Label>
             <Input
+              className="text-base sm:text-[13px]"
               type="email"
               value={data.email}
               onChange={(e) => setData((v) => ({ ...v, email: e.target.value }))}
@@ -131,6 +133,7 @@ export function FormPaciente({ open, paciente, onClose, onSubmit }: Props) {
           <div>
             <Label className="mb-1.5 block text-[12px] font-semibold">Fecha de nacimiento</Label>
             <Input
+              className="text-base sm:text-[13px]"
               type="date"
               value={data.fecha_nacimiento}
               max={new Date().toISOString().split('T')[0]}
@@ -142,7 +145,7 @@ export function FormPaciente({ open, paciente, onClose, onSubmit }: Props) {
             <select
               value={data.genero}
               onChange={(e) => setData((v) => ({ ...v, genero: e.target.value }))}
-              className="w-full h-9 px-3 rounded-md border border-input bg-background text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+              className="w-full h-9 px-3 rounded-md border border-input bg-background text-base sm:text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
             >
               <option value="">Sin especificar</option>
               <option value="masculino">Masculino</option>
@@ -151,15 +154,16 @@ export function FormPaciente({ open, paciente, onClose, onSubmit }: Props) {
               <option value="prefiero_no_decir">Prefiero no decir</option>
             </select>
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <Label className="mb-1.5 block text-[12px] font-semibold">Dirección</Label>
             <Input
+              className="text-base sm:text-[13px]"
               value={data.direccion}
               onChange={(e) => setData((v) => ({ ...v, direccion: e.target.value }))}
               placeholder="Calle, número, ciudad..."
             />
           </div>
-          {error && <p className="col-span-2 text-[12px] text-red-500 font-medium">{error}</p>}
+          {error && <p className="sm:col-span-2 text-[12px] text-red-500 font-medium">{error}</p>}
         </div>
 
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
