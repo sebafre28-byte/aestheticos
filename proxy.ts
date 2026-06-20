@@ -16,7 +16,6 @@ const PUBLIC_API_PREFIXES = [
   '/api/feedback',
   '/api/auth/mfa/',
   '/api/auth/google/',
-  '/api/auth/google/debug',
 ]
 
 // Routes that are part of the marketing site (no auth needed on any domain)

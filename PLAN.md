@@ -1,6 +1,6 @@
-# SimpliClinic — Plan de trabajo v1.0
-> Última actualización: 2026-06-19
-> Objetivo: Lanzamiento público ~1 jul 2026
+# SimpliClinic — Plan de trabajo v2.0
+> Última actualización: 2026-06-20
+> Objetivo: Lanzamiento público ~15 jul 2026 (2 semanas de margen para fixes críticos)
 
 ## REGLAS DE TRABAJO
 - Avanzar módulo por módulo en orden de prioridad
@@ -11,6 +11,118 @@
 
 ---
 
+# RESUMEN EJECUTIVO — ESTADO AL 2026-06-20
+
+## Lo que funciona bien ✅
+- Core de agenda (semana/día/lista, bloqueos, recurrencia)
+- Ficha paciente con galería, notas, historial
+- Email transaccional (confirmación, cancelación, recordatorios)
+- Multi-tenant con RLS correcto
+- Flow.cl integración completa
+- Autenticación + roles + 2FA por email
+- Booking público `/book/[slug]`
+- Google Calendar OAuth por clínica
+- Monitoreo con Sentry
+
+## Lo que está roto o es riesgo real ❌
+Ver módulos de auditoría abajo. Resumen:
+- **Onboarding inexistente** → churn día 1 inevitable
+- **Modal nueva cita no funciona en mobile** → el 70% de admins usa el celular
+- **Trial 7 días** → muy corto para decidir (estándar mercado: 14-30 días)
+- **DB: auth_clinica_id()** en RLS hace subquery por fila → colapso a 500+ clínicas
+- **DB: migraciones duplicadas** → schema no reproducible desde cero
+- **Crons 2x/día** → recordatorios mismo día se pierden (CORREGIDO hoy a horario)
+- **Billing escalation en subscription-confirm** → CORREGIDO hoy
+- **Agente IA sin límite de costo por clínica** → riesgo financiero
+- **feedback_citas sin auth** → cualquier anónimo puede insertar
+
+---
+
+# AUDITORÍA 1 — ARQUITECTURA Y SEGURIDAD (score: 5.5/10)
+_Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
+
+## Resueltos ✅
+- [x] **A1-RC1** Billing escalation: `subscription-confirm` leía `plan` de URL params → ahora lee de DB (2026-06-20)
+- [x] **A1-RC3** Crons 2x/día → cambiado a horario `0 * * * *` (2026-06-20)
+- [x] **A1-RC5** MFA sin rate limiting → agregado Upstash sliding window 3/900s send, 5/900s verify
+- [x] **A1-1** `INTERNAL_API_SECRET` fail-hard si no está configurado
+
+## Pendientes críticos
+- [ ] **A1-RC2** Verificar que `middleware.ts` re-exporta `proxy.ts` correctamente — el middleware podría estar inerte
+- [ ] **A1-RC4** `getClinicaId()` usa `maybeSingle()` en `usuarios_clinica` → para usuarios con múltiples clínicas devuelve una aleatoria. Agregar filtro por contexto activo.
+- [ ] **A1-RC6** `claude-opus-4-8` en agente WhatsApp — verificar que el model ID existe y agregar límite de costo máximo por clínica/mes
+
+## Pendientes medios
+- [ ] **A1-M1** `feedback_citas`: políticas INSERT/UPDATE no verifican auth → cualquier anónimo puede insertar reseñas
+- [ ] **A1-M2** Endpoint `/api/auth/google/debug` temporal — eliminarlo antes del launch
+- [ ] **A1-M3** `getClinicaId()` en `lib/onboarding/queries.ts` — auditar todos los callers para asegurar aislamiento tenant
+
+---
+
+# AUDITORÍA 2 — BASE DE DATOS / SUPABASE (score: 5.7/10)
+_Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
+
+## Resueltos ✅
+- [x] **A2-1** Migraciones 065 y 066 creadas (drop stripe columns, marketing logs)
+
+## Pendientes críticos (aplicar en Supabase SQL Editor)
+- [ ] **A2-RC1** `auth_clinica_id()` hace subquery RLS por cada fila → reemplazar con `current_setting('app.clinica_id')` o memoizar. **BLOQUEANTE A 500+ clínicas.**
+- [ ] **A2-RC2** 12 pares de migraciones con números duplicados → el schema no es reproducible desde cero. Auditar y renumerar con script.
+- [ ] **A2-RC3** `handle_new_user` trigger reescrito 5+ veces → verificar cuál versión está activa. Ejecutar en producción: `SELECT routine_definition FROM information_schema.routines WHERE routine_name = 'handle_new_user'`
+- [ ] **A2-RC4** `cancel_token` en citas usado por 4 RPCs pero sin índice → `CREATE INDEX IF NOT EXISTS idx_citas_cancel_token ON citas(cancel_token)`
+- [ ] **A2-RC5** `feedback_citas`: política INSERT anónima → `CREATE POLICY "solo_token_valido" ON feedback_citas FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM citas WHERE id = cita_id AND cancel_token = current_setting('request.jwt.claims')::json->>'token'))`
+
+## Pendientes medios
+- [ ] **A2-M1** `firma_img` en `consentimiento_solicitudes` como base64 TEXT → migrar a Storage URL (reduce 95% overhead TOAST)
+- [ ] **A2-M2** Marketing crons: N+1 queries (100 clínicas × consulta individual) → reescribir con JOIN en una sola query
+- [ ] **A2-M3** Índice faltante: `citas(profesional_id, inicio)` para queries de agenda por profesional
+- [ ] **A2-M4** Índice faltante: `pacientes(clinica_id, fecha_nacimiento)` para cron de cumpleaños
+- [ ] **A2-M5** Tabla `mensajes_whatsapp` deprecada — verificar si hay referencias y limpiar
+- [ ] **A2-M6** Renombrar plan `'free'` → `'starter'` en código y DB (naming confuso para usuarios)
+
+## Pendientes bajos (deuda técnica, no urgente)
+- [ ] **A2-L1** Separar tabla `citas` en `citas + citas_pago + citas_recurrencia` (cuando superen 500K filas)
+- [ ] **A2-L2** Agregar `pg_stat_statements` a Supabase Extensions para monitorear queries lentas
+- [ ] **A2-L3** Documentar esquema completo de tablas en ARQUITECTURA.md
+
+---
+
+# AUDITORÍA 3 — PRODUCTO, UX, IA Y ROADMAP (score: 6.2/10)
+_Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
+
+## Resueltos ✅
+- [x] **A3-1** Crons horarios (recordatorios del mismo día ya funcionan)
+- [x] **A3-2** Billing escalation corregido
+
+## Pendientes críticos (BLOQUEANTES DE RETENCIÓN)
+- [ ] **A3-RC1** **Onboarding guiado** — checklist de 5 pasos en el dashboard (crear servicio → crear profesional → compartir link → agendar primera cita → configurar recordatorios). Sin esto el churn día 1 es >60%.
+- [ ] **A3-RC2** **Empty states con CTAs** en agenda, pacientes, servicios — el usuario no sabe qué hacer al llegar a una pantalla vacía
+- [ ] **A3-RC3** **Modal nueva cita en mobile** — verificar y corregir el formulario en viewport móvil
+- [ ] **A3-RC4** **Trial 14 días** — cambiar de 7 a 14 días en trigger `handle_new_user` y en UI
+
+## Pendientes altos (UX que afecta adopción)
+- [ ] **A3-H1** Preview del booking público desde el dashboard — botón "Ver mi página" que abre `/book/[slug]` en nueva pestaña con teléfono simulado
+- [ ] **A3-H2** Pantalla de upgrade con contexto: "Para usar el Agente IA necesitas Simpli Pro ($99.900/mes)" — no un bloqueo genérico
+- [ ] **A3-H3** Recordatorios WhatsApp probados end-to-end con una clínica real antes del launch
+- [ ] **A3-H4** Disclaimer de IA en agente WhatsApp: "Soy un asistente automatizado. Para información médica, consulta directamente con el profesional."
+- [ ] **A3-H5** Límite de costo IA por clínica/mes (evitar facturas explosivas de Anthropic)
+
+## Pendientes medios (V1 post-launch)
+- [ ] **A3-M1** Personalización del agente IA: nombre, tono, prompt editable por clínica desde Configuración
+- [ ] **A3-M2** Handoff explícito IA → humano: cuando el agente no sabe, notificar en inbox
+- [ ] **A3-M3** Reporte mensual automático por email: "en mayo tuviste X citas, recaudaste $Y"
+- [ ] **A3-M4** NPS en-app al mes de uso (1 pregunta, no survey largo)
+
+## Descartado / Backlog indefinido
+- ~~Wizard "Iniciar cita" 8 pasos~~ → si llegan a 200 clínicas y lo piden, se construye
+- ~~Lista de espera~~ → construir cuando haya dolor documentado
+- ~~Consentimientos con firma digital real~~ → requiere proveedor legal, complejidad alta
+- ~~Facturación electrónica SII~~ → V3 o cuando lo exijan las clínicas
+
+---
+
+# MÓDULOS COMPLETADOS (historial)
+
 ## MÓDULO 0 — EMAILS ✅
 - [x] 0.1 Aprobar plantilla HTML con el usuario
 - [x] 0.2 Implementar plantilla aprobada en `app/api/email/route.ts`
@@ -18,334 +130,158 @@
 - [x] 0.4 Conectar cron `email-recordatorios` con queries reales + deduplicación vía whatsapp_logs
 - [x] 0.5 Probar envío real end-to-end
 
----
-
 ## MÓDULO 1 — SEGURIDAD CRÍTICA ✅
-**Ronda inicial:**
-- [x] 1.1 `CRON_SECRET` obligatorio — lanzar error en startup si no está seteado
+- [x] 1.1 `CRON_SECRET` obligatorio
 - [x] 1.2 `META_APP_SECRET` obligatorio — validar firma en webhook
 - [x] 1.3 CAPTCHA (Cloudflare Turnstile) en `app/book/[slug]`
-- [x] 1.4 Rate limiting en `/api/email` (10 req/min por IP, in-memory)
-- [x] 1.5 Crear `.env.example` con todas las variables documentadas
+- [x] 1.4 Rate limiting en `/api/email`
+- [x] 1.5 `.env.example` con todas las variables documentadas
+- [x] 1.6–1.18 Auditoría CTO completa (cross-tenant, middleware, race conditions, secrets)
 
-**Auditoría CTO (2026-06-11):**
-- [x] 1.6 `/api/email` requiere `x-internal-secret` O sesión activa (bloqueaba acceso anónimo)
-- [x] 1.7 Todas las llamadas internas a `/api/email` y `/api/notificar-cita` incluyen `x-internal-secret`
-- [x] 1.8 `/api/galeria/fotos/upload` — validación de MIME type (solo jpg/png/webp/gif)
-- [x] 1.9 `/api/galeria/fotos` — filtro por `clinica_id` del usuario autenticado (evitaba cross-tenant)
-- [x] 1.10 `/api/fichas` — filtro por `clinica_id` (evitaba cross-tenant)
-- [x] 1.11 `/api/inbox/mensajes` — verificación de ownership de conversación antes de retornar mensajes
-- [x] 1.12 `/api/citas/jobs` — verificación explícita de ownership de cita
-- [x] 1.13 `proxy.ts` — middleware de auth: redirige a `/login` páginas no autenticadas, retorna 401 en APIs
-- [x] 1.14 Rutas `usuarios/invite`, `activate`, `resend`, `delete` — `createAdminClient()` movido dentro del handler (evitaba crash en build)
-- [x] 1.15 `/api/citas/sync-google` — acepta `x-internal-secret` para llamadas internas
-- [x] 1.16 Rate limiter Redis/Upstash activo en producción (vars configuradas en Vercel)
-- [x] 1.17 `INTERNAL_API_SECRET` separado de `CRON_SECRET` — cada secret tiene un único propósito
-- [x] 1.18 Race condition `getValidToken` — coalescing con Map de promesas en vuelo por token.id
-
----
-
-## MÓDULO 2 — INBOX WHATSAPP ✅ (90%)
-- [x] 2.1 Reemplazar mock data en `/inbox` con queries reales a `conversaciones` + `mensajes_inbox`
-- [x] 2.2 Conectar endpoint de envío (`/api/whatsapp/send`) al UI de inbox
-- [x] 2.3 Marcar conversaciones como leídas al abrir
-- [x] 2.4 Realtime: nuevos mensajes aparecen sin recargar (Supabase subscriptions)
-- [ ] 2.5 Probar flujo completo: paciente escribe → aparece en inbox → clínica responde (requiere WhatsApp configurado)
-
----
+## MÓDULO 2 — INBOX WHATSAPP (90%)
+- [x] 2.1–2.4 Queries reales, envío, marcar leídas, realtime
+- [ ] 2.5 Probar flujo completo con WhatsApp real
 
 ## MÓDULO 3 — NOTAS CLÍNICAS ✅
-- [x] 3.1 Agregar sección de notas en `PanelDetalleCita` (sidebar de agenda)
-- [x] 3.2 Agregar historial de notas en `FichaPaciente`
-- [x] 3.3 CRUD notas: crear, eliminar (recepcionista no puede)
-- [x] 3.4 Control de acceso: recepcionista solo lee, no escribe
-
----
-
 ## MÓDULO 4 — PAGINACIÓN Y PERFORMANCE ✅
-- [x] 4.1 Paginación en lista de pacientes (`/pacientes`)
-- [x] 4.2 Paginación en lista de servicios
-- [x] 4.3 Lazy load de citas en agenda — queries por rango visible + cache con TTL
-- [x] 4.4 Índices DB: compuestos para citas, pacientes y servicios (migración 024)
-
----
-
 ## MÓDULO 5 — INVITACIÓN DE EQUIPO ✅
-- [x] 5.1 UI en `/configuracion` → Usuarios y roles: invitar, pills Pendiente/Activo/Inactivo, botón Reenviar
-- [x] 5.2 Email de invitación con link mágico (Supabase Auth + plantilla branded)
-- [x] 5.3 Flujo de aceptación vía link de Supabase — fix build error `/invite/accept` (SSR con `ssr: false`)
-- [x] 5.4 Activar/desactivar miembros desde el panel
-- [x] 5.5 Dashboards por rol: admin (completo), profesional (agenda propia), coordinador (sin financiero)
-- [x] 5.6 Indicador de actividad last_seen_at — punto verde/gris con tooltip
-
----
-
 ## MÓDULO 6 — MONITOREO Y OBSERVABILIDAD ✅
-- [x] 6.1 Instalar Sentry (`@sentry/nextjs`)
-- [x] 6.2 Capturar errores en API routes, crons y webhooks
-- [x] 6.3 Alertas por email cuando falla un cron o webhook
-- [x] 6.4 Dashboard básico de salud del sistema
-
----
-
-## MÓDULO 7 — CRONS Y RECORDATORIOS MEJORADOS ✅
-- [x] 7.1 Evaluar Vercel Pro (crons horarios) vs BullMQ (Redis)
-- [x] 7.2 GitHub Actions como scheduler horario gratuito (alternativa a Vercel Pro)
-- [x] 7.3 Lógica correcta: ventanas 22-26h y 0.5-3.5h con deduplicación
-- [x] 7.4 Evitar duplicados: check en `whatsapp_logs` antes de enviar
-
----
-
+## MÓDULO 7 — CRONS Y RECORDATORIOS ✅ (ahora horarios)
 ## MÓDULO 8 — QA Y BETA (80%)
-- [x] 8.1 Test RLS policies — `scripts/test-rls.ts` + `scripts/test-rls.sql`
-- [x] 8.2 Fix race condition booking simultáneo — `044_booking_advisory_lock.sql` (pg_advisory_xact_lock)
+- [x] 8.1 Test RLS
+- [x] 8.2 Fix race condition booking
 - [ ] 8.3 Onboarding de 3 clínicas beta
 - [ ] 8.4 Recoger feedback y corregir bugs críticos
-- [x] 8.5 Stress test: 100 reservas simultáneas — `scripts/stress-test-booking.js`
+- [x] 8.5 Stress test 100 reservas simultáneas
 
----
-
-## MÓDULO 9 — BUGS CRÍTICOS RESUELTOS (auditoría 2026-06-11)
-_Módulo agregado para registrar fixes de producción fuera del plan original._
-
-- [x] 9.A Google Calendar no sincronizaba al reservar por página pública (`/book/[slug]`)
-- [x] 9.B Google Calendar no sincronizaba al reservar por agente WhatsApp
-- [x] 9.C Error boundary en `/agenda` — crashes no manejados
-- [x] 9.D Race condition en realtime de agenda (stale closure en subscription)
-- [x] 9.E `ListaPendientes` — confirmar cita sin try/catch/finally podía dejar UI colgada
-- [x] 9.F Build crash en `/invite/accept` — `createBrowserClient` a nivel de módulo
-
----
-
-## MÓDULO 10 — LAUNCH ✅ (infraestructura lista)
-- [x] 10.1 Dominio `app.simpliclinic.cl` + DNS configurado en Vercel
-- [x] 10.2 Email `@simpliclinic.cl` verificado en Resend (Verified ✅)
-- [x] 10.3 Flow.cl en modo producción — reemplaza Stripe (no opera en Chile)
-- [x] 10.4 Variables de entorno producción actualizadas en Vercel
-- [ ] 10.5 Test cobro real Flow.cl con tarjeta real (acción del usuario)
+## MÓDULO 9 — BUGS CRÍTICOS ✅
+## MÓDULO 10 — LAUNCH (95%)
+- [x] 10.1–10.4 Dominio, email, Flow.cl, vars entorno
+- [ ] 10.5 Test cobro real Flow.cl con tarjeta real
 - [ ] 10.6 Anuncio beta → launch público
 
----
+## MÓDULO 12 — PLAN Y FACTURACIÓN (95%)
+- [x] Integración Flow.cl completa, UI planes, feature gating, webhook HMAC
+- [ ] Probar cobro real con tarjeta real
 
-## MÓDULO 11 — WIZARD "INICIAR CITA" (backlog)
-- [ ] 11.1 Diseño UX del wizard: layout paso a paso, barra de progreso
-- [ ] 11.2 Paso 1 — Datos del paciente: completar datos faltantes
-- [ ] 11.3 Paso 2 — Ficha clínica: anamnesis, motivo de consulta, alergias, antecedentes
-- [ ] 11.4 Paso 3 — Fotos (antes): cámara o subida de archivos
-- [ ] 11.5 Paso 4 — Consentimiento informado: documento + firma digital o checkbox
-- [ ] 11.6 Paso 5 — Protocolo del servicio: checklist del tratamiento
-- [ ] 11.7 Paso 6 — Notas clínicas (integrar el módulo existente)
-- [ ] 11.8 Paso 7 — Fotos (después)
-- [ ] 11.9 Paso 8 — Cierre: marcar completada, cobro, agendar seguimiento
-- [ ] 11.10 Pasos configurables por clínica desde Configuración
+## MÓDULO 17 — UX Y FIXES ✅ (2026-06-18)
+## MÓDULO 18 — UX Y FIXES ✅ (2026-06-19)
 
 ---
 
----
+# PLAN DE MEJORA INTEGRADO — PRÓXIMAS 8 SEMANAS
 
-## MÓDULO 12 — PLAN Y FACTURACIÓN / FLOW.CL (2026-06-12)
+## SEMANA 1-2 (20-30 jun) — FIXES CRÍTICOS PRE-LAUNCH
 
-### Decisiones de arquitectura
-- **Pasarela de pago**: Flow.cl (reemplaza Stripe, que no opera en Chile)
-- **Modo producción**: `FLOW_SANDBOX=0` (NO sandbox — las credenciales de sandbox son distintas)
-- **Flujo de cobro**: Flow.cl cobra automáticamente vía Webpay One Click (tarjeta registrada)
-- **Planes en Flow**: 6 planes creados manualmente en panel Flow → Suscripciones → Planes
-  - SIMPLI_MENSUAL, SIMPLI+_MENSUAL, SIMPLIPRO_MENSUAL
-  - SIMPLI_ANUAL, SIMPLI+_ANUAL, SIMPLIPRO_ANUAL
-- **"Cargo Automático"**: debe estar ACTIVO en Flow → Medios de pago (ya activado)
+### Seguridad y DB (hacer primero, sin excepción)
+- [ ] **S1.1** Verificar `middleware.ts` → re-exporta `proxy.ts` → probar en incógnito que rutas autenticadas redirigen a `/login` (A1-RC2)
+- [ ] **S1.2** Aplicar en Supabase SQL Editor: `CREATE INDEX IF NOT EXISTS idx_citas_cancel_token ON citas(cancel_token)` (A2-RC4)
+- [ ] **S1.3** Aplicar fix `feedback_citas` — política INSERT sin auth (A2-RC5 / A1-M1)
+- [ ] **S1.4** Verificar versión activa de `handle_new_user` en producción (A2-RC3)
+- [ ] **S1.5** Eliminar endpoint `/api/auth/google/debug` (A1-M2)
 
-### Variables de entorno en Vercel (todas ya configuradas)
-```
-FLOW_API_KEY=...           # API key de Flow producción
-FLOW_SECRET_KEY=...        # Secret key para firma HMAC-SHA256
-FLOW_SANDBOX=0             # 0 = producción, 1 = sandbox
-FLOW_PLAN_FREE=...         # Plan ID mensual Simpli (free)
-FLOW_PLAN_PRO=...          # Plan ID mensual Simpli+
-FLOW_PLAN_CLINICA=...      # Plan ID mensual Simpli Pro
-FLOW_PLAN_FREE_ANUAL=...   # Plan ID anual Simpli
-FLOW_PLAN_PRO_ANUAL=...    # Plan ID anual Simpli+
-FLOW_PLAN_CLINICA_ANUAL=...# Plan ID anual Simpli Pro
-NEXT_PUBLIC_APP_URL=https://app.simpliclinic.cl
-```
+### Onboarding (la más importante de todas)
+- [ ] **S1.6** Checklist de onboarding en dashboard: 5 pasos con barra de progreso y estados persistidos por clínica
+- [ ] **S1.7** Empty states en agenda vacía, pacientes vacíos, servicios vacíos — con CTA directo
+- [ ] **S1.8** Trial: cambiar 7 → 14 días en trigger handle_new_user y en UI (A3-RC4)
 
-### Flujo de pago (cómo funciona end-to-end)
-1. Usuario hace click "Contratar" → POST `/api/flow/checkout`
-2. Flow crea/obtiene customer (con `externalId=clinica_id`)
-3. Flow devuelve URL Webpay para registro de tarjeta
-4. Usuario ingresa tarjeta en Webpay → Flow redirige a `/api/flow/subscription-confirm?token=...`
-5. Callback obtiene estado tarjeta (`getCardRegisterStatus`) y guarda `card_last4`, `card_type`
-6. Crea suscripción en Flow (`/subscription/create` con planId correcto mensual/anual)
-7. Flow cobra automáticamente según intervalo del plan (mensual o anual)
-8. Flow notifica cobros/fallas vía webhook → `/api/flow/webhook` (con verificación HMAC)
-
-### DB: tabla `subscriptions` — campos relevantes
-```
-plan              = 'free' | 'pro' | 'clinica'
-estado            = 'trial' | 'activa' | 'pausada' | 'cancelada'
-trial_ends_at     = timestamp (7 días desde registro)
-flow_customer_id  = ID del customer en Flow
-flow_subscription_id = ID de la suscripción en Flow
-card_last4        = últimos 4 dígitos de tarjeta
-card_type         = tipo de tarjeta (Visa, Mastercard, etc.)
-```
-
-### Migraciones aplicadas en Supabase
-- `049`: trigger `handle_new_user()` — crea subscription con `plan='free'`, `estado='trial'`, `trial_ends_at=now()+7d`
-- `050`: columna `cancelacion_motivo`
-- `051`: columnas `flow_customer_id`, `flow_subscription_id`
-- `052`: columnas `card_last4`, `card_type`
-- `053`: columna `billing_period` (mensual/anual)
-- `055`: RPCs para acciones de cita por token (confirmar, reagendar, cancelar, get)
-- `056`: `incrementar_conv_ia` — trial sin límite, plan clinica ilimitado
-
-### Archivos clave
-- `lib/subscriptions/flow.ts` — cliente REST Flow (HMAC signing, customer, subscription, webhook handler)
-- `lib/subscriptions/queries.ts` — tipos, PLAN_LIMITS, PLAN_LABELS, PLAN_PRICES
-- `lib/subscriptions/useSubscripcion.ts` — hook con caché: plan, estado, trial, puedeUsar(), limite()
-- `app/api/flow/checkout/route.ts` — inicia flujo de pago
-- `app/api/flow/subscription-confirm/route.ts` — callback post-registro tarjeta
-- `app/api/flow/webhook/route.ts` — recibe eventos Flow (subscription_paid, payment_failed, canceled)
-- `app/api/flow/portal/route.ts` — genera URL para actualizar tarjeta
-- `components/subscriptions/PlanesCard.tsx` — UI plan y facturación (TrialCard / ActivePlanCard / PlanCard)
-- `components/subscriptions/PlanGate.tsx` — bloquea features por plan
-- `components/subscriptions/TrialBanner.tsx` — banner trial en header
-
-### Estado del módulo
-- [x] Integración Flow.cl completa (customer, card registration, subscription, webhook)
-- [x] UI Plan y Facturación: TrialCard / ActivePlanCard / comparación de planes
-- [x] Feature gating: useSubscripcion + PlanGate bloquea features por plan
-- [x] Toggle anual: envía anual=true al checkout, usa plan IDs anuales de Flow
-- [x] Webhook verificado con HMAC-SHA256
-- [x] Pill en menú Configuración dinámica (Trial/Simpli/Simpli+/Pro)
-- [x] Migraciones 052-056 aplicadas en Supabase
-- [x] Campo `anual` / `billing_period` guardado al crear suscripción
-- [x] Cards de planes rediseñadas: mejor tipografía, precio legible, ahorro anual visible
-- [ ] Probar cobro real con tarjeta real (end-to-end post-trial)
+### UX Mobile
+- [ ] **S1.9** Auditar y corregir modal nueva cita en mobile (A3-RC3)
+- [ ] **S1.10** Botón "Ver mi página de reservas" en dashboard → abre `/book/[slug]` en nueva pestaña
 
 ---
 
----
+## SEMANA 3-4 (1-11 jul) — LAUNCH + PRIMERAS CLÍNICAS BETA
 
-## MÓDULO 17 — UX Y FIXES (2026-06-18) ✅
-_Mejoras de producto y fixes implementados en sesión del 18 jun 2026._
+### Pre-launch
+- [ ] **S2.1** Probar cobro real Flow.cl con tarjeta real (M10.5)
+- [ ] **S2.2** Probar recordatorio WhatsApp end-to-end con clínica real (A3-H3)
+- [ ] **S2.3** Disclaimer IA en agente WhatsApp (A3-H4)
+- [ ] **S2.4** Pantalla upgrade con contexto específico por feature (A3-H2)
+- [ ] **S2.5** Onboarding: 3 clínicas beta con seguimiento directo (M8.3)
 
-- [x] Servicios movido al menú lateral principal (antes solo en Configuración)
-- [x] Google Calendar unificado en Configuración (eliminado del popover del perfil)
-- [x] Línea roja de hora actual solo cubre columna del día de hoy (vista semana)
-- [x] ListaPendientes: fix label "Mañana", cierre al click-afuera, citas clickeables
-- [x] Badges de conteo diario en vista semana: colapsables, ocultos por defecto
-- [x] Mobile: vista por defecto cambiada a "Lista"
-- [x] Mobile: panel Pendientes visible con botón X para cerrar
-- [x] FichaPaciente → Agenda: citas del historial clickeables navegan a la agenda con detalle abierto
-- [x] FichaPaciente → Agenda: "Nueva cita" navega con paciente pre-cargado en el modal
-- [x] Pill `en_sala` agregada a vista lista de agenda
-- [x] Sección "Recordatorios" eliminada del modal de nueva cita (redundante con crons)
-- [x] Recurrencia: default cambiado a 3 sesiones (antes 8), mínimo 3
-- [x] Rediseño bloques de cita (vista día/semana): borde = color profesional, pill de estado
-- [x] Página `/ayuda` con FAQ, chat Crisp y email de contacto
-- [x] Widget Crisp embebido globalmente (soporte en vivo, identifica usuario automáticamente)
-- [x] Link "Ayuda" en sidebar para todos los roles
-- [x] Página `/pendientes`: citas clickeables navegan a agenda, botones responsive en mobile
-- [x] Configuración: pill de plan dinámica (muestra Trial/Simpli/Simpli+/Pro real)
-- [x] Vista día mobile: ocultar stats strip y chips de filtro de profesionales
-- [x] Columna profesional en mobile: ocultar especialidad, barra de ocupación y %
-- [x] Documentado roadmap WhatsApp auto-gestionable en ARQUITECTURA.md
+### Launch
+- [ ] **S2.6** Anuncio público (M10.6)
 
 ---
 
-## MÓDULO 18 — UX Y FIXES (2026-06-19) ✅
-_Fixes e integraciones completados en sesión del 19 jun 2026._
+## SEMANA 5-6 (12-25 jul) — CALIDAD POST-LAUNCH
 
-- [x] FichaPaciente: tabs reducidas de 8 a 6 con orden clínico (Resumen, Fichas, Galería, Historial, Salud, Consentimientos) — sesión anterior
-- [x] 2FA por email: código 6 dígitos, sesión 7 días, toggle en Configuración y Mi cuenta — sesión anterior
-- [x] Configuración: sección Agente IA separada como ítem propio en Comunicaciones
-- [x] Configuración mobile: pills deslizables fuera del nav hidden → ahora visibles con flechas izq/der
-- [x] ScrollableTabs: flechas más visibles (z-20, h-7 w-7, borde más definido)
-- [x] Google Calendar OAuth: abre en popup separado, no reemplaza la pestaña actual
-- [x] Google Calendar OAuth: fix `redirect_uri_mismatch` — NEXT_PUBLIC_APP_URL tenía trailing slash generando doble `//`
-- [x] Google Calendar: `/api/auth/google/` agregado a PUBLIC_API_PREFIXES del middleware
-- [x] Google Calendar: botón "Sincronizar citas" manual + reconcile anti-duplicados (busca eventos existentes por `simpliclinic_cita_id` antes de crear)
-- [x] Fix 400 errors en galería: `foto_signed ?? ''` → `foto_signed ?? undefined` evita `src=""`
-- [x] Endpoint debug `/api/auth/google/debug` (temporal, para diagnóstico)
+### DB performance (ejecutar en Supabase)
+- [ ] **S3.1** Índices faltantes: `citas(profesional_id, inicio)`, `pacientes(clinica_id, fecha_nacimiento)` (A2-M3, A2-M4)
+- [ ] **S3.2** Reescribir crons de marketing para eliminar N+1 (A2-M2)
+- [ ] **S3.3** Plan para reemplazar `auth_clinica_id()` RLS → evaluar `current_setting` o política por tabla (A2-RC1) — no implementar aún, solo plan
+
+### Producto
+- [ ] **S3.4** Reporte mensual automático por email a cada clínica (A3-M3)
+- [ ] **S3.5** Límite de costo IA por clínica: máximo X conversaciones/mes según plan (A3-H5)
+- [ ] **S3.6** Personalización agente IA: nombre y tono editable desde Configuración (A3-M1)
+- [ ] **S3.7** Handoff IA → humano con notificación en inbox (A3-M2)
 
 ---
 
-## MÓDULO 13 — COBROS Y COMISIONES (60% implementado)
-> _Principio: el admin ve los números sin aprender contabilidad. Un click cierra la caja._
+## SEMANA 7-8 (26 jul - 8 ago) — CONSOLIDACIÓN
 
-- [x] 13.4 Cierre de caja diario — `app/(dashboard)/caja/page.tsx` + `components/cobros/CajaClient.tsx` existen
-- [x] 13.5 Historial de cierres de caja — incluido en CajaClient
-- [ ] 13.1 Comisión por profesional: % configurable en `/configuracion` → Equipo (UI faltante)
-- [ ] 13.2 Calcular y guardar comisión automáticamente al registrar cobro
-- [ ] 13.3 Reporte de comisiones: tabla por profesional con total del período, exportable
-- [ ] 13.6 Verificar migración DB de comisiones (tabla `comisiones` puede faltar)
+### Deuda técnica DB
+- [ ] **S4.1** Auditar migraciones duplicadas y documentar (A2-RC2)
+- [ ] **S4.2** Implementar `current_setting` en RLS para reemplazar `auth_clinica_id()` (A2-RC1)
+- [ ] **S4.3** Migrar `firma_img` base64 a Storage URL (A2-M1)
 
----
-
-## MÓDULO 14 — PAQUETES DE SESIONES (40% implementado)
-
-- [x] 14.4 Badge paquetes activos en ficha paciente — `components/paquetes/PaquetesTab.tsx` existe
-- [x] 14.6 Migración DB — `components/paquetes/SeccionPaquetes.tsx` sugiere que tablas existen
-- [ ] 14.1 CRUD paquetes en `/configuracion` → Servicios (verificar si está completo)
-- [ ] 14.2 Vender paquete a paciente desde su ficha
-- [ ] 14.3 Opción "Usar sesión de paquete" al agendar cita
-- [ ] 14.5 Alerta al usar última sesión
+### Módulos existentes — verificar y cerrar
+- [ ] **S4.4** Marketing automático (M15): verificar `fecha_nacimiento`, plantillas, logs
+- [ ] **S4.5** Paquetes de sesiones (M14): completar flujo venta desde ficha paciente
+- [ ] **S4.6** Comisiones (M13): UI % por profesional + cálculo automático al cobrar
 
 ---
 
-## MÓDULO 15 — MARKETING AUTOMÁTICO (70% implementado)
-
-- [x] 15.1 Cron email cumpleaños — `app/api/cron/marketing-cumpleanos/route.ts` existe
-- [x] 15.2 Cron reactivación — `app/api/cron/marketing-reactivacion/route.ts` existe
-- [x] 15.3 Toggle en Configuración → Marketing automático (UI implementada en M18)
-- [ ] 15.4 Verificar campo `fecha_nacimiento` en ficha de paciente
-- [ ] 15.5 Verificar plantillas email cumpleaños y reactivación
-- [ ] 15.6 Verificar log de envíos en `whatsapp_logs`
-
----
-
-## MÓDULO 16 — REDUCIR NO-SHOWS (0% implementado)
-
-- [ ] 16.1 Lista de espera al cancelar cita
-- [ ] 16.2 Agregar paciente a lista de espera
-- [ ] 16.3 Señal de pago al reservar online
-- [ ] 16.4 Migración DB: tabla `lista_espera`
-
----
-
-## MÓDULO 19 — WHATSAPP MULTI-CLÍNICA ← PRÓXIMA SESIÓN
-> _Objetivo: cada clínica conecta su propio número desde Configuración sin intervención manual._
-
-**Estrategia:** usar 360dialog como BSP intermediario (self-service, sin mínimos, ~€49/mes por número)
-
+## MÓDULO 19 — WHATSAPP MULTI-CLÍNICA (agosto 2026)
+> Primero llegar a 10 clínicas pagando. Luego construir esto.
 - [ ] 19.1 Registrar SimpliClinic como Partner en 360dialog
-- [ ] 19.2 UI "Conectar WhatsApp" en Configuración → WhatsApp Business (Embedded Signup de 360dialog)
-- [ ] 19.3 Backend: recibir API key + phone_number_id por clínica, guardar en `whatsapp_config`
-- [ ] 19.4 Agente IA y recordatorios usan credenciales por `clinica_id` (ya preparado en código)
-- [ ] 19.5 Verificación OAuth app Google Calendar (formulario + video demo)
+- [ ] 19.2 UI "Conectar WhatsApp" en Configuración con Embedded Signup de 360dialog
+- [ ] 19.3 Backend: recibir API key + phone_number_id por clínica
+- [ ] 19.4 Verificar agente IA y recordatorios usan credenciales por `clinica_id`
+- [ ] 19.5 Verificación OAuth Google Calendar (formulario + video demo para Meta)
 
 ---
 
-## ESTADO ACTUAL
+# MÓDULOS EN BACKLOG (no tocar hasta tener 50 clínicas pagando)
+
+## MÓDULO 11 — WIZARD "INICIAR CITA" — BACKLOG
+_Construir solo si 20+ clínicas lo piden explícitamente_
+
+## MÓDULO 16 — REDUCIR NO-SHOWS — BACKLOG
+- Lista de espera, señal de pago al reservar online
+
+---
+
+# ESTADO ACTUAL (2026-06-20)
+
 ```
-M0  Emails              ██████████ 100%  ✅ COMPLETO
-M1  Seguridad           ██████████ 100%  ✅ COMPLETO
-M2  Inbox WhatsApp      █████████░  90%  ✅ (falta prueba e2e con WhatsApp real)
-M3  Notas clínicas      ██████████ 100%  ✅ COMPLETO
-M4  Performance         ██████████ 100%  ✅ COMPLETO
-M5  Invitación equipo   ██████████ 100%  ✅ COMPLETO
-M6  Monitoreo           ██████████ 100%  ✅ COMPLETO
-M7  Crons mejorados     ██████████ 100%  ✅ COMPLETO
-M8  QA y Beta           ████████░░  80%  (falta onboarding beta y feedback)
-M9  Bugs producción     ██████████ 100%  ✅ COMPLETO
-M10 Launch              █████████░  95%  ✅ (falta test cobro real Flow + anuncio)
-M11 Wizard cita         ░░░░░░░░░░   0%  (post-launch)
-M12 Plan y Facturación  █████████░  95%  ✅ (falta prueba cobro real con tarjeta)
-M13 Cobros y Comisiones ██████░░░░  60%  (caja existe, falta comisiones)
-M14 Paquetes sesiones   ████░░░░░░  40%  (componentes existen, falta UI completa)
-M15 Marketing automático███████░░░  70%  (crons existen, falta verificar detalles)
-M16 Reducir no-shows    ░░░░░░░░░░   0%
-M17 UX y Fixes          ██████████ 100%  ✅ COMPLETO (2026-06-18)
-M18 UX y Fixes          ██████████ 100%  ✅ COMPLETO (2026-06-19)
-M19 WhatsApp multi-clínica ░░░░░░░  0%  ← PRÓXIMA SESIÓN
+M0  Emails              ██████████ 100%  ✅
+M1  Seguridad           ██████████ 100%  ✅ (+ fixes auditoría pendientes en DB)
+M2  Inbox WhatsApp      █████████░  90%  (falta prueba e2e WhatsApp real)
+M3  Notas clínicas      ██████████ 100%  ✅
+M4  Performance         ██████████ 100%  ✅
+M5  Invitación equipo   ██████████ 100%  ✅
+M6  Monitoreo           ██████████ 100%  ✅
+M7  Crons               ██████████ 100%  ✅ (ahora horarios)
+M8  QA y Beta           ████████░░  80%  (falta onboarding beta)
+M9  Bugs producción     ██████████ 100%  ✅
+M10 Launch              █████████░  95%  (falta test cobro real + anuncio)
+M11 Wizard cita         ░░░░░░░░░░   0%  BACKLOG
+M12 Plan y Facturación  █████████░  95%  (falta test cobro real)
+M13 Cobros / Comisiones ██████░░░░  60%  (caja lista, falta comisiones)
+M14 Paquetes sesiones   ████░░░░░░  40%  (componentes existen, falta UI)
+M15 Marketing automático███████░░░  70%  (crons existen, falta verificar)
+M16 No-shows            ░░░░░░░░░░   0%  BACKLOG
+M17 UX Fixes jun-18     ██████████ 100%  ✅
+M18 UX Fixes jun-19     ██████████ 100%  ✅
+M19 WhatsApp multi-clin ░░░░░░░░░░   0%  (agosto, post 10 clínicas pagando)
+
+AUDITORÍA ARQUITECTURA  ██████░░░░  60%  (billing+crons corregidos, middleware+DB pendientes)
+AUDITORÍA BASE DE DATOS ████░░░░░░  40%  (índices + auth_clinica_id + duplicados pendientes)
+AUDITORÍA PRODUCTO/UX   ████░░░░░░  40%  (onboarding + mobile críticos pendientes)
 ```
+
+## PRÓXIMA SESIÓN: Semana 1-2 del plan de mejora
+Prioridad máxima: **S1.1 middleware** + **S1.6 onboarding** + **S1.9 mobile nueva cita**

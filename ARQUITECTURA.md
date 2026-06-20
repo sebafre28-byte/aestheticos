@@ -1,5 +1,5 @@
 # SimpliClinic — Arquitectura del sistema
-> Última actualización: 2026-06-12
+> Última actualización: 2026-06-20
 > Este documento es la fuente de verdad para entender cómo está construido el sistema.
 > **Actualizar este archivo cada vez que se completa un módulo o se toma una decisión técnica relevante.**
 
@@ -227,6 +227,23 @@ No es solución multi-tenant.
 2. **`externalId` requerido** en Flow `/customer/create` — usamos `clinica_id`
 3. **Cargo Automático** debe estar ACTIVO en panel Flow → Medios de pago
 4. **No Stripe** — Stripe no procesa pagos en Chile
-5. **GitHub Actions como scheduler** — alternativa gratuita a Vercel Pro crons
+5. **GitHub Actions como scheduler** — alternativa gratuita a Vercel Pro crons (ahora horario: `0 * * * *`)
 6. **`createAdminClient()` dentro del handler** — no a nivel de módulo (causa crash en build)
 7. **Toggle anual** envía `anual=true` al checkout → usa plan IDs anuales distintos en Flow
+8. **`subscription-confirm` lee plan de DB, NO de URL params** — evita billing escalation (fix 2026-06-20)
+9. **checkout guarda `plan` + `billing_period` en DB** antes de redirigir a Flow, para que confirm los lea de forma segura
+10. **Trial 14 días** (cambiar de 7 a 14) — estándar de mercado, reduce churn por falta de tiempo de evaluación
+11. **`auth_clinica_id()` en RLS es un cuello de botella** — hace subquery por cada fila evaluada. A 500+ clínicas necesita reemplazarse por `current_setting('app.clinica_id')` o materialización por sesión. No urgente hoy, crítico a escala.
+12. **Migraciones con números duplicados** — el schema no es reproducible desde cero. Auditar antes de escalar el equipo de desarrollo.
+
+---
+
+## Riesgos conocidos y umbrales de acción
+
+| Riesgo | Umbral de acción | Plan |
+|--------|-----------------|------|
+| `auth_clinica_id()` RLS lento | 500+ clínicas | Reemplazar con `current_setting` |
+| Tabla `citas` muy grande | 500K+ filas | Particionar por `clinica_id` |
+| Costo IA Anthropic | $200+/mes | Límite por clínica según plan |
+| WhatsApp multi-clínica | 10+ clínicas pagando | 360dialog Embedded Signup |
+| Migraciones duplicadas | Al escalar equipo | Renumerar y documentar |

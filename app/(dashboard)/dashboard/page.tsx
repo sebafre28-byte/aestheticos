@@ -4,6 +4,7 @@ import {
   RotateCcw, AlertCircle, Banknote, Plus, LinkIcon,
 } from 'lucide-react'
 import { BookingLinkBanner } from '@/components/dashboard/BookingLinkBanner'
+import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
 import SaludoHeader from '@/components/dashboard/SaludoHeader'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { ProximasCitas } from '@/components/dashboard/ProximasCitas'
@@ -86,6 +87,9 @@ export default async function DashboardPage() {
           Nueva cita
         </Link>
       </div>
+
+      {/* Onboarding checklist — visible hasta completar todos los pasos */}
+      <OnboardingChecklist bookingSlug={bookingSlug} appUrl={appUrl} />
 
       {/* Booking link banner */}
       {bookingUrl && <BookingLinkBanner url={bookingUrl} />}

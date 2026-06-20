@@ -470,7 +470,7 @@ export function ModalCita({
                 value={busquedaPaciente}
                 onChange={(e) => handleCambioBusqueda(e.target.value)}
                 placeholder="Buscar por nombre o teléfono..."
-                className="pl-9 text-[13px]"
+                className="pl-9 text-base md:text-[13px]"
               />
               {buscando && (
                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 animate-spin" />
@@ -536,26 +536,26 @@ export function ModalCita({
                   value={nuevoPaciente.nombre}
                   onChange={(e) => { setNuevoPaciente((p) => ({ ...p, nombre: e.target.value })); setErrorCrearPaciente(null) }}
                   placeholder="Nombre completo *"
-                  className="text-[12px] bg-white"
+                  className="text-base md:text-[12px] bg-white"
                 />
                 <Input
                   type="email"
                   value={nuevoPaciente.email}
                   onChange={(e) => { setNuevoPaciente((p) => ({ ...p, email: e.target.value })); setErrorCrearPaciente(null) }}
                   placeholder="Email *"
-                  className="text-[12px] bg-white"
+                  className="text-base md:text-[12px] bg-white"
                 />
                 <Input
                   value={nuevoPaciente.telefono}
                   onChange={(e) => { setNuevoPaciente((p) => ({ ...p, telefono: e.target.value })); setErrorCrearPaciente(null) }}
                   placeholder="Teléfono *"
-                  className="text-[12px] bg-white"
+                  className="text-base md:text-[12px] bg-white"
                 />
                 <Input
                   value={nuevoPaciente.rut}
                   onChange={(e) => { setNuevoPaciente((p) => ({ ...p, rut: e.target.value })); setErrorCrearPaciente(null) }}
                   placeholder="RUT *"
-                  className="text-[12px] bg-white"
+                  className="text-base md:text-[12px] bg-white"
                 />
                 <div className="flex gap-2">
                   <Button
@@ -774,7 +774,7 @@ export function ModalCita({
                     max={52}
                     value={recurrenceCount}
                     onChange={(e) => setRecurrenceCount(Math.max(3, Math.min(52, parseInt(e.target.value) || 3)))}
-                    className="w-16 h-7 px-2 rounded-lg border border-gray-200 text-[12px] text-gray-700 text-center focus:outline-none focus:ring-1 focus:ring-blue-400/50"
+                    className="w-16 h-7 px-2 rounded-lg border border-gray-200 text-base md:text-[12px] text-gray-700 text-center focus:outline-none focus:ring-1 focus:ring-blue-400/50"
                   />
                   <span className="text-[12px] text-gray-500">
                     {recurrenceKind === 'daily' ? 'días seguidos' : recurrenceKind === 'weekly' ? 'semanas' : 'meses'}
