@@ -315,7 +315,7 @@ function Hero() {
             className="w-full sm:w-auto h-12 px-7 rounded-xl text-[15px] font-bold text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-blue-200"
             style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
           >
-            Comenzar gratis — 7 días sin costo <ArrowRight className="size-4" />
+            Comenzar gratis — 14 días sin costo <ArrowRight className="size-4" />
           </Link>
           <Link
             href="https://app.simpliclinic.cl/login"
@@ -586,7 +586,7 @@ function Precios() {
         '5 GB de almacenamiento',
         'Soporte por email',
       ],
-      cta: 'Comenzar 7 días gratis',
+      cta: "Comenzar 14 días gratis",
       ctaHref: 'https://app.simpliclinic.cl/register',
     },
     {
@@ -751,7 +751,7 @@ function CTA() {
             className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-[15px] font-bold text-white transition-all hover:scale-[1.02] shadow-lg"
             style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' }}
           >
-            Comenzar gratis — 7 días <ArrowRight className="size-4" />
+            Comenzar gratis — 14 días <ArrowRight className="size-4" />
           </Link>
           <p className="text-[12px] text-blue-300 mt-4">Sin tarjeta · Sin compromisos · Setup en minutos</p>
         </div>
