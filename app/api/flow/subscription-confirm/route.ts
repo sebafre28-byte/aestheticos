@@ -9,11 +9,9 @@ export const runtime = 'nodejs'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const clinica_id = searchParams.get('clinica_id')
-  const plan       = searchParams.get('plan') as Plan
-  const anual      = searchParams.get('anual') === 'true'
   const token      = searchParams.get('token')
 
-  if (!clinica_id || !plan) {
+  if (!clinica_id) {
     return NextResponse.redirect(new URL('/configuracion?tab=plan&error=parametros', origin))
   }
 
@@ -37,11 +35,15 @@ export async function GET(request: NextRequest) {
     const db = createAdminClient()
     const { data: sub } = await db
       .from('subscriptions')
-      .select('flow_customer_id')
+      .select('flow_customer_id, plan, billing_period')
       .eq('clinica_id', clinica_id)
       .single()
 
     if (!sub?.flow_customer_id) throw new Error('Sin customer ID de Flow')
+
+    // Read plan from DB (set during checkout) — never trust URL params for billing
+    const plan = (sub.plan ?? 'free') as Plan
+    const anual = sub.billing_period === 'anual'
 
     // Obtener info de tarjeta registrada
     let card_last4: string | null = null

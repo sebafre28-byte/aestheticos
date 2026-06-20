@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
       clinica_id,
       flow_customer_id: flowCustomerId,
       plan,
+      billing_period: anual ? 'anual' : 'mensual',
       updated_at: new Date().toISOString(),
     }, { onConflict: 'clinica_id' })
 
