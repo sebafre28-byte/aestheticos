@@ -70,12 +70,21 @@ export async function getOrCreateFlowCustomer(email: string, name: string, exter
   try {
     const data = await flowPost('/customer/create', { email, name, externalId })
     return data.customerId
-  } catch {
-    // Ya existe — buscar en lista por nombre/email
-    const data = await flowGet('/customer/list', { filter: name, start: '0', limit: '10' })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    // Si el error no es "ya existe", relanzar para no enmascarar problemas de API
+    if (!msg.toLowerCase().includes('already') && !msg.toLowerCase().includes('exist') && !msg.toLowerCase().includes('registrado')) {
+      throw err
+    }
+    // Cliente ya existe — buscarlo por externalId primero, luego por email
+    try {
+      const byId = await flowGet('/customer/getByExternalId', { externalId })
+      if (byId?.customerId) return byId.customerId
+    } catch { /* no existe por externalId, buscar por email */ }
+    const data = await flowGet('/customer/list', { filter: email, start: '0', limit: '10' })
     const list = Array.isArray(data.data) ? data.data : (typeof data.data === 'string' ? JSON.parse(data.data) : [])
     const customer = list.find((c: { email: string; customerId: string }) => c.email === email)
-    if (!customer?.customerId) throw new Error(`Cliente Flow no encontrado para: ${email}`)
+    if (!customer?.customerId) throw new Error('No se pudo encontrar o crear el cliente en Flow')
     return customer.customerId
   }
 }

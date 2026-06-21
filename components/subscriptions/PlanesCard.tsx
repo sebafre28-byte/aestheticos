@@ -376,7 +376,7 @@ export default function PlanesCard() {
 
       {error && (
         <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-[13px] text-red-600">
-          {error}
+          Ocurrió un error al procesar el pago. Intenta de nuevo o escríbenos a hola@simpliclinic.cl
         </div>
       )}
 

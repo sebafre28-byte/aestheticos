@@ -206,6 +206,49 @@ No es solución multi-tenant.
 
 ---
 
+## Schema de tablas (fuente de verdad)
+
+> Usar estos nombres exactos en código y SQL. Nunca inventar nombres.
+
+| Tabla | Descripción | Columnas clave |
+|-------|-------------|----------------|
+| `clinicas` | Una fila por clínica/tenant | `id, owner_id, nombre, email, telefono, slug, logo_url, configuracion (jsonb), whatsapp_config (jsonb), onboarding_completado` |
+| `usuarios_clinica` | Membresía usuario↔clínica | `user_id, clinica_id, rol (admin/profesional/recepcionista/coordinador), activo, last_seen` |
+| `subscriptions` | Suscripción de cada clínica | `clinica_id, estado (trial/activa/pausada/cancelada), plan (free/pro/clinica), billing_period, trial_ends_at, flow_customer_id, flow_subscription_id, card_last4, card_type` |
+| `profesionales` | Profesionales de la clínica | `id, clinica_id, nombre, especialidad, email, telefono, color, activo, comision_porcentaje, user_id` |
+| `profesional_servicios` | Relación profesional↔servicio | `profesional_id, servicio_id` |
+| `servicios` | Servicios/tratamientos | `id, clinica_id, nombre, descripcion, duracion_minutos, buffer_minutos, precio, color, activo` |
+| `pacientes` | Ficha básica del paciente | `id, clinica_id, nombre, rut, telefono, email, fecha_nacimiento, notas` |
+| `fichas_clinicas` | Ficha clínica extendida | `id, paciente_id, clinica_id, alergias, antecedentes, medicamentos, otros` |
+| `citas` | Citas/reservas | `id, clinica_id, profesional_id, paciente_id, servicio_id, inicio, fin, estado (pendiente/confirmada/completada/cancelada/no_show/en_sala), pago_estado, pago_monto, pago_metodo, comision_monto, cancel_token, google_event_id, recurrencia_id` |
+| `bloqueos` | Bloqueos en agenda | `id, clinica_id, profesional_id, inicio, fin, motivo, gcal_event_id` |
+| `notas_clinicas` | Notas por cita | `id, cita_id, clinica_id, profesional_id, contenido, privada` |
+| `galeria_fotos` | Fotos del paciente (Storage) | `id, paciente_id, clinica_id, url, nombre, descripcion, created_at` |
+| `consentimiento_plantillas` | Plantillas de consentimiento | `id, clinica_id, nombre, contenido_html` |
+| `consentimiento_solicitudes` | Consentimientos firmados | `id, clinica_id, paciente_id, plantilla_id, cita_id, firmado, firma_img (base64 TEXT), firma_fecha` |
+| `conversaciones` | Conversaciones WhatsApp | `id, clinica_id, paciente_id, telefono, no_leidos, estado_ia, ultimo_mensaje_at` |
+| `mensajes_inbox` | Mensajes dentro de conversaciones | `id, conversacion_id, direccion (entrante/saliente), contenido, estado_whatsapp, created_at` |
+| `whatsapp_logs` | Log/dedup de mensajes enviados | `id, clinica_id, tipo_mensaje, canal (email/whatsapp), created_at` |
+| `cierres_caja` | Cierres de caja diarios | `id, clinica_id, fecha, total_efectivo, total_tarjeta, total_transferencia, total_otros, notas` |
+| `paquetes` | Paquetes de sesiones (plantilla) | `id, clinica_id, nombre, servicio_id, sesiones_total, precio, activo` |
+| `paquetes_vendidos` | Paquetes comprados por paciente | `id, paquete_id, paciente_id, clinica_id, sesiones_usadas, precio_pagado, activo` |
+| `feedback_citas` | Feedback post-cita | `id, cita_id, clinica_id, rating, comentario, cancel_token` |
+| `google_calendar_tokens` | OAuth tokens Google Calendar | `clinica_id, access_token, refresh_token, expiry, sync_mode` |
+| `google_calendar_events` | Eventos GCal sincronizados | `id, clinica_id, cita_id, gcal_event_id` |
+| `mfa_codes` | Códigos 2FA enviados por email | `id, user_id, code, expires_at, used` |
+| `superadmin_logs` | Log de acciones superadmin | `id, user_id, accion, detalle, created_at` |
+| `agenda_recordatorios` | Config recordatorios por clínica | `clinica_id, horas_antes, activo` |
+| `agenda_bloqueos` | (legacy, usar `bloqueos`) | — |
+| `agenda_disponibilidad` | (legacy) | — |
+
+### Tablas eliminadas / no usar
+- `mensajes_whatsapp` — eliminada en migración 068 (usar `mensajes_inbox`)
+- `invitaciones` — nunca existió como tabla, la lógica de invitación está en `usuarios_clinica`
+- `fotos_paciente` — nombre incorrecto, usar `galeria_fotos`
+- `pagos` / `cobros` — no existen como tablas separadas; cobros están en columnas de `citas` (`pago_estado`, `pago_monto`, `pago_metodo`)
+
+---
+
 ## Migraciones Supabase aplicadas
 
 | Migración | Descripción |
