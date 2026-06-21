@@ -119,11 +119,11 @@ async function handleMetaPost(request: NextRequest): Promise<NextResponse> {
       // Inbound messages
       const phoneNumberId = value.metadata?.phone_number_id ?? ''
 
-      // Resolve clinica_id from the business phone number ID
+      // Resolve clinica_id from the business phone number ID stored in whatsapp_config JSONB
       const { data: clinicaRow } = await supabase
         .from('clinicas')
         .select('id')
-        .eq('meta_phone_number_id', phoneNumberId)
+        .eq('whatsapp_config->>phone_number_id', phoneNumberId)
         .maybeSingle()
       const clinicaIdForNew = clinicaRow?.id ?? null
 
