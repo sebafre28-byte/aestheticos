@@ -209,6 +209,7 @@ No es solución multi-tenant.
 ## Schema de tablas (fuente de verdad)
 
 > Usar estos nombres exactos en código y SQL. Nunca inventar nombres.
+> Lista verificada contra migraciones + código fuente el 2026-06-20.
 
 | Tabla | Descripción | Columnas clave |
 |-------|-------------|----------------|
@@ -216,12 +217,13 @@ No es solución multi-tenant.
 | `usuarios_clinica` | Membresía usuario↔clínica | `user_id, clinica_id, rol (admin/profesional/recepcionista/coordinador), activo, last_seen` |
 | `subscriptions` | Suscripción de cada clínica | `clinica_id, estado (trial/activa/pausada/cancelada), plan (free/pro/clinica), billing_period, trial_ends_at, flow_customer_id, flow_subscription_id, card_last4, card_type` |
 | `profesionales` | Profesionales de la clínica | `id, clinica_id, nombre, especialidad, email, telefono, color, activo, comision_porcentaje, user_id` |
-| `profesional_servicios` | Relación profesional↔servicio | `profesional_id, servicio_id` |
 | `servicios` | Servicios/tratamientos | `id, clinica_id, nombre, descripcion, duracion_minutos, buffer_minutos, precio, color, activo` |
 | `pacientes` | Ficha básica del paciente | `id, clinica_id, nombre, rut, telefono, email, fecha_nacimiento, notas` |
 | `fichas_clinicas` | Ficha clínica extendida | `id, paciente_id, clinica_id, alergias, antecedentes, medicamentos, otros` |
 | `citas` | Citas/reservas | `id, clinica_id, profesional_id, paciente_id, servicio_id, inicio, fin, estado (pendiente/confirmada/completada/cancelada/no_show/en_sala), pago_estado, pago_monto, pago_metodo, comision_monto, cancel_token, google_event_id, recurrencia_id` |
-| `bloqueos` | Bloqueos en agenda | `id, clinica_id, profesional_id, inicio, fin, motivo, gcal_event_id` |
+| `agenda_bloqueos` | Bloqueos en agenda (tabla activa en código) | `id, clinica_id, profesional_id, inicio, fin, motivo, tipo, gcal_event_id` |
+| `agenda_recordatorios` | Config recordatorios por clínica | `clinica_id, horas_antes, activo` |
+| `agenda_disponibilidad` | Disponibilidad por profesional | `id, clinica_id, profesional_id, dia_semana, hora_inicio, hora_fin` |
 | `notas_clinicas` | Notas por cita | `id, cita_id, clinica_id, profesional_id, contenido, privada` |
 | `galeria_fotos` | Fotos del paciente (Storage) | `id, paciente_id, clinica_id, url, nombre, descripcion, created_at` |
 | `consentimiento_plantillas` | Plantillas de consentimiento | `id, clinica_id, nombre, contenido_html` |
@@ -237,15 +239,52 @@ No es solución multi-tenant.
 | `google_calendar_events` | Eventos GCal sincronizados | `id, clinica_id, cita_id, gcal_event_id` |
 | `mfa_codes` | Códigos 2FA enviados por email | `id, user_id, code, expires_at, used` |
 | `superadmin_logs` | Log de acciones superadmin | `id, user_id, accion, detalle, created_at` |
-| `agenda_recordatorios` | Config recordatorios por clínica | `clinica_id, horas_antes, activo` |
-| `agenda_bloqueos` | (legacy, usar `bloqueos`) | — |
-| `agenda_disponibilidad` | (legacy) | — |
 
-### Tablas eliminadas / no usar
-- `mensajes_whatsapp` — eliminada en migración 068 (usar `mensajes_inbox`)
-- `invitaciones` — nunca existió como tabla, la lógica de invitación está en `usuarios_clinica`
-- `fotos_paciente` — nombre incorrecto, usar `galeria_fotos`
-- `pagos` / `cobros` — no existen como tablas separadas; cobros están en columnas de `citas` (`pago_estado`, `pago_monto`, `pago_metodo`)
+### Tablas que existen en migraciones pero NO usar directamente
+- `bloqueos` — migración 014 la creó pero el código usa `agenda_bloqueos` (migración 002). Usar siempre `agenda_bloqueos`.
+- `agenda_audit_log`, `agenda_notification_jobs` — creadas en migraciones tempranas, sin uso activo en código.
+
+### Tablas eliminadas / que NO existen
+- `mensajes_whatsapp` — eliminada en migración 068. Usar `mensajes_inbox`.
+- `fotos_paciente` — nunca existió con ese nombre. Usar `galeria_fotos`.
+- `invitaciones` — nunca existió como tabla. La lógica de invitación está en `usuarios_clinica`.
+- `pagos` / `cobros` — no existen como tablas. Los cobros son columnas de `citas` (`pago_estado`, `pago_monto`, `pago_metodo`).
+- `profesional_servicios` — existía pero no tiene uso activo en el código principal.
+- `clinica_miembros` — **BUG**: referenciada en `cancelacion-feedback/route.ts` línea 19, pero la tabla real es `usuarios_clinica`. Fix pendiente.
+
+---
+
+## SQL para reset completo (testing)
+
+```sql
+-- Ejecutar en Supabase SQL Editor — borra TODOS los datos
+TRUNCATE TABLE whatsapp_logs CASCADE;
+TRUNCATE TABLE superadmin_logs CASCADE;
+TRUNCATE TABLE mfa_codes CASCADE;
+TRUNCATE TABLE feedback_citas CASCADE;
+TRUNCATE TABLE mensajes_inbox CASCADE;
+TRUNCATE TABLE conversaciones CASCADE;
+TRUNCATE TABLE google_calendar_events CASCADE;
+TRUNCATE TABLE google_calendar_tokens CASCADE;
+TRUNCATE TABLE notas_clinicas CASCADE;
+TRUNCATE TABLE galeria_fotos CASCADE;
+TRUNCATE TABLE consentimiento_solicitudes CASCADE;
+TRUNCATE TABLE consentimiento_plantillas CASCADE;
+TRUNCATE TABLE fichas_clinicas CASCADE;
+TRUNCATE TABLE paquetes_vendidos CASCADE;
+TRUNCATE TABLE paquetes CASCADE;
+TRUNCATE TABLE cierres_caja CASCADE;
+TRUNCATE TABLE agenda_recordatorios CASCADE;
+TRUNCATE TABLE agenda_bloqueos CASCADE;
+TRUNCATE TABLE citas CASCADE;
+TRUNCATE TABLE servicios CASCADE;
+TRUNCATE TABLE pacientes CASCADE;
+TRUNCATE TABLE profesionales CASCADE;
+TRUNCATE TABLE usuarios_clinica CASCADE;
+TRUNCATE TABLE subscriptions CASCADE;
+TRUNCATE TABLE clinicas CASCADE;
+DELETE FROM auth.users;
+```
 
 ---
 

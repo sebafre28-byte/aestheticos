@@ -16,11 +16,11 @@ export async function POST(request: NextRequest) {
 
   // Verify membership
   const { data: miembro } = await supabase
-    .from('clinica_miembros')
+    .from('usuarios_clinica')
     .select('clinica_id')
     .eq('user_id', user.id)
     .eq('clinica_id', clinica_id)
-    .eq('estado', 'activo')
+    .eq('activo', true)
     .maybeSingle()
 
   if (!miembro) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
