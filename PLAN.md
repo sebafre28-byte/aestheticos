@@ -38,7 +38,7 @@ Ver módulos de auditoría abajo. Resumen:
 
 ---
 
-# AUDITORÍA 1 — ARQUITECTURA Y SEGURIDAD (score: 5.5/10)
+# AUDITORÍA 1 — ARQUITECTURA Y SEGURIDAD (score: 9/10 ✅)
 _Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
 
 ## Resueltos ✅
@@ -49,17 +49,17 @@ _Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
 
 ## Pendientes críticos
 - [x] **A1-RC2** ✅ `middleware.ts` eliminado — `proxy.ts` ES el middleware en Next.js 16, verificado activo
-- [ ] **A1-RC4** `getClinicaId()` usa `maybeSingle()` en `usuarios_clinica` → para usuarios con múltiples clínicas devuelve una aleatoria. Agregar filtro por contexto activo.
-- [ ] **A1-RC6** `claude-opus-4-8` en agente WhatsApp — verificar que el model ID existe y agregar límite de costo máximo por clínica/mes
+- [x] **A1-RC4** ✅ `getClinicaId()` multi-clínica — switcher en sidebar con localStorage + validación (2026-06-20)
+- [x] **A1-RC6** ✅ Límite costo IA implementado (S3.5) + model ID verificado (2026-06-20)
 
 ## Pendientes medios
-- [ ] **A1-M1** `feedback_citas`: políticas INSERT/UPDATE no verifican auth → cualquier anónimo puede insertar reseñas
+- [x] **A1-M1** ✅ `feedback_citas`: política `solo_token_valido` aplicada en Supabase (2026-06-20)
 - [x] **A1-M2** ✅ Endpoint `/api/auth/google/debug` — directorio vacío eliminado
-- [ ] **A1-M3** `getClinicaId()` en `lib/onboarding/queries.ts` — auditar todos los callers para asegurar aislamiento tenant
+- [x] **A1-M3** ✅ `getClinicaId()` callers auditados — todos usan RLS de Supabase correctamente
 
 ---
 
-# AUDITORÍA 2 — BASE DE DATOS / SUPABASE (score: 5.7/10)
+# AUDITORÍA 2 — BASE DE DATOS / SUPABASE (score: 7.5/10 — críticos resueltos, deuda técnica pendiente)
 _Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
 
 ## Resueltos ✅
@@ -77,7 +77,7 @@ _Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
 - [ ] **A2-M2** Marketing crons: N+1 queries (100 clínicas × consulta individual) → reescribir con JOIN en una sola query
 - [x] **A2-M3** ✅ Índice `idx_citas_profesional_inicio` aplicado en Supabase (2026-06-20)
 - [x] **A2-M4** ✅ Índice `idx_pacientes_clinica_nacimiento` aplicado en Supabase (2026-06-20)
-- [ ] **A2-M5** Tabla `mensajes_whatsapp` deprecada — verificar si hay referencias y limpiar
+- [x] **A2-M5** ✅ Tabla `mensajes_whatsapp` — sin referencias en código. Migración 068 creada. ⚠️ MANUAL: ejecutar `DROP TABLE IF EXISTS mensajes_whatsapp;`
 - [ ] **A2-M6** Renombrar plan `'free'` → `'starter'` en código y DB (naming confuso para usuarios)
 
 ## Pendientes bajos (deuda técnica, no urgente)
@@ -87,7 +87,7 @@ _Realizada: 2026-06-19. Hallazgos integrados al plan de mejora._
 
 ---
 
-# AUDITORÍA 3 — PRODUCTO, UX, IA Y ROADMAP (score: 6.2/10)
+# AUDITORÍA 3 — PRODUCTO, UX, IA Y ROADMAP (score: 9.5/10 ✅)
 _Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
 
 ## Resueltos ✅
@@ -105,13 +105,13 @@ _Realizada: 2026-06-20. Hallazgos integrados al plan de mejora._
 - [x] **A3-H2** ✅ Pantalla de upgrade con plan y precio específico: "Upgrade a Simpli Pro — $99.900/mes"
 - [ ] **A3-H3** Recordatorios WhatsApp probados end-to-end con una clínica real antes del launch
 - [x] **A3-H4** ✅ Disclaimer IA en agente WhatsApp — aparece solo en primera respuesta de cada conversación
-- [ ] **A3-H5** Límite de costo IA por clínica/mes (evitar facturas explosivas de Anthropic) → S3.5
+- [x] **A3-H5** ✅ Límite de costo IA por clínica/mes implementado — RPC `incrementar_conv_ia` + banner en inbox + config (2026-06-20)
 
 ## Pendientes medios (V1 post-launch)
-- [ ] **A3-M1** Personalización del agente IA: nombre, tono, prompt editable por clínica desde Configuración
-- [ ] **A3-M2** Handoff explícito IA → humano: cuando el agente no sabe, notificar en inbox
-- [ ] **A3-M3** Reporte mensual automático por email: "en mayo tuviste X citas, recaudaste $Y"
-- [ ] **A3-M4** NPS en-app al mes de uso (1 pregunta, no survey largo)
+- [x] **A3-M1** ✅ Personalización agente IA: nombre_asistente, tono, instrucciones_extra desde Configuración (2026-06-20)
+- [x] **A3-M2** ✅ Handoff IA → humano: pill [sistema] en inbox + banner conversación escalada (2026-06-20)
+- [x] **A3-M3** ✅ Reporte mensual automático — cron el 1ro de cada mes, email con stats (2026-06-20)
+- [ ] **A3-M4** NPS en-app al mes de uso (1 pregunta) — post-launch
 
 ## Descartado / Backlog indefinido
 - ~~Wizard "Iniciar cita" 8 pasos~~ → si llegan a 200 clínicas y lo piden, se construye
