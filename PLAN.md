@@ -334,6 +334,22 @@ AUDITORÍA BASE DE DATOS ████████░░  80%  (índices ✅, fee
 AUDITORÍA PRODUCTO/UX   ██████████ 100%  ✅ (onboarding, mobile, empty states, upgrade, disclaimer, agente IA)
 ```
 
+## MÓDULO 22 — DOCUMENTACIÓN DE NEGOCIO (2026-06-21) ✅
+- [x] `NEGOCIO.md` creado — visión, modelo de negocio, unit economics, hoja de ruta, decisiones abiertas
+- [x] Auditoría de acoplamiento al dominio: 337/386 llamadas DB son agnósticas al rubro (87%), solo 24 (6%) son específicas de salud
+- [x] Fix: webhook WhatsApp buscaba columna inexistente `meta_phone_number_id` → ahora usa filtro JSONB sobre `whatsapp_config`
+
+## BUGS CRÍTICOS ABIERTOS (encontrados 2026-06-21)
+- [ ] **B1 — Un solo número de WhatsApp para todas las clínicas.** `getWhatsappProviderForClinica()` existe en `lib/whatsapp/provider.ts:224` pero **nunca se invoca**. Los 5 puntos de envío usan `getWhatsappProvider()` global:
+  - `app/api/whatsapp/webhook/route.ts:213` (respuestas del agente IA)
+  - `app/api/inbox/send/route.ts:47` (envío manual desde inbox)
+  - `lib/whatsapp/jobs.ts:428` y `:761` (recordatorios automáticos)
+  **Impacto:** toda clínica envía desde el número global de las env vars. Bloqueante antes de la 2ª clínica beta.
+  **Fix:** leer `clinicas.whatsapp_config` y pasar a `getWhatsappProviderForClinica()` en los 4 call sites.
+
+## DECISIÓN DE PRODUCTO PENDIENTE
+- [ ] **Plan "Simpli Agente" ($19.900)** — el agente IA está hoy solo en plan `clinica` ($99.900), pero la visión declara al profesional independiente como punto de entrada. Contradicción de empaquetado documentada en NEGOCIO.md §5.
+
 ## PRÓXIMA SESIÓN: Launch
-Prioridad: **S2.1 cobro real Flow.cl** + **S2.2 WhatsApp e2e** + **S2.5 clínicas beta** + **S2.6 anuncio público**
+Prioridad: **S2.1 cobro real Flow.cl** + **B1 provider por clínica** + **S2.2 WhatsApp e2e** + **S2.5 clínicas beta** + **S2.6 anuncio público**
 SQL pendiente: `DROP TABLE IF EXISTS mensajes_whatsapp;` (migración 068)
