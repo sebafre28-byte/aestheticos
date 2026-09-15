@@ -37,7 +37,7 @@ export default function PrivacidadPage() {
 
           <section>
             <h2 className="text-base font-semibold text-[#0B132B] mb-2">6. Derechos del usuario</h2>
-            <p>Tienes derecho a acceder, rectificar y eliminar tus datos. Para ejercer estos derechos, escribe a <a href="mailto:hola@simpliclinic.com" className="text-[#2563EB] hover:underline">hola@simpliclinic.com</a>.</p>
+            <p>Tienes derecho a acceder, rectificar y eliminar tus datos. Para ejercer estos derechos, escribe a <a href="mailto:hola@simpliclinic.cl" className="text-[#2563EB] hover:underline">hola@simpliclinic.cl</a>.</p>
           </section>
 
           <section>
